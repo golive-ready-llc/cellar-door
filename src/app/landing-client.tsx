@@ -584,7 +584,7 @@ export default function LandingPage() {
 
           {/* CTAs */}
           <div className={cn(
-            "flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 transition-all duration-700 delay-300",
+            "flex flex-col sm:flex-row items-center justify-center gap-4 mb-6 transition-all duration-700 delay-300",
             mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           )}>
             <Button size="lg" className="text-base px-8 h-12 gap-2" asChild>
@@ -599,6 +599,18 @@ export default function LandingPage() {
                 <ChevronDown className="h-4 w-4" />
               </a>
             </Button>
+          </div>
+
+          {/* Trust signals — surface the open-source direction up top */}
+          <div className={cn(
+            "flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs sm:text-sm text-muted-foreground mb-16 transition-all duration-700 delay-300",
+            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          )}>
+            <span className="inline-flex items-center gap-1.5"><Code2 className="h-3.5 w-3.5 text-primary" /> Open source (AGPL-3.0)</span>
+            <span className="text-border" aria-hidden>·</span>
+            <span className="inline-flex items-center gap-1.5"><Server className="h-3.5 w-3.5 text-primary" /> Free to self-host</span>
+            <span className="text-border" aria-hidden>·</span>
+            <span className="inline-flex items-center gap-1.5"><Lock className="h-3.5 w-3.5 text-primary" /> Your data, always exportable</span>
           </div>
 
           {/* Hero Image — Desktop screenshot in browser frame */}
