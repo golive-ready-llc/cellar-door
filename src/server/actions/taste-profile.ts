@@ -12,6 +12,26 @@ import {
 } from "@/server/tier-check";
 import type { AIResult } from "./ai";
 import { resolveServerUserId } from "@/server/auth-guard";
+import { isDemoRequest } from "@/lib/demo";
+
+/** Canned Flavor Genome for demo visitors — never touches the DB or paid AI. */
+const DEMO_TASTE_PROFILE: TasteProfileBundle = {
+  all: {
+    body: 7, tannin: 6, acidity: 6, sweetness: 3, fruit: 7, oak: 5,
+    summary:
+      "You lean toward structured, fruit-forward reds with balanced oak, and reach for crisp, aromatic whites as a bright counterpoint.",
+  },
+  red: {
+    body: 8, tannin: 7, acidity: 5, sweetness: 2, fruit: 7, oak: 6,
+    summary:
+      "Full-bodied, firmly tannic reds are your core — Napa Cabernet, Barolo, and Bordeaux blends sit right in your wheelhouse.",
+  },
+  white: {
+    body: 5, tannin: 2, acidity: 8, sweetness: 4, fruit: 6, oak: 3,
+    summary:
+      "Bright, high-acid whites with a touch of fruit — think Riesling and unoaked Chardonnay, chosen for freshness over weight.",
+  },
+};
 
 /**
  * Legacy filter type — kept exported for callers that still import it
@@ -138,6 +158,11 @@ export async function generateTasteProfile(
   userId?: string,
   opts?: { force?: boolean }
 ): Promise<AIResult<TasteProfileBundle>> {
+  // Demo visitors get a canned example — never touch the real DB or paid AI.
+  if (await isDemoRequest()) {
+    return { success: true, data: DEMO_TASTE_PROFILE, isMock: true };
+  }
+
   // Reservation held outside the try so a thrown AI call can refund.
   let reservation: Awaited<ReturnType<typeof reserveAiCredits>> | null = null;
   try {

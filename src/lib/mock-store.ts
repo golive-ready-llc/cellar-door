@@ -1000,13 +1000,15 @@ export const mockStore = {
   },
 
   // Buy List
-  getBuyList: (userId: string) =>
-    buyList
-      .filter((b) => b.userId === userId)
+  getBuyList: (userId: string) => {
+    const uid = normalizeUserId(userId);
+    return buyList
+      .filter((b) => b.userId === uid)
       .sort(
         (a, b) =>
           new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
-      ),
+      );
+  },
   addBuyListItem: (
     item: Omit<BuyListItem, "id" | "addedAt">
   ): BuyListItem => {

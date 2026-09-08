@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { isAIAvailable } from "@/lib/ai";
 import { challengePrompt } from "@/lib/ai/prompts";
 import { resolveServerUserId } from "@/server/auth-guard";
+import { isDemoRequest } from "@/lib/demo";
 
 /**
  * Award a badge exactly once. Relies on the Badge @@unique([userId, name])
@@ -161,7 +162,16 @@ export async function generateWeeklyChallenge(
 export async function getActiveChallenges(
   userId?: string
 ): Promise<ChallengeData[]> {
-  const uid = await resolveServerUserId(userId);
+  // Demo visitors have no challenges. And a read this minor shouldn't throw
+  // Unauthorized (it was noisy in Sentry from /stats when the session cookie
+  // didn't resolve) — return empty gracefully instead.
+  if (await isDemoRequest()) return [];
+  let uid: string;
+  try {
+    uid = await resolveServerUserId(userId);
+  } catch {
+    return [];
+  }
   const challenges = await prisma.challenge.findMany({
     where: {
       userId: uid,

@@ -1,6 +1,7 @@
 "use server";
 
 import { getAIProvider, isAIAvailable } from "@/lib/ai";
+import { MockAIProvider } from "@/lib/ai/mock";
 import { buildCellarContext, type CellarSummaryWine } from "@/lib/ai/context";
 import { requireFeature, reserveAiCredits, TierError } from "@/server/tier-check";
 import { resolveServerUserId } from "@/server/auth-guard";
@@ -75,7 +76,8 @@ async function chatWithSommelierImpl(
       }
     }
 
-    const provider = await getAIProvider();
+    // Demo visitors never hit the paid API — canned sommelier responses only.
+    const provider = isDemo ? new MockAIProvider() : await getAIProvider();
     const cellarContext = buildCellarContext(wines);
 
     // Build the full prompt from system context + cellar data + conversation history.
@@ -98,7 +100,7 @@ async function chatWithSommelierImpl(
       message: responseText,
       // Report the real state — getAIProvider() returns the mock provider when
       // no real AI is configured, so don't hardcode false (matches ai.ts).
-      isMock: !(await isAIAvailable()),
+      isMock: isDemo || !(await isAIAvailable()),
     };
   } catch (err) {
     if (reservation?.ok) {

@@ -507,6 +507,12 @@ export default function LandingPage() {
             <Link href="/restaurants" className="hover:text-foreground transition-colors whitespace-nowrap">For Restaurants</Link>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Button variant="ghost" size="sm" asChild>
+              <a href="https://github.com/golive-ready-llc/cellar-door" target="_blank" rel="noopener" aria-label="Cellar Door source on GitHub" className="whitespace-nowrap inline-flex items-center gap-1">
+                <Code2 className="h-4 w-4" />
+                <span className="hidden lg:inline">GitHub</span>
+              </a>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <a href="/demo" target="_blank" rel="noopener" className="whitespace-nowrap inline-flex items-center gap-1 text-primary border-primary/30">
                 <Smartphone className="h-3.5 w-3.5" />
