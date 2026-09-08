@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE_URL } from "@/lib/site-url";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight, Clock, Wine } from "lucide-react";
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = getPost(slug);
   if (!post) return { title: "Not found | Cellar Door" };
 
-  const url = `https://mycellardoor.app/blog/${post.slug}`;
+  const url = `${SITE_URL}/blog/${post.slug}`;
   return {
     title: `${post.title} | Cellar Door`,
     description: post.excerpt,
@@ -51,20 +52,20 @@ export default async function BlogPostPage({ params }: Props) {
     author: {
       "@type": "Organization",
       name: "Cellar Door",
-      url: "https://mycellardoor.app",
+      url: SITE_URL,
     },
     publisher: {
       "@type": "Organization",
       name: "Cellar Door",
-      url: "https://mycellardoor.app",
+      url: SITE_URL,
       logo: {
         "@type": "ImageObject",
-        url: "https://mycellardoor.app/logo.png",
+        url: `${SITE_URL}/logo.png`,
       },
     },
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `https://mycellardoor.app/blog/${post.slug}`,
+      "@id": `${SITE_URL}/blog/${post.slug}`,
     },
     keywords: post.tags.join(", "),
   };

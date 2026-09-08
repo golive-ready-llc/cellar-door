@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { SITE_URL } from "@/lib/site-url";
 import { QRCodeSVG } from "qrcode.react";
 import { Wine, Copy, Trash2, Clock, ExternalLink, Loader2 } from "lucide-react";
 import {
@@ -45,7 +46,7 @@ const DURATION_OPTIONS = [
   { label: "24 hours", value: 24 },
 ];
 
-const BASE_URL = "https://mycellardoor.app";
+const BASE_URL = SITE_URL;
 
 // ─── Component ──────────────────────────────────────────────
 

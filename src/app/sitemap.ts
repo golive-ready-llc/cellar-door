@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-url";
 import { POSTS } from "@/lib/blog-posts";
 
-const BASE_URL = "https://mycellardoor.app";
+const BASE_URL = SITE_URL;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

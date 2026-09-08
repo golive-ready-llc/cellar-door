@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE_URL } from "@/lib/site-url";
 import type { Metadata } from "next";
 import { ArrowRight, Clock, Wine } from "lucide-react";
 import { POSTS } from "@/lib/blog-posts";
@@ -7,12 +8,12 @@ export const metadata: Metadata = {
   title: "Wine Cellar Blog — Storage, Tasting, and Collecting | Cellar Door",
   description:
     "Practical wine articles for collectors: how to store wine at home, decanting basics, vintage charts, building your first cellar. By the team behind Cellar Door.",
-  alternates: { canonical: "https://mycellardoor.app/blog" },
+  alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
     title: "Wine Cellar Blog | Cellar Door",
     description:
       "Practical wine articles for collectors. Storage, tasting, vintage charts, building your first cellar.",
-    url: "https://mycellardoor.app/blog",
+    url: `${SITE_URL}/blog`,
     type: "website",
   },
 };

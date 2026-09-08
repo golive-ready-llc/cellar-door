@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { SITE_URL } from "@/lib/site-url";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,7 +24,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://mycellardoor.app"),
+  metadataBase: new URL(SITE_URL),
   title: "Cellar Door",
   description: "Track your wine collection with AI-powered insights",
   icons: {

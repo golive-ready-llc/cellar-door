@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/site-url";
 import { Wine, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Terms of Service | Cellar Door",
   description: "Terms of Service for Cellar Door wine collection management.",
-  alternates: { canonical: "https://mycellardoor.app/terms" },
+  alternates: { canonical: `${SITE_URL}/terms` },
 };
 
 export default function TermsPage() {
