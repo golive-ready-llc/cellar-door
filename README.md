@@ -77,8 +77,9 @@ all — see **[SELF-HOSTING.md](SELF-HOSTING.md)**.
 
 ## Self-hosting vs. the hosted service
 
-The code here is complete and self-hostable. Two things don't travel with
-it, and it's worth being upfront about them:
+**Self-hosting is free** — the whole app, every feature, no license fee. Run
+`docker compose up -d` (it brings its own Postgres) and you're done. Two things
+don't travel with it, and it's worth being upfront about them:
 
 - **AI costs money per call.** Self-hosted, you bring your own provider key
   and pay that provider directly. Nothing is feature-crippled — set

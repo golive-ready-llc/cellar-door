@@ -1166,8 +1166,8 @@ export default function LandingPage() {
               },
               {
                 icon: Server,
-                title: "Self-host in one command",
-                text: "docker compose up -d brings up the app with its own Postgres — no Vercel, no Neon. A single-user mode removes even the login; your data stays on your machine.",
+                title: "Free to self-host, one command",
+                text: "docker compose up -d brings up the app plus its own Postgres — no Vercel, no Neon, no license fee, every feature unlocked. A single-user mode removes even the login; your data stays on your machine.",
               },
               {
                 icon: Lock,
