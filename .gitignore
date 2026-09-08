@@ -102,7 +102,7 @@ test-*.mjs
 # Operational/infra notes — deliberately NOT public (see SELF-HOSTING.md)
 private/
 
-# Project-internal handoff notes - not part of the FSL release.
+# Project-internal handoff notes - not part of the AGPL-3.0 release.
 # Backed up to golive-ready-llc/cellar-door-private.
 handoff.md
 

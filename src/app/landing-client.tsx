@@ -501,7 +501,7 @@ export default function LandingPage() {
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
             <a href="#compare" className="hover:text-foreground transition-colors">Compare</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
-            <a href="#open-source" className="hover:text-foreground transition-colors whitespace-nowrap">Source</a>
+            <a href="#open-source" className="hover:text-foreground transition-colors whitespace-nowrap">Open Source</a>
             <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
             <Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link>
             <Link href="/restaurants" className="hover:text-foreground transition-colors whitespace-nowrap">For Restaurants</Link>
@@ -1145,10 +1145,10 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
               <Code2 className="h-3 w-3" />
-              Source available
+              Open source
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              The whole app is source-available. Really.
+              The whole app is open source. Really.
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Not &ldquo;open core&rdquo; — the code behind this site is the code
@@ -1161,8 +1161,8 @@ export default function LandingPage() {
             {[
               {
                 icon: FileText,
-                title: "Source-available (FSL)",
-                text: "Read it, run it, modify it, self-host it — for anything except reselling it as a service that competes with Cellar Door. Each release turns Apache-2.0 two years after it ships. The name and logo stay ours — brand your own fork.",
+                title: "AGPL-3.0 licensed",
+                text: "Genuinely open source. Read it, run it, modify it, self-host it. The one catch is the AGPL's network copyleft: run a modified version as a service and you share your changes back. The name and logo stay ours — brand your own fork.",
               },
               {
                 icon: Server,
@@ -1238,7 +1238,7 @@ export default function LandingPage() {
             {[
               {
                 q: "Is Cellar Door open source?",
-                a: "It's source-available — close, but let's be precise. The full source is public under the Functional Source License (FSL). You can read it, run it, modify it, and self-host it with docker compose up -d (it brings its own Postgres, and a single-user mode skips login entirely), and every feature works with your own AI provider key. The one thing you can't do is resell it as a service that competes with Cellar Door — and each release automatically becomes Apache-2.0 two years after it ships. Subscriptions to the hosted service pay for the AI calls, hosting, and the community CD Score dataset — not for access to the source.",
+                a: "Yes — genuinely open source, under the GNU AGPL-3.0. The full source is public: read it, run it, modify it, and self-host it with docker compose up -d (it brings its own Postgres, and a single-user mode skips login entirely), and every feature works with your own AI provider key. The AGPL's network copyleft means anyone who runs a modified version as a service must share their changes back. Subscriptions to the hosted service pay for the AI calls, hosting, and the community CD Score dataset — not for access to the source.",
               },
               {
                 q: "Is Cellar Door really free?",

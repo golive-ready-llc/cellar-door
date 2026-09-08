@@ -1,21 +1,23 @@
 Cellar Door
 Copyright (c) 2026 Golive Ready, LLC
 
-This product is licensed under the Functional Source License, Version 1.1,
-with an Apache 2.0 future license (FSL-1.1-ALv2). See the LICENSE file for the
-full license text.
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License, version 3 (AGPL-3.0), as
+published by the Free Software Foundation. See the LICENSE file for the full
+license text.
 
-The FSL is "source available," not an OSI-approved open-source license. You may
-read, run, modify, self-host, and redistribute the code for any Permitted
-Purpose — essentially anything except a Competing Use (offering it to others as
-a commercial product or service that substitutes for Cellar Door). Each version
-automatically converts to the Apache License 2.0 two years after its release.
+The AGPL-3.0 is an OSI-approved open-source license with a strong network
+copyleft: you may use, run, modify, self-host, and redistribute the code
+freely, but if you run a modified version as a network service, you must offer
+that service's users the corresponding source of your modified version under
+the same license. This keeps improvements open rather than allowing a closed,
+proprietary fork of the hosted product.
 
 --------------------------------------------------------------------------
 TRADEMARKS — NOT COVERED BY THE LICENSE
 --------------------------------------------------------------------------
 
-The FSL grants rights to the SOURCE CODE. It does NOT grant any right to use
+The AGPL grants rights to the SOURCE CODE. It does NOT grant any right to use
 the following, which remain the property of Golive Ready, LLC:
 
   * The name "Cellar Door"
@@ -24,10 +26,10 @@ the following, which remain the property of Golive Ready, LLC:
   * The domain mycellardoor.app and any confusingly similar name
   * The Cellar Door listings on the Apple App Store and Google Play
 
-You may run, modify, and redistribute this software under the FSL. If you do,
+You may run, modify, and redistribute this software under the AGPL. If you do,
 you must call your version something else and use your own branding. This
 protects users from confusing an unofficial build with the hosted service, and
-is a standard practice for source-available projects with a commercial offering.
+is standard practice for open-source projects with a commercial offering.
 
 If you would like to use the Cellar Door name or marks, ask first:
 support@email242.com
@@ -37,9 +39,9 @@ HOSTED SERVICE
 --------------------------------------------------------------------------
 
 The official hosted service at https://mycellardoor.app is operated by
-Golive Ready, LLC and is not part of this FSL grant. Subscriptions to the
-hosted service pay for operating costs (AI inference, database, hosting)
-and the community rating dataset, which is not distributed with this code.
+Golive Ready, LLC. Subscriptions to it pay for operating costs (AI inference,
+database, hosting) and the community rating dataset — which is other users'
+data and is not distributed with this code — never for access to the source.
 
 --------------------------------------------------------------------------
 THIRD-PARTY COMPONENTS

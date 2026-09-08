@@ -7,7 +7,7 @@ nobody wastes their time.
 
 Cellar Door is a small project developed alongside a commercial hosted
 service at [mycellardoor.app](https://mycellardoor.app). The code is
-source-available under the Functional Source License (FSL-1.1-ALv2); the
+open source under the GNU Affero General Public License v3 (AGPL-3.0); the
 hosted service, the community rating dataset, and the brand are not (see
 [NOTICE](NOTICE)).
 
@@ -39,7 +39,7 @@ That shapes what contributions fit:
 the PR record is the signed copy.
 
 Why: the maintainer needs to retain the right to license this code both
-under the FSL and commercially. If contributions arrived under the FSL alone,
+under the AGPL and commercially. If contributions arrived under the AGPL alone,
 that option would disappear the moment the first PR landed, permanently and
 irreversibly. The CLA asks you to grant those rights while you keep the
 copyright to your own work.

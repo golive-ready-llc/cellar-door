@@ -2,9 +2,9 @@
 
 # Cellar Door
 
-**A wine collection manager that knows where every bottle physically is.**
+**Know every bottle you own, exactly where it sits, and the moment it's ready to drink.**
 
-[![License: FSL-1.1-ALv2](https://img.shields.io/badge/License-FSL--1.1--ALv2-blue.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 [Hosted service](https://mycellardoor.app) · [Self-hosting](SELF-HOSTING.md) · [Contributing](CONTRIBUTING.md)
 
@@ -94,19 +94,18 @@ exactly those two things plus hosting — not for access to the source.
 
 ## License
 
-[FSL-1.1-ALv2](LICENSE) — the [Functional Source License](https://fsl.software).
-It's **source available**, not OSI open source: you can read, run, modify,
-self-host, and redistribute the code for any purpose *except* a Competing Use
-(offering it to others as a commercial product or service that substitutes for
-Cellar Door). Each release automatically becomes **Apache-2.0 two years** after
-it ships. The "Cellar Door" name and logo are trademarks and are not licensed —
-see [NOTICE](NOTICE); brand your own fork.
+[AGPL-3.0](LICENSE) — the GNU Affero General Public License v3, OSI-approved
+open source. You can use, run, modify, self-host, and redistribute the code
+freely. Its network copyleft is the one catch: if you run a **modified** version
+as a service to others, you must offer those users the source of your modified
+version under the same license — so improvements stay open.
 
-The **name and logo are not covered** by that grant — if you run your own
-instance publicly, please brand it as your own. See [NOTICE](NOTICE).
+The **name and logo are not covered** by the license — they're trademarks of
+Golive Ready, LLC. If you run your own instance publicly, brand it as your own.
+See [NOTICE](NOTICE).
 
 Contributions require a CLA so the project can continue to be offered both
-under the FSL and commercially — see [CONTRIBUTING.md](CONTRIBUTING.md).
+under the AGPL and commercially — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Support expectations
 

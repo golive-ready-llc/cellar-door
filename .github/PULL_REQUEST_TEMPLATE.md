@@ -32,5 +32,5 @@ devices). Be explicit about what you did NOT test. -->
 
 - [ ] I have read and agree to the [Contributor License
       Agreement](../CLA.md). I understand a maintainer must be able to
-      license this project both under the FSL and commercially, and my
+      license this project both under the AGPL and commercially, and my
       contribution is offered on those terms.

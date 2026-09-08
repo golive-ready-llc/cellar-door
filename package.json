@@ -2,7 +2,7 @@
   "name": "cellar-door",
   "version": "0.1.0",
   "private": true,
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",

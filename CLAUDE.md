@@ -31,10 +31,10 @@ analysis, community ratings, and visual cellar management.
 - **Hosting:** Vercel (hosted service) or Docker (`compose.yaml`) for
   self-hosting.
 - **Styling:** Tailwind v4 + shadcn/ui components
-- **License:** FSL-1.1-ALv2 (Functional Source License; source-available, not
-  OSI open source — converts to Apache-2.0 two years after each release). See
-  LICENSE and NOTICE — the code is licensed for any non-Competing-Use purpose,
-  the "Cellar Door" name and logo are not.
+- **License:** AGPL-3.0 (GNU Affero General Public License v3; OSI open source,
+  strong network copyleft — a modified version run as a network service must
+  offer its source to that service's users). See LICENSE and NOTICE — the code
+  is licensed, the "Cellar Door" name and logo are not.
 
 ## Architecture
 

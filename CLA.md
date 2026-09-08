@@ -3,7 +3,7 @@
 This is the agreement [CONTRIBUTING.md](CONTRIBUTING.md) and the
 pull-request template refer to. It exists for one reason: so the
 maintainer (Golive Ready, LLC) can keep licensing this project under the
-FSL-1.1-ALv2 *and* commercially. Without it, the first outside pull
+AGPL-3.0 *and* commercially. Without it, the first outside pull
 request would permanently entangle the copyright of the whole project.
 
 You keep the copyright to your work — this agreement only licenses it.
@@ -32,8 +32,8 @@ The effective agreement is between You and Golive Ready, LLC ("We"):
    reproduce, modify, prepare derivative works of, publicly display,
    publicly perform, sublicense (directly and indirectly), and
    distribute Your Contributions, and to offer them to others under the
-   Functional Source License 1.1 with Apache 2.0 future license
-   (FSL-1.1-ALv2) or under any other license or commercial terms We
+   GNU Affero General Public License v3
+   (AGPL-3.0) or under any other license or commercial terms We
    choose for the project.
 
 3. **Patent license.** You grant Us a perpetual, worldwide,
@@ -58,7 +58,7 @@ The effective agreement is between You and Golive Ready, LLC ("We"):
 
 7. **Relicensing.** We may, at Our sole discretion, decide which project
    versions include Your Contributions and under which licenses those
-   versions are distributed, provided the FSL-1.1-ALv2 grant already
+   versions are distributed, provided the AGPL-3.0 grant already
    made to the public for previously released versions is preserved.
 
 8. **Scope.** This agreement covers every Contribution You have made and
