@@ -41,6 +41,16 @@ export const AI_CREDIT_COSTS: Record<AiOperation, number> = {
 /** Max wines per batch enrich run */
 export const BATCH_ENRICH_MAX = 200;
 
+/**
+ * Monthly AI credit cap while a paid subscription is still in its free trial.
+ * Enough to genuinely evaluate the AI (a handful of label scans, enrichments,
+ * or a pairing), but far below a full tier's allowance — so a trial can't
+ * enrich an entire cellar and then cancel before the first charge. Applied as
+ * min(tier allowance, this) for trialing users; converts to the full allowance
+ * once the trial ends and the subscription becomes active.
+ */
+export const TRIAL_CREDIT_CAP = 50;
+
 // ─── Feature Flags ────────────────────────────────────────────
 
 export interface TierFeatures {
@@ -217,6 +227,16 @@ export function hasFeature(tier: Tier, feature: keyof TierFeatures): boolean {
   if (typeof val === "boolean") return val;
   if (typeof val === "number") return val > 0;
   return val !== null; // null means unlimited → true
+}
+
+/**
+ * Effective monthly AI credit allowance for a tier, capping trials at
+ * TRIAL_CREDIT_CAP. Pure arithmetic — the caller decides whether the user is
+ * currently trialing (see tier-check.ts, which reads trialEndsAt).
+ */
+export function effectiveCreditCap(tier: Tier, isTrialing: boolean): number {
+  const full = TIER_CONFIGS[tier].features.aiCreditsPerMonth;
+  return isTrialing ? Math.min(full, TRIAL_CREDIT_CAP) : full;
 }
 
 /** Check if user can add more wines */

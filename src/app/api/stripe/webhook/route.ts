@@ -212,6 +212,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     data: {
       tier,
       stripeSubId: subscriptionId,
+      trialEndsAt: trialEndFrom(subscription),
       stripeCustomerId:
         typeof session.customer === "string"
           ? session.customer
@@ -220,6 +221,17 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   });
 
   console.info(`[Stripe] User upgraded to ${tier} via checkout`);
+}
+
+/**
+ * The trial-end timestamp for a subscription, or null when it isn't trialing.
+ * Used to cap AI credits during the free trial (see TRIAL_CREDIT_CAP) and
+ * cleared once the subscription converts to active.
+ */
+function trialEndFrom(subscription: Stripe.Subscription): Date | null {
+  return subscription.status === "trialing" && subscription.trial_end
+    ? new Date(subscription.trial_end * 1000)
+    : null;
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
@@ -257,7 +269,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     }
     await prisma.user.update({
       where: { id: user.id },
-      data: { tier, stripeSubId: subscription.id },
+      data: { tier, stripeSubId: subscription.id, trialEndsAt: trialEndFrom(subscription) },
     });
     console.info(`[Stripe] Subscription updated to ${tier} (${status})`);
   } else if (status === "past_due" || status === "unpaid") {
@@ -271,7 +283,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     // paused — downgrade to FREE and clear stripe linkage.
     await prisma.user.update({
       where: { id: user.id },
-      data: { tier: "FREE", stripeSubId: null },
+      data: { tier: "FREE", stripeSubId: null, trialEndsAt: null },
     });
     console.info(`[Stripe] Downgraded user ${user.id} to FREE (status=${status})`);
   } else if (status === "incomplete") {
@@ -308,7 +320,7 @@ async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { tier: "FREE", stripeSubId: null },
+    data: { tier: "FREE", stripeSubId: null, trialEndsAt: null },
   });
 
   console.info(`[Stripe] Downgraded user ${user.id} to FREE (subscription paused)`);
@@ -337,7 +349,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { tier: "FREE", stripeSubId: null },
+    data: { tier: "FREE", stripeSubId: null, trialEndsAt: null },
   });
 
   console.info("[Stripe] Downgraded to FREE (subscription deleted)");

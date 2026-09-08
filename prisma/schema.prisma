@@ -29,6 +29,11 @@ model User {
   tier             Tier      @default(FREE)
   stripeCustomerId String?
   stripeSubId      String?
+  /** When set and in the future, the paid subscription is still in its free
+   * trial. While trialing, the monthly AI credit allowance is capped at
+   * TRIAL_CREDIT_CAP so a trial can't burn a full tier's credits and cancel.
+   * Cleared (null) once the subscription converts to active or ends. */
+  trialEndsAt      DateTime?
   /** Extra AI credits purchased as one-off top-ups. Consumed after the
    * monthly tier allowance is exhausted. Never resets (carry-over). */
   extraCredits     Int       @default(0)

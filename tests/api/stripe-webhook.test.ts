@@ -253,7 +253,7 @@ describe("Stripe webhook", () => {
     await POST(makeReq("{}", "sig"));
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "user_1" },
-      data: { tier: "FREE", stripeSubId: null },
+      data: { tier: "FREE", stripeSubId: null, trialEndsAt: null },
     });
   });
 
@@ -273,7 +273,7 @@ describe("Stripe webhook", () => {
     await POST(makeReq("{}", "sig"));
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "user_1" },
-      data: { tier: "FREE", stripeSubId: null },
+      data: { tier: "FREE", stripeSubId: null, trialEndsAt: null },
     });
   });
 
@@ -305,7 +305,7 @@ describe("Stripe webhook", () => {
     await POST(makeReq("{}", "sig"));
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "user_1" },
-      data: { tier: "FREE", stripeSubId: null },
+      data: { tier: "FREE", stripeSubId: null, trialEndsAt: null },
     });
   });
 

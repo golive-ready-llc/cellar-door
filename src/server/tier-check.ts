@@ -16,6 +16,7 @@ import {
   getUpgradeTier,
   TIER_CONFIGS,
   TIER_DISPLAY_NAMES,
+  effectiveCreditCap,
   type Tier,
   type TierFeatures,
   type AiOperation,
@@ -78,6 +79,45 @@ export async function getUserTier(userId: string): Promise<Tier> {
   }
 }
 
+/**
+ * Fetch tier plus trial state in one query — used by the credit path so a
+ * subscription still in its free trial can be capped at TRIAL_CREDIT_CAP.
+ */
+async function getTierAndTrial(
+  userId: string
+): Promise<{ tier: Tier; trialEndsAt: Date | null }> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { tier: true, trialEndsAt: true },
+    });
+    if (!user) return { tier: DEFAULT_TIER, trialEndsAt: null };
+    const dbTier = (user.tier as Tier) ?? "FREE";
+    return {
+      tier: maxTier(dbTier, DEFAULT_TIER),
+      trialEndsAt: user.trialEndsAt ?? null,
+    };
+  } catch {
+    // Fall back to a tier-only read. This matters during rollout: if the
+    // trialEndsAt column hasn't been applied to the DB yet, the select above
+    // throws — and we must NOT downgrade a paying user to FREE. Re-reading the
+    // tier alone keeps AI working; the trial cap simply stays dormant (no
+    // trial info) until the column exists.
+    return { tier: await getUserTier(userId), trialEndsAt: null };
+  }
+}
+
+/**
+ * The effective monthly AI credit allowance. While a subscription is in its
+ * free trial (trialEndsAt in the future), the allowance is capped at
+ * TRIAL_CREDIT_CAP so a trial can't consume a full tier's credits and cancel
+ * before the first charge. Otherwise it's the full tier allowance.
+ */
+function effectiveCreditLimit(tier: Tier, trialEndsAt: Date | null): number {
+  const isTrialing = Boolean(trialEndsAt && trialEndsAt.getTime() > Date.now());
+  return effectiveCreditCap(tier, isTrialing);
+}
+
 // ─── Gate Functions ───────────────────────────────────────────
 
 /**
@@ -134,8 +174,8 @@ export async function getAiUsage(userId: string): Promise<{
   yearMonth: string;
   tier: Tier;
 }> {
-  const tier = await getUserTier(userId);
-  const creditsLimit = TIER_CONFIGS[tier].features.aiCreditsPerMonth;
+  const { tier, trialEndsAt } = await getTierAndTrial(userId);
+  const creditsLimit = effectiveCreditLimit(tier, trialEndsAt);
   const yearMonth = currentYearMonth();
 
   try {
@@ -221,8 +261,8 @@ export async function reserveAiCredits(
     };
   }
 
-  const tier = await getUserTier(userId);
-  const creditsLimit = TIER_CONFIGS[tier].features.aiCreditsPerMonth;
+  const { tier, trialEndsAt } = await getTierAndTrial(userId);
+  const creditsLimit = effectiveCreditLimit(tier, trialEndsAt);
   const yearMonth = currentYearMonth();
 
   // Zero-cost operations still log usage but reserve nothing.

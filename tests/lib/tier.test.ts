@@ -5,7 +5,9 @@ import {
   hasFeature,
   canAddWine,
   getUpgradeTier,
+  effectiveCreditCap,
   TIER_CONFIGS,
+  TRIAL_CREDIT_CAP,
   AI_CREDIT_COSTS,
   CREDIT_PACKS,
   TIER_ORDER,
@@ -144,6 +146,28 @@ describe("CREDIT_PACKS pricing sanity", () => {
     for (const pack of CREDIT_PACKS) {
       expect(pack.envVar).toMatch(/^STRIPE_PRICE_CREDITS_/);
     }
+  });
+});
+
+describe("effectiveCreditCap — trial credit cap", () => {
+  it("non-trialing users get the full tier allowance", () => {
+    expect(effectiveCreditCap("PRO", false)).toBe(300);
+    expect(effectiveCreditCap("PREMIUM", false)).toBe(1000);
+    expect(effectiveCreditCap("FREE", false)).toBe(0);
+  });
+
+  it("trialing paid users are capped at TRIAL_CREDIT_CAP", () => {
+    expect(effectiveCreditCap("PRO", true)).toBe(TRIAL_CREDIT_CAP);
+    expect(effectiveCreditCap("PREMIUM", true)).toBe(TRIAL_CREDIT_CAP);
+  });
+
+  it("the trial cap is below every paid tier's full allowance", () => {
+    expect(TRIAL_CREDIT_CAP).toBeLessThan(TIER_CONFIGS.PRO.features.aiCreditsPerMonth);
+    expect(TRIAL_CREDIT_CAP).toBeLessThan(TIER_CONFIGS.PREMIUM.features.aiCreditsPerMonth);
+  });
+
+  it("never grants MORE than the tier allowance, even trialing (FREE stays 0)", () => {
+    expect(effectiveCreditCap("FREE", true)).toBe(0);
   });
 });
 
