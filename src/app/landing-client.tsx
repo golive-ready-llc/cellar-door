@@ -1303,7 +1303,7 @@ export default function LandingPage() {
               },
               {
                 q: "Will my wine data be safe if I cancel my subscription?",
-                a: "Yes. If you cancel, your account drops to the free tier — your wines stay where they are, you just lose access to AI features. If you choose to delete your account entirely, we delete all your data from our database and cancel any active Stripe subscription in the same transaction. We also keep daily encrypted backups of the database for 7 years for disaster recovery.",
+                a: "Yes. If you cancel, your account simply drops to the free tier — your wines stay exactly where they are; you just lose the AI features. If you&apos;d rather leave entirely, deleting your account immediately and permanently removes your personal data from our live database and cancels any active Stripe subscription in the same action. Our encrypted backups exist only for disaster recovery — they&apos;re never used to bring back a deleted account, and your data ages out of them on our backup retention schedule. And you can export your whole collection to CSV or JSON at any time from Settings, so your data is always yours to take with you.",
               },
               {
                 q: "Can I track wines I've already drunk?",

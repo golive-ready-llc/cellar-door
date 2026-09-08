@@ -109,10 +109,13 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold mt-6">9. Account Deletion</h2>
           <p>
             You may delete your account and all associated data at any time
-            through the Settings page. Account deletion is permanent and
-            irreversible — all your wines, cabinets, history, ratings, and
-            personal information will be permanently removed. Anonymized
-            community ratings may be retained.
+            through the Settings page, and you can export your collection to CSV
+            or JSON beforehand. Account deletion is permanent and irreversible —
+            all your wines, cabinets, history, ratings, and personal information
+            are immediately removed from our live database. Encrypted
+            disaster-recovery backups are never used to restore a deleted
+            account and age out on their retention schedule. Anonymized community
+            ratings may be retained. See the Privacy Policy below for details.
           </p>
 
           <h2 className="text-lg font-semibold mt-6">10. Termination</h2>
@@ -307,10 +310,18 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold mt-6">Data Retention &amp; Deletion</h2>
           <p>
             Your personal data is retained for as long as your account is active.
-            You may delete your account and all associated data at any time
-            through the Settings page. Upon account deletion, all personal data,
-            wine collection data, history, and preferences are permanently and
-            irreversibly removed within 30 days. Anonymized community ratings
+            You can export your full collection to CSV or JSON at any time from
+            Settings, so you can always take a copy of your data with you.
+          </p>
+          <p>
+            You may delete your account at any time from Settings. Doing so
+            immediately and permanently removes your personal data &mdash; wines,
+            cabinets, history, ratings, and preferences &mdash; from our live
+            database and cancels any active Stripe subscription in the same
+            action. Residual copies may persist in our encrypted,
+            disaster-recovery-only backups; those backups are never used to
+            restore a deleted account, and your data is expunged from them as they
+            roll off our backup retention schedule. Anonymized community ratings
             may be retained to maintain the integrity of the community scoring
             system.
           </p>
