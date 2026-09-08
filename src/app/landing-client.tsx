@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContactDialog } from "@/components/contact-dialog";
+import { openCookieSettings } from "@/lib/cookie-consent";
 import { cn } from "@/lib/utils";
 
 // ─── Tier data (duplicated from lib/tier to avoid server import issues) ───
@@ -1429,7 +1430,9 @@ export default function LandingPage() {
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link>
               <Link href="/restaurants" className="hover:text-foreground transition-colors">For Restaurants</Link>
-              <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+              <Link href="/terms#privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+              <button type="button" onClick={openCookieSettings} className="hover:text-foreground transition-colors">Cookie settings</button>
               <ContactDialog>
                 <button type="button" className="hover:text-foreground transition-colors">Contact</button>
               </ContactDialog>

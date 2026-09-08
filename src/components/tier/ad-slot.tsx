@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTier } from "@/hooks/use-tier";
+import { useCookieConsent } from "@/lib/cookie-consent";
 import { cn } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -97,11 +98,16 @@ const TEST_ADS = {
 
 export function AdSlot({ location, className }: AdSlotProps) {
   const { isPaid } = useTier();
+  const consent = useCookieConsent();
   const adRef = useRef<HTMLModElement>(null);
   const pushed = useRef(false);
   const [adIndex, setAdIndex] = useState(0);
 
   const clientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
+  // Real AdSense units require the ad script, which only loads once the visitor
+  // opts in to advertising cookies. Until then we fall back to the cookie-free
+  // house ads below, so free-tier users still see something.
+  const showRealAds = Boolean(clientId) && consent === "accepted";
 
   // Pick a random test ad on mount
   useEffect(() => {
@@ -111,7 +117,7 @@ export function AdSlot({ location, className }: AdSlotProps) {
 
   useEffect(() => {
     // Push the ad once when the element mounts
-    if (!clientId || isPaid || pushed.current) return;
+    if (!showRealAds || isPaid || pushed.current) return;
     try {
       const adsbygoogle = (window as unknown as { adsbygoogle: unknown[] })
         .adsbygoogle;
@@ -122,7 +128,7 @@ export function AdSlot({ location, className }: AdSlotProps) {
     } catch {
       // AdSense not loaded yet or ad-blocker active — silently ignore
     }
-  }, [clientId, isPaid]);
+  }, [showRealAds, isPaid]);
 
   // Paid users never see ads
   if (isPaid) return null;
@@ -135,8 +141,9 @@ export function AdSlot({ location, className }: AdSlotProps) {
 
   const size = AD_SIZES[location];
 
-  // If AdSense isn't configured, show realistic test ads
-  if (!clientId) {
+  // If AdSense isn't configured — or the visitor hasn't opted in to ad cookies
+  // yet — show the cookie-free house ads instead of real AdSense units.
+  if (!showRealAds) {
     const ads = TEST_ADS[location];
     const ad = ads[adIndex % ads.length];
 

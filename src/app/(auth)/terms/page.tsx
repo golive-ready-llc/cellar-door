@@ -133,7 +133,7 @@ export default function TermsPage() {
       </section>
 
       {/* Privacy Policy */}
-      <section>
+      <section id="privacy" className="scroll-mt-8">
         <h1 className="text-2xl font-bold mb-1">Privacy Policy</h1>
         <p className="text-sm text-muted-foreground mb-6">
           Effective date: June 15, 2026
@@ -262,13 +262,46 @@ export default function TermsPage() {
             require them.
           </p>
 
+          <h2 className="text-lg font-semibold mt-6">
+            Cookies &amp; Similar Technologies
+          </h2>
+          <p>
+            We use two kinds of cookies and similar browser storage:
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <strong>Strictly necessary (always on):</strong> keeping you signed
+              in (Firebase authentication), remembering that you&apos;ve passed a
+              site password gate where one is enabled, the demo-mode flag when you
+              try the demo, and small interface preferences such as the sidebar
+              state. These are required for the Platform to function and are not
+              used for advertising or cross-site tracking.
+            </li>
+            <li>
+              <strong>Advertising (opt-in):</strong> Google AdSense, shown only to
+              free-tier users, sets cookies to serve and measure ads. These load
+              only after you accept them in our cookie banner. If you reject them
+              — or simply don&apos;t choose — the ad script is never loaded and no
+              advertising cookies are set; free-tier pages fall back to
+              non-tracking placeholder ads.
+            </li>
+          </ul>
+          <p>
+            You can change your choice at any time from the &ldquo;Cookie
+            settings&rdquo; link in the site footer. We do not use analytics,
+            marketing, or cross-site tracking scripts beyond the AdSense case
+            described above.
+          </p>
+
           <h2 className="text-lg font-semibold mt-6">Advertising</h2>
           <p>
-            Free-tier users may see advertisements served by Google AdSense.
-            These ads may use cookies and similar technologies to serve
-            personalized content based on your browsing activity. Paid
-            subscribers (Cellar+ and Cellar Pro) enjoy an ad-free experience. You
-            can manage your ad preferences through your Google account settings.
+            Free-tier users may see advertisements served by Google AdSense, but
+            only if they have opted in to advertising cookies (see &ldquo;Cookies
+            &amp; Similar Technologies&rdquo; above). When enabled, these ads may
+            use cookies and similar technologies to serve and measure content
+            based on your browsing activity. Paid subscribers (Cellar+ and Cellar
+            Pro) never see ads. You can also manage your ad preferences through
+            your Google account settings.
           </p>
 
           <h2 className="text-lg font-semibold mt-6">Data Retention &amp; Deletion</h2>

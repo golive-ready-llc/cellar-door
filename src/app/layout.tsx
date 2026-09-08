@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { SITE_URL } from "@/lib/site-url";
 import { Inter } from "next/font/google";
-import Script from "next/script";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/components/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CapacitorInit } from "@/components/capacitor-init";
 import { ClientErrorReporter } from "@/components/client-error-reporter";
+import { AdSenseLoader } from "@/components/consent/adsense-loader";
+import { CookieConsent } from "@/components/consent/cookie-consent";
 import "./globals.css";
 
 const inter = Inter({
@@ -46,14 +47,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      {process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID && (
-        <Script
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID}`}
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
-      )}
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
@@ -66,6 +59,9 @@ export default function RootLayout({
               <CapacitorInit />
               <ClientErrorReporter />
               {children}
+              {/* AdSense loads only after the visitor opts in (see CookieConsent). */}
+              <AdSenseLoader />
+              <CookieConsent />
             </TooltipProvider>
           </AuthProvider>
         </ThemeProvider>
