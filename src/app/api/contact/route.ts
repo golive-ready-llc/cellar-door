@@ -5,10 +5,14 @@ import type { NextRequest } from "next/server";
  * Public contact endpoint for the landing page — lets visitors reach us
  * without exposing an email address to scrapers.
  *
- * Delivery: if RESEND_API_KEY is set, the message is emailed (via Resend's REST
- * API — no SDK dependency) to CONTACT_EMAIL (default support@email242.com).
+ * Delivery is Microsoft Graph sendMail under an app registration
+ * (client-credentials, Mail.Send) — the same mechanism goliveready.com uses,
+ * so no third-party email provider (Resend/SMTP) is needed. Graph also removes
+ * the header-injection surface: the message is a JSON document, not a header
+ * block, so a name like "x\nBcc: victim@example.com" is just text in a string.
+ *
  * The submission is ALSO written to the server log every time, so nothing is
- * lost even before an email provider is configured.
+ * lost even before Graph is configured (or if a send fails).
  *
  * Bounded and abuse-resistant: honeypot field, per-IP rate limit, size caps.
  */
@@ -36,6 +40,75 @@ function rateLimited(ip: string): boolean {
 
 /** Collapse CR/LF so a submitter can't forge extra log lines. */
 const oneLine = (s: string, n = 500) => s.replace(/[\r\n]+/g, " ").slice(0, n);
+
+/**
+ * A client-credentials token for Graph. Fetched per submission — at contact-
+ * form volume a token cache would be complexity defending against nothing.
+ */
+async function graphToken(tenant: string, clientId: string, secret: string): Promise<string | null> {
+  const res = await fetch(
+    `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/oauth2/v2.0/token`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: secret,
+        scope: "https://graph.microsoft.com/.default",
+        grant_type: "client_credentials",
+      }),
+      signal: AbortSignal.timeout(8000),
+    }
+  );
+  if (!res.ok) return null;
+  const data: unknown = await res.json();
+  const token = (data as { access_token?: unknown }).access_token;
+  return typeof token === "string" ? token : null;
+}
+
+/** Send the contact note via Graph. Returns true on success. */
+async function sendViaGraph(name: string, email: string, message: string): Promise<boolean> {
+  const tenant = process.env.GRAPH_TENANT_ID;
+  const clientId = process.env.GRAPH_CLIENT_ID;
+  const secret = process.env.GRAPH_CLIENT_SECRET;
+  const sender = process.env.GRAPH_SENDER;
+  if (!tenant || !clientId || !secret || !sender) return false;
+
+  const token = await graphToken(tenant, clientId, secret);
+  if (!token) {
+    console.error("[contact] Graph token request failed");
+    return false;
+  }
+
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(sender)}/sendMail`,
+    {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        message: {
+          subject: `Contact — Cellar Door (${name})`,
+          body: {
+            contentType: "Text",
+            content: [`Name: ${name}`, `Email: ${email}`, "", message].join("\n"),
+          },
+          toRecipients: [
+            { emailAddress: { address: process.env.CONTACT_EMAIL || sender } },
+          ],
+          replyTo: [{ emailAddress: { address: email } }],
+        },
+        saveToSentItems: false,
+      }),
+      signal: AbortSignal.timeout(8000),
+    }
+  );
+
+  if (!res.ok) {
+    console.error("[contact] Graph sendMail failed", res.status, await res.text().catch(() => ""));
+    return false;
+  }
+  return true;
+}
 
 export async function POST(request: NextRequest) {
   const ip =
@@ -69,30 +142,13 @@ export async function POST(request: NextRequest) {
   // Always log the submission (durable-enough fallback + record).
   console.log(`[contact] name=${oneLine(name, 200)} email=${oneLine(email, 320)} — ${oneLine(message, 2000)}`);
 
-  // Email it if a provider is configured.
-  const key = process.env.RESEND_API_KEY;
-  if (key) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: process.env.CONTACT_FROM || "Cellar Door <onboarding@resend.dev>",
-          to: [process.env.CONTACT_EMAIL || "support@email242.com"],
-          reply_to: email,
-          subject: `Contact form — ${oneLine(name, 100)}`,
-          text: `From: ${name} <${email}>\n\n${message}`,
-        }),
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) {
-        console.error("[contact] email send failed", res.status, await res.text().catch(() => ""));
-      }
-    } catch (err) {
-      console.error("[contact] email send error", err instanceof Error ? err.message : err);
-    }
+  // Best-effort email delivery via Graph. Never fail the request on a send
+  // error — the message is already logged, so we don't lose it.
+  try {
+    await sendViaGraph(name, email, message);
+  } catch (err) {
+    console.error("[contact] email send error", err instanceof Error ? err.message : err);
   }
 
-  // Succeed regardless of email delivery — the message is logged either way.
   return NextResponse.json({ ok: true });
 }
