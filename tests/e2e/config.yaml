@@ -1,0 +1,16 @@
+# Maestro test config — shared across all flows in this directory.
+#
+# Usage:
+#   maestro test tests/e2e/                  # run every flow
+#   maestro test tests/e2e/01-google-signin.yaml   # single flow
+#   maestro test --format junit tests/e2e/   # CI output
+#
+# The TEST_EMAIL / TEST_PASSWORD env vars below are read by flows that
+# exercise email-password sign-in. Set them in your shell before running:
+#   export MAESTRO_TEST_EMAIL=qa@cellardoor.test
+#   export MAESTRO_TEST_PASSWORD=...
+# Never commit real creds.
+appId: com.cellardoor.app
+env:
+  TEST_EMAIL: ${MAESTRO_TEST_EMAIL}
+  TEST_PASSWORD: ${MAESTRO_TEST_PASSWORD}

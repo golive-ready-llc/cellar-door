@@ -1,0 +1,20 @@
+# Normalize line endings. Shell scripts and container files MUST be LF —
+# a CRLF shebang (`#!/bin/sh\r`) makes Docker fail with the very unhelpful
+# "exec ./docker-entrypoint.sh: no such file or directory".
+* text=auto eol=lf
+
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+
+# Binary assets — never touch
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

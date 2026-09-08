@@ -1,0 +1,13 @@
+# History tab list rendering.
+#
+# Verifies:
+#   - History bottom-tab loads
+#   - Either an empty-state or rows render without crashing
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "History"
+- extendedWaitUntil:
+    visible: "History|No history|Drank"
+    timeout: 8000
+- assertVisible: "History"

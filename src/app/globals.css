@@ -1,0 +1,277 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@source "../../src/**/*.{ts,tsx}";
+@source "../../node_modules/shadcn/**/*.{js,ts,tsx}";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(0.985 0.002 15);
+  --foreground: oklch(0.175 0.005 15);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.175 0.005 15);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.175 0.005 15);
+  --primary: oklch(0.45 0.14 15);          /* wine burgundy */
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.965 0.005 15);
+  --secondary-foreground: oklch(0.25 0.01 15);
+  --muted: oklch(0.96 0.003 15);
+  --muted-foreground: oklch(0.50 0.01 15);
+  --accent: oklch(0.95 0.01 15);           /* warm wine tint */
+  --accent-foreground: oklch(0.25 0.01 15);
+  --destructive: oklch(0.58 0.22 27);
+  --border: oklch(0.90 0.005 15);
+  --input: oklch(0.90 0.005 15);
+  --ring: oklch(0.45 0.14 15);             /* wine burgundy ring */
+  --chart-1: oklch(0.45 0.14 15);          /* wine red */
+  --chart-2: oklch(0.75 0.08 85);          /* wine gold */
+  --chart-3: oklch(0.72 0.10 340);         /* rose */
+  --chart-4: oklch(0.75 0.10 140);         /* green/sparkling */
+  --chart-5: oklch(0.65 0.12 55);          /* amber/dessert */
+  --radius: 0.625rem;
+  --sidebar: oklch(0.975 0.003 15);
+  --sidebar-foreground: oklch(0.175 0.005 15);
+  --sidebar-primary: oklch(0.45 0.14 15);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.95 0.01 15);
+  --sidebar-accent-foreground: oklch(0.25 0.01 15);
+  --sidebar-border: oklch(0.90 0.005 15);
+  --sidebar-ring: oklch(0.45 0.14 15);
+  --rack-bg: oklch(0.82 0.04 65);             /* darker light wood for white wine visibility */
+  --rack-header: oklch(0.77 0.05 60);         /* darker wood grain */
+  --rack-border: oklch(0.72 0.06 55);         /* wood edge */
+  /* Cabinet gradient tokens */
+  --rack-exterior-from: #c4973b;
+  --rack-exterior-to: #8b6914;
+  --rack-interior-from: #1a1a3a;
+  --rack-interior-to: #0d0d2b;
+  --rack-led-glow: rgba(50, 100, 255, 0.15);
+  --rack-shelf: #a07828;
+  --rack-shelf-edge: #6b5010;
+  --rack-zone-from: #8b6914;
+  --rack-zone-to: #6b5010;
+  --rack-box-lid-from: #a08040;
+  --rack-box-lid-to: #7a6020;
+  --rack-box-body-from: #8b6914;
+  --rack-box-body-to: #6b5010;
+  --rack-name-color: #f5e6ca;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.637 0.137 15);    /* wine burgundy */
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.371 0.02 15);      /* subtle wine tint */
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.637 0.137 15);       /* wine burgundy ring */
+  --chart-1: oklch(0.637 0.137 15);    /* wine red */
+  --chart-2: oklch(0.85 0.08 85);      /* wine gold */
+  --chart-3: oklch(0.72 0.10 340);     /* rose */
+  --chart-4: oklch(0.75 0.10 140);     /* green/sparkling */
+  --chart-5: oklch(0.65 0.12 55);      /* amber/dessert */
+  --sidebar: oklch(0.175 0.005 15);    /* dark with wine tint */
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.637 0.137 15);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0.01 15);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --rack-bg: oklch(0.25 0.02 55);             /* dark wood */
+  --rack-header: oklch(0.22 0.025 50);        /* darker wood grain */
+  --rack-border: oklch(0.30 0.03 55);         /* wood edge */
+  /* Cabinet gradient tokens (muted exterior for dark mode) */
+  --rack-exterior-from: #a07828;
+  --rack-exterior-to: #6b5010;
+  --rack-interior-from: #1a1a3a;
+  --rack-interior-to: #0d0d2b;
+  --rack-led-glow: rgba(50, 100, 255, 0.15);
+  --rack-shelf: #a07828;
+  --rack-shelf-edge: #6b5010;
+  --rack-zone-from: #8b6914;
+  --rack-zone-to: #6b5010;
+  --rack-box-lid-from: #a08040;
+  --rack-box-lid-to: #7a6020;
+  --rack-box-body-from: #8b6914;
+  --rack-box-body-to: #6b5010;
+  --rack-name-color: #f5e6ca;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Safe area padding for notched devices (iPhone X+, etc.) */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    /* Ensure text wraps on Android WebView */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+  /* Fix text overflow in flex/dialog containers (Android WebView) */
+  p, span, div {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  html {
+    @apply font-sans;
+    /* Prevent overscroll bounce on iOS Capacitor */
+    overscroll-behavior: none;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-sans), sans-serif;
+    font-weight: 600;
+  }
+}
+
+/* Safe area helper for bottom nav on notched devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ─── UI polish foundations (ui-improvements-spec) ─────────────────────── */
+
+@layer base {
+  /* Honor the OS "reduce motion" setting globally — non-essential animation
+     and transitions collapse to near-instant. (DoD: motion off under reduce.) */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Semantic type scale — one hierarchy applied on detail + primary cards,
+     replacing ad-hoc text-xs/text-sm stacking. */
+  .text-display {
+    font-size: 1.625rem;
+    line-height: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  .text-title {
+    font-size: 1.0625rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  .text-body {
+    font-size: 0.875rem;
+    line-height: 1.375rem;
+  }
+  .text-caption {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: var(--muted-foreground);
+  }
+  .text-overline {
+    font-size: 0.6875rem;
+    line-height: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* Elevated surface tier — cards/sheets read as raised above the app
+     background instead of flat. Overlay keeps it theme-agnostic. */
+  .surface-elevated {
+    background-color: var(--card);
+    background-image: linear-gradient(
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04)
+    );
+  }
+
+  /* Press feedback for tappable cards/rows. */
+  .press {
+    transition: transform 120ms ease, background-color 120ms ease;
+  }
+  .press:active {
+    transform: scale(0.985);
+  }
+
+  /* First-paint list stagger — subtle rise-in; disabled under reduce-motion
+     by the base rule above. */
+  @keyframes cd-rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-rise-in {
+    animation: cd-rise-in 240ms ease both;
+  }
+}

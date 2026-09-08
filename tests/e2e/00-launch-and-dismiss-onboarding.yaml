@@ -1,0 +1,29 @@
+# Pre-flow: launches the app, dismisses any onboarding wizard, ensures
+# we're on /cellar before any subsequent flow exercises features.
+#
+# Run this first in CI to seed device state — most other flows assume
+# the user is signed in AND past onboarding. Use 01-google-signin.yaml
+# first if not yet authenticated.
+appId: com.cellardoor.app
+---
+- launchApp:
+    clearState: false  # preserve auth state across flows
+- runFlow:
+    when:
+      visible: "Skip setup"
+    commands:
+      - tapOn: "Skip setup"
+- runFlow:
+    when:
+      visible: "Got it"
+    commands:
+      - tapOn: "Got it"
+- runFlow:
+    when:
+      visible: "Skip"
+      notVisible: "Skip setup"
+    commands:
+      - tapOn: "Skip"
+- assertVisible:
+    text: "Cellar Door|Cellar|Welcome|Sign In"
+    enabled: true

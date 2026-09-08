@@ -1,0 +1,23 @@
+# Cellar Edit Layout mode.
+#
+# Verifies:
+#   - "Edit Layout" button toggles edit mode
+#   - Edit-mode UI surfaces a save/done action
+#   - Exiting edit mode returns to the normal cellar view
+#
+# Does NOT actually drag-drop bottles (Maestro can do drag, but the
+# WebView grid coords vary by screen size — left for a follow-up).
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Cellar"
+- extendedWaitUntil:
+    visible: "Cellar Door"
+    timeout: 8000
+- tapOn: "Edit Layout"
+- extendedWaitUntil:
+    visible: "Done|Save|Exit edit"
+    timeout: 6000
+- tapOn:
+    text: "Done|Save|Exit edit"
+- assertVisible: "Edit Layout"

@@ -1,0 +1,32 @@
+# Add wine via Receipt / Wine List import path — UI loads.
+#
+# Verifies:
+#   - Camera overlay opens with a "Wine List" / "Invoice" tab
+#   - Tab is tappable
+#
+# Does NOT actually import or analyze an invoice photo.
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Cellar"
+- extendedWaitUntil:
+    visible: "Cellar Door"
+    timeout: 8000
+- tapOn:
+    text: "Add wine|Add wine — opens camera"
+- extendedWaitUntil:
+    visible: "Wine List|Invoice|Label"
+    timeout: 15000
+    optional: true
+# Wine List is the 4th tab from the left (~85% x)
+- tapOn:
+    text: "Wine List|Invoice"
+    optional: true
+- tapOn:
+    point: "85%,95%"
+    optional: true
+- pressKey: Back
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Cellar"
+    timeout: 5000

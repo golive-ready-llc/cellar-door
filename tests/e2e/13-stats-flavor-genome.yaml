@@ -1,0 +1,21 @@
+# Stats Flavor Genome / Taste Profile view.
+#
+# Verifies:
+#   - Stats tab loads
+#   - The Taste / Flavor section is reachable
+#   - Tab switches don't crash
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Stats"
+- extendedWaitUntil:
+    visible: "Stats"
+    timeout: 8000
+# Scroll down to the flavor / taste section
+- scrollUntilVisible:
+    element:
+      text: "Taste|Flavor|Genome|Palate"
+    direction: DOWN
+    timeout: 15000
+    optional: true
+- assertVisible: "PAST PEAK|DRINK NOW|Stats"

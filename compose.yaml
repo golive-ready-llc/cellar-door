@@ -1,0 +1,80 @@
+# =========================================================================
+# Cellar Door — self-hosted stack
+#
+#   cp .env.docker.example .env
+#   docker compose up -d
+#   open http://localhost:3000
+#
+# Brings up the app plus its own Postgres. No Vercel, no Neon, no managed
+# services. Data lives in the `pgdata` volume.
+# =========================================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cellardoor}
+      POSTGRES_USER: ${POSTGRES_USER:-cellardoor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Not published by default — only the app needs to reach it. Uncomment
+    # to connect with a local client (psql, TablePlus, Prisma Studio).
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cellardoor} -d ${POSTGRES_DB:-cellardoor}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      # NEXT_PUBLIC_* values are compiled into the browser bundle, so they
+      # must be present at BUILD time — env vars alone are not enough.
+      # Changing any of these requires `docker compose build`.
+      args:
+        # Keep in sync with the prisma version in package-lock.json.
+        PRISMA_VERSION: ${PRISMA_VERSION:-7.5.0}
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID:-}
+        NEXT_PUBLIC_DEFAULT_TIER: ${NEXT_PUBLIC_DEFAULT_TIER:-PREMIUM}
+        NEXT_PUBLIC_SINGLE_USER_MODE: ${NEXT_PUBLIC_SINGLE_USER_MODE:-}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_USE_MOCK: ${NEXT_PUBLIC_USE_MOCK:-}
+        NEXT_PUBLIC_ADMIN_EMAIL: ${NEXT_PUBLIC_ADMIN_EMAIL:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cellardoor}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-cellardoor}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      # Read server-side too, to resolve the implicit owner.
+      NEXT_PUBLIC_SINGLE_USER_MODE: ${NEXT_PUBLIC_SINGLE_USER_MODE:-}
+
+      # Auth (Firebase). See SELF-HOSTING.md — currently required for
+      # multi-user sign-in.
+      FIREBASE_ADMIN_CLIENT_EMAIL: ${FIREBASE_ADMIN_CLIENT_EMAIL:-}
+      FIREBASE_ADMIN_PRIVATE_KEY: ${FIREBASE_ADMIN_PRIVATE_KEY:-}
+      FIREBASE_SERVICE_ACCOUNT_KEY: ${FIREBASE_SERVICE_ACCOUNT_KEY:-}
+
+      # AI — bring your own key. Optional; without it the AI surfaces are off.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+
+      # Optional extras
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      SITE_PASSWORD: ${SITE_PASSWORD:-}
+      HA_ALLOW_HTTP: ${HA_ALLOW_HTTP:-}
+
+volumes:
+  pgdata:

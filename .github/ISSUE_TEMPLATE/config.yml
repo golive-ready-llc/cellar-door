@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/golive-ready-llc/cellar-door/security/policy
+    about: Do not open a public issue. Report privately per SECURITY.md (support@email242.com).
+  - name: Hosted service support (billing, account, my cellar)
+    url: mailto:support@email242.com
+    about: Questions about the hosted service at mycellardoor.app aren't code bugs — email us.
+  - name: Self-hosting help
+    url: https://github.com/golive-ready-llc/cellar-door/blob/master/SELF-HOSTING.md
+    about: Setup issues are best-effort. Read the guide first; most problems are credential or schema config.

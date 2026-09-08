@@ -1,0 +1,37 @@
+# Email/password sign-in path. Works without a Google account on the
+# emulator, so it's the preferred CI-friendly auth flow.
+#
+# Reads creds from MAESTRO_TEST_EMAIL / MAESTRO_TEST_PASSWORD env vars
+# (declared in tests/e2e/config.yaml). Set them in your shell before
+# running:
+#   export MAESTRO_TEST_EMAIL=qa@cellardoor.test
+#   export MAESTRO_TEST_PASSWORD=<your-test-pw>
+#
+# The test account must already be email-verified in Firebase. To
+# bootstrap once: sign up via the web app, click the verification link
+# in the email, then use those credentials here.
+appId: com.cellardoor.app
+env:
+  TEST_EMAIL: ${MAESTRO_TEST_EMAIL}
+  TEST_PASSWORD: ${MAESTRO_TEST_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Cellar Door"
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 10000
+- tapOn:
+    text: "you@example.com"
+- inputText: ${TEST_EMAIL}
+- tapOn:
+    below: "Password"
+    index: 0
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Cellar"
+    timeout: 30000
+- assertNotVisible: "Welcome back"

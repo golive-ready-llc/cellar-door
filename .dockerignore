@@ -1,0 +1,41 @@
+# Keep the build context small and secret-free.
+
+# Dependencies + build output (rebuilt inside the image)
+node_modules
+.next
+out
+dist
+
+# Native mobile projects — hundreds of MB, irrelevant to the server image
+android
+ios
+
+# Secrets — never let these into an image layer
+.env
+.env.*
+!.env.example
+
+# VCS / tooling
+.git
+.gitignore
+.github
+.vscode
+.idea
+.claude
+.mimosa
+private
+
+# Tests and local artifacts
+tests/e2e
+coverage
+*.log
+npm-debug.log*
+
+# Docs (not needed at runtime)
+docs
+*.md
+!README.md
+
+# OS noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,28 @@
+# Settings → Delete Account modal renders.
+#
+# Verifies:
+#   - "Delete Account" / "Danger Zone" button is reachable
+#   - Tapping it opens a confirmation modal
+#   - Modal Cancel returns without deleting
+#
+# CRITICAL: This flow MUST NOT confirm the deletion. Cancel only.
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Settings"
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      text: "Delete Account|Danger Zone|Delete account"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Delete Account|Delete account"
+- extendedWaitUntil:
+    visible: "Are you sure|This cannot be undone|permanent"
+    timeout: 6000
+# IMPORTANT: only Cancel — never Confirm.
+- tapOn:
+    text: "Cancel|No|Keep"
+- assertVisible: "Settings"

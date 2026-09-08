@@ -1,0 +1,45 @@
+# Settings → Notifications card behaviour.
+#
+# Covers the local-notifications feature:
+#   - Card is visible on native (Capacitor)
+#   - Default state is ON
+#   - Toggling off persists (localStorage cd:notifications:enabled=false)
+#   - Toggling back on triggers the OS permission dialog (first-time)
+#
+# This flow does NOT verify that notifications actually fire on
+# schedule — that needs a different harness with a clock-skip.
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Profile|Appearance"
+    timeout: 8000
+# Notifications card is below Subscription / AI Features — scroll
+- scrollUntilVisible:
+    element:
+      text: "Notifications"
+    direction: DOWN
+    timeout: 15000
+# The visible body label may be "Drink-window reminders" OR a more
+# generic "Reminders" heading depending on tier.
+- assertVisible: "Notifications"
+# Toggle — element id may not always surface; fall back to switch
+# coordinate (~92% x, current row y). The screenshot inspection from
+# 2026-05-02_155111 showed the AI Features toggle at ~85% y, so the
+# Notifications toggle (next card) is below it. We look for a switch
+# element under the Notifications heading.
+- tapOn:
+    id: "notifications-toggle"
+    optional: true
+# OS permission dialog may appear on first turn-on
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+- runFlow:
+    when:
+      visible: "While using the app"
+    commands:
+      - tapOn: "While using the app"

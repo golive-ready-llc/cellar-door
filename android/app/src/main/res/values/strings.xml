@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cellar Door</string>
+    <string name="title_activity_main">Cellar Door</string>
+    <string name="package_name">com.cellardoor.app</string>
+    <string name="custom_url_scheme">com.cellardoor.app</string>
+</resources>

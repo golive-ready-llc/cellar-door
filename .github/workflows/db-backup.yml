@@ -1,0 +1,190 @@
+name: Database Backup → Azure Blob
+
+# Daily off-Neon backup of the production Postgres DB to Azure Blob
+# Storage. Belt-and-suspenders alongside Neon's built-in PITR (which only
+# covers a 6-hour window on the current plan).
+#
+# Runs on the containerstore self-hosted runner (the org's Actions spending
+# limit blocks GitHub-hosted runners). Requirements are deliberately
+# zero-install: the pg17 client lives unprivileged at ~/pg17root on the
+# runner (apt download + dpkg -x, no sudo — the host's system pg_dump is 16
+# and hard-aborts against Neon's 17), and the Azure upload uses Python
+# stdlib only — no az CLI on the host. The Shared-Key signing was verified
+# live against the account (PUT 201 + HEAD size match) on 2026-08-25.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      label:
+        description: "Optional label appended to the backup filename (e.g. 'pre-migration')"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false # never cancel an in-flight backup
+
+env:
+  PG17_HOME: /home/newadmin/pg17root
+
+jobs:
+  backup:
+    runs-on: [self-hosted, linux, containerstore]
+    timeout-minutes: 30
+    steps:
+      - name: Locate PostgreSQL 17 client
+        run: |
+          set -euo pipefail
+          export LD_LIBRARY_PATH="$PG17_HOME/usr/lib/x86_64-linux-gnu"
+          PG_DUMP_BIN="$PG17_HOME/usr/lib/postgresql/17/bin/pg_dump"
+          if [ ! -x "$PG_DUMP_BIN" ]; then
+            echo "::error::pg17 client missing at $PG17_HOME — see private/db-backups.md (unprivileged apt download + dpkg -x)"
+            exit 1
+          fi
+          "$PG_DUMP_BIN" --version
+          echo "PG_DUMP=$PG_DUMP_BIN" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+
+      - name: Compute backup filename
+        id: name
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+          LABEL="${{ inputs.label }}"
+          if [ -n "$LABEL" ]; then
+            FILE="cellar-door-${DATE}-${LABEL}.dump"
+          else
+            FILE="cellar-door-${DATE}.dump"
+          fi
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Dump database (pg_dump custom format)
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::NEON_DATABASE_URL secret is not set"
+            exit 1
+          fi
+          # --format=custom = binary, already-compressed, supports parallel
+          # restore via pg_restore -j. --no-owner / --no-acl strips
+          # ownership + grants so the dump can be restored into any role
+          # (e.g. a recovery branch with a different db user).
+          "$PG_DUMP" \
+            --format=custom \
+            --no-owner \
+            --no-acl \
+            --verbose \
+            --file="${{ steps.name.outputs.file }}" \
+            "$DATABASE_URL" 2>&1 | tail -20
+          ls -lh "${{ steps.name.outputs.file }}"
+          # Sanity: dumps under 1KB almost certainly mean a silent failure.
+          SIZE=$(stat -c%s "${{ steps.name.outputs.file }}")
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "::error::Backup file is suspiciously small ($SIZE bytes) — aborting"
+            exit 1
+          fi
+
+      - name: Upload + verify on Azure Blob Storage (stdlib REST, no az CLI)
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
+          FILE: ${{ steps.name.outputs.file }}
+        run: |
+          set -euo pipefail
+          # Layout in the container:
+          #   daily/cellar-door-2026-04-30T03-00-00Z.dump   ← timestamped
+          #   latest/latest.dump                            ← always overwritten
+          # The "latest" copy makes "restore from yesterday" a one-liner.
+          cat > upload.py <<'PY'
+          import base64, hashlib, hmac, os, sys
+          from datetime import datetime, timezone
+          from urllib.request import Request, urlopen
+
+          # Azure Shared-Key string-to-sign: VERB + 11 standard header slots
+          # (only Content-Length and Content-Type ever set for us) + sorted
+          # x-ms-* canonical headers + /account/container/blob.
+          # Two traps learned live (2026-08-25): x-ms-date is REQUIRED, and
+          # urllib injects a default Content-Type when one isn't set — pin it
+          # in BOTH the request and the signature or Azure 403s.
+          STD_SLOTS = ["Content-Encoding", "Content-Language", "Content-Length",
+                       "Content-MD5", "Content-Type", "Date",
+                       "If-Modified-Since", "If-Match", "If-None-Match",
+                       "If-Unmodified-Since", "Range"]
+
+          def ms_date():
+              return datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+          def sign(verb, acct, key, canon_r, ms, content_length=None, content_type=None):
+              values = []
+              for k in STD_SLOTS:
+                  if k == "Content-Length" and content_length is not None:
+                      values.append(str(content_length))
+                  elif k == "Content-Type" and content_type is not None:
+                      values.append(content_type)
+                  else:
+                      values.append("")
+              sts = "\n".join([verb] + values) + "\n" + \
+                    "".join(f"{k}:{ms[k]}\n" for k in sorted(ms)) + canon_r
+              mac = hmac.new(base64.b64decode(key), sts.encode(), hashlib.sha256)
+              return f"SharedKey {acct}:{base64.b64encode(mac.digest()).decode()}"
+
+          def put_blob(acct, key, container, blob, path):
+              url = f"https://{acct}.blob.core.windows.net/{container}/{blob}"
+              data = open(path, "rb").read()
+              ms = {"x-ms-blob-type": "BlockBlob", "x-ms-version": "2021-08-06",
+                    "x-ms-date": ms_date()}
+              ct = "application/octet-stream"
+              auth = sign("PUT", acct, key, f"/{acct}/{container}/{blob}", ms,
+                          len(data), ct)
+              req = Request(url, data=data, method="PUT",
+                            headers={**ms, "Authorization": auth,
+                                     "Content-Length": str(len(data)),
+                                     "Content-Type": ct})
+              with urlopen(req) as r:
+                  print(f"PUT {blob} -> {r.status}")
+
+          def head_size(acct, key, container, blob):
+              url = f"https://{acct}.blob.core.windows.net/{container}/{blob}"
+              ms = {"x-ms-version": "2021-08-06", "x-ms-date": ms_date()}
+              auth = sign("HEAD", acct, key, f"/{acct}/{container}/{blob}", ms)
+              req = Request(url, method="HEAD", headers={**ms, "Authorization": auth})
+              with urlopen(req) as r:
+                  return int(r.headers["Content-Length"])
+
+          cs = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+          d = dict(p.split("=", 1) for p in cs.split(";") if "=" in p)
+          acct, key = d["AccountName"], d["AccountKey"]
+          container, file = os.environ["CONTAINER"], sys.argv[1]
+
+          put_blob(acct, key, container, f"daily/{file}", file)
+          put_blob(acct, key, container, "latest/latest.dump", file)
+
+          # Verify both blobs landed with the exact local byte size —
+          # caught one case (2026-04) where a CLI exited 0 despite a partial put.
+          local = os.path.getsize(file)
+          for blob in (f"daily/{file}", "latest/latest.dump"):
+              remote = head_size(acct, key, container, blob)
+              print(f"{blob}: local={local} remote={remote}")
+              if remote != local:
+                  print(f"::error::Size mismatch on {blob} — not fully uploaded")
+                  sys.exit(1)
+          print("verified OK")
+          PY
+          python3 upload.py "$FILE"
+
+      - name: Summary
+        run: |
+          echo "### Backup complete ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**File**: \`${{ steps.name.outputs.file }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: ${{ steps.name.outputs.date }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Container**: \`${{ secrets.AZURE_STORAGE_CONTAINER }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Path**: \`daily/${{ steps.name.outputs.file }}\` + \`latest/latest.dump\`" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,55 @@
+Cellar Door
+Copyright (c) 2026 Golive Ready, LLC
+
+This product is licensed under the Functional Source License, Version 1.1,
+with an Apache 2.0 future license (FSL-1.1-ALv2). See the LICENSE file for the
+full license text.
+
+The FSL is "source available," not an OSI-approved open-source license. You may
+read, run, modify, self-host, and redistribute the code for any Permitted
+Purpose — essentially anything except a Competing Use (offering it to others as
+a commercial product or service that substitutes for Cellar Door). Each version
+automatically converts to the Apache License 2.0 two years after its release.
+
+--------------------------------------------------------------------------
+TRADEMARKS — NOT COVERED BY THE LICENSE
+--------------------------------------------------------------------------
+
+The FSL grants rights to the SOURCE CODE. It does NOT grant any right to use
+the following, which remain the property of Golive Ready, LLC:
+
+  * The name "Cellar Door"
+  * The Cellar Door logo, wordmark, icons, and app-store assets
+    (including the contents of public/logo.png and related brand imagery)
+  * The domain mycellardoor.app and any confusingly similar name
+  * The Cellar Door listings on the Apple App Store and Google Play
+
+You may run, modify, and redistribute this software under the FSL. If you do,
+you must call your version something else and use your own branding. This
+protects users from confusing an unofficial build with the hosted service, and
+is a standard practice for source-available projects with a commercial offering.
+
+If you would like to use the Cellar Door name or marks, ask first:
+support@email242.com
+
+--------------------------------------------------------------------------
+HOSTED SERVICE
+--------------------------------------------------------------------------
+
+The official hosted service at https://mycellardoor.app is operated by
+Golive Ready, LLC and is not part of this FSL grant. Subscriptions to the
+hosted service pay for operating costs (AI inference, database, hosting)
+and the community rating dataset, which is not distributed with this code.
+
+--------------------------------------------------------------------------
+THIRD-PARTY COMPONENTS
+--------------------------------------------------------------------------
+
+This project depends on third-party open-source packages, each under its
+own license. See package.json and the corresponding entries in
+node_modules/*/LICENSE for details.
+
+Self-hosted deployments require your own credentials for any third-party
+services you choose to enable (database, authentication, payments, AI
+providers). Those services are governed by their own terms; see
+SELF-HOSTING.md.

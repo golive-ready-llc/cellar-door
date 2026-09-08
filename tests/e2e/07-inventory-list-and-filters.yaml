@@ -1,0 +1,25 @@
+# Inventory list view + filter behavior.
+#
+# Verifies:
+#   - Inventory bottom-tab loads the list view
+#   - Seeded wines render (we know Mark has 10 wines from seed)
+#   - Filter chips (type / country) are present and tappable
+#
+# Requires the user to be signed in.
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Inventory"
+- extendedWaitUntil:
+    visible: "Inventory|All|Filters"
+    timeout: 8000
+# At least one of our seed wines should be visible by name. We pick
+# wineries from the seed that are unique in the catalog.
+- assertVisible: "Caymus Vineyards|Cloudy Bay|Veuve Clicquot|Catena Zapata"
+# Filter chips — type chip should be tappable
+- tapOn:
+    text: "Red|Reds|red"
+    optional: true
+- tapOn:
+    text: "All"
+    optional: true

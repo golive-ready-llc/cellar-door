@@ -1,0 +1,21 @@
+# Settings → Data / Backup section.
+#
+# Verifies:
+#   - Export / Import buttons render
+#
+# Does NOT actually export (would download a file) or import (would
+# mutate data).
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Settings"
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      text: "Export|Backup|Data|Import"
+    direction: DOWN
+    timeout: 15000
+    optional: true
+- assertVisible: "Export|Backup|Import|Data"

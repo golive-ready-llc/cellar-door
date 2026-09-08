@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#722F37</color>       <!-- Wine burgundy -->
+    <color name="colorPrimaryDark">#1A1A2E</color>   <!-- Dark background -->
+    <color name="colorAccent">#7C3AED</color>         <!-- Purple accent -->
+    <color name="splashBackground">#1A1A2E</color>
+</resources>

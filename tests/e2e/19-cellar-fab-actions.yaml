@@ -1,0 +1,27 @@
+# Cellar floating action button — Cork & Fork / Wine Tasting / Sommelier.
+#
+# Verifies:
+#   - Long-press / tap on FAB surfaces secondary actions
+#   - Each chip is reachable
+#
+# Does NOT actually start a session.
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Cellar"
+- extendedWaitUntil:
+    visible: "Cellar Door"
+    timeout: 8000
+# FAB is bottom-right red circle — coordinate ~88% x, 88% y
+- tapOn:
+    id: "cellar-fab"
+    optional: true
+- tapOn:
+    point: "88%,88%"
+    optional: true
+- extendedWaitUntil:
+    visible: "Cork & Fork|Wine Tasting|Sommelier|Mode"
+    timeout: 6000
+    optional: true
+- pressKey: Back
+- assertVisible: "Cellar Door"

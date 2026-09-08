@@ -1,0 +1,46 @@
+# End-to-end add-wine via the manual entry path.
+#
+# Covers:
+#   - "Add wine" opens the camera/scan overlay
+#   - "Enter manually" link navigates to the form view
+#   - Form submission triggers onAdd → server action → wine appears
+#     in cellar
+#
+# Requires the user to be signed in. WebView text within the camera
+# overlay is sometimes invisible to Maestro's a11y bridge — we fall
+# back on coordinate taps where needed.
+appId: com.cellardoor.app
+---
+- launchApp
+- assertVisible: "Cellar Door"
+- tapOn:
+    text: "Add wine|Add wine — opens camera"
+# Wait for overlay to mount; "Enter manually" is a small label near
+# the bottom (~75% y on phone).
+- extendedWaitUntil:
+    visible: "Enter manually"
+    timeout: 15000
+- tapOn: "Enter manually"
+# The manual form has Name / Winery / Vintage fields
+- extendedWaitUntil:
+    visible: "Name"
+    timeout: 8000
+- tapOn: "Name"
+- inputText: "Maestro Test Wine"
+- tapOn: "Winery"
+- inputText: "Test Winery"
+- tapOn: "Vintage"
+- inputText: "2024"
+- hideKeyboard
+# "Add Wine" submit button at bottom of form
+- tapOn:
+    text: "Add Wine|Save|Add"
+# Should close back to /cellar
+- extendedWaitUntil:
+    visible: "Cellar Door"
+    timeout: 8000
+# The wine should appear somewhere — search via inventory list
+- tapOn: "Inventory"
+- extendedWaitUntil:
+    visible: "Maestro Test Wine"
+    timeout: 8000

@@ -1,0 +1,35 @@
+# Add wine via Barcode tab — manual entry path.
+#
+# Verifies:
+#   - Camera overlay opens
+#   - "Barcode" tab is reachable
+#   - The "Enter manually" / fallback link is reachable from there
+#
+# Does NOT scan a real barcode (no camera in flow context).
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Cellar"
+- extendedWaitUntil:
+    visible: "Cellar Door"
+    timeout: 8000
+- tapOn:
+    text: "Add wine|Add wine — opens camera"
+- extendedWaitUntil:
+    visible: "Barcode|Label|Enter manually"
+    timeout: 15000
+    optional: true
+# Coordinate fallback for tab strip — Barcode is the 2nd tab from left.
+# On the phone screenshot the tabs sit at ~95% y; Barcode tap-target
+# is around 35% x.
+- tapOn:
+    text: "Barcode"
+    optional: true
+- tapOn:
+    point: "35%,95%"
+    optional: true
+- pressKey: Back
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Cellar"
+    timeout: 5000

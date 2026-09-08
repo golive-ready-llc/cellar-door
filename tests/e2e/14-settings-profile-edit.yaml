@@ -1,0 +1,31 @@
+# Settings → Profile edit.
+#
+# Verifies:
+#   - Profile card with display name shows
+#   - Pencil-edit icon opens an editor
+#   - Cancel returns without persisting
+#
+# Does NOT actually save a new name (would mutate prod data).
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Profile"
+    timeout: 8000
+- assertVisible: "Profile"
+# Mark's display name should appear
+- assertVisible: "Mark Marq|Mark"
+# Tap the pencil edit icon next to the name
+- tapOn:
+    id: "profile-edit"
+    optional: true
+- tapOn:
+    text: "Edit"
+    optional: true
+# Cancel — find a Cancel/Back button in the editor or navigate back
+- tapOn:
+    text: "Cancel|Close"
+    optional: true
+- pressKey: Back
+- assertVisible: "Profile"

@@ -1,0 +1,579 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// USERS (synced from Firebase Auth)
+// ============================================================
+
+enum Tier {
+  FREE
+  PRO
+  PREMIUM
+}
+
+model User {
+  id               String    @id @default(cuid())
+  firebaseUid      String    @unique
+  email            String
+  displayName      String    @default("")
+  avatarUrl        String    @default("")
+  /** Hex color for the avatar fallback when photoURL is empty. User-pickable
+   * in Settings → Profile. Default is Cellar Door's burgundy brand color. */
+  avatarColor      String    @default("#722F37")
+  tier             Tier      @default(FREE)
+  stripeCustomerId String?
+  stripeSubId      String?
+  /** Extra AI credits purchased as one-off top-ups. Consumed after the
+   * monthly tier allowance is exhausted. Never resets (carry-over). */
+  extraCredits     Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  wines            Wine[]
+  walls            Wall[]
+  cabinets         Cabinet[]
+  buyList          BuyListItem[]
+  history          WineHistory[]
+  communityRatings CommunityRating[]
+  apiKeys          ApiKey[]
+  aiUsage          AiUsage[]
+  feedback         Feedback[]
+  guestSessions    GuestSession[]
+  valueSnapshots   ValueSnapshot[]
+  tasteProfileCache TasteProfileCache?
+}
+
+// ============================================================
+// TASTE PROFILE CACHE (Flavor Genome — single AI pass, cached server-side)
+// ============================================================
+
+model TasteProfileCache {
+  userId                String   @id
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /** TasteProfileResult for the whole collection. */
+  all                   Json
+  /** TasteProfileResult for reds only. Null when fewer than 3 reds. */
+  red                   Json?
+  /** TasteProfileResult for whites only. Null when fewer than 3 whites. */
+  white                 Json?
+  /** SHA-256 fingerprint of the wines/history that produced these profiles.
+   *  Recomputed on each call — match means we serve from cache. */
+  collectionFingerprint String
+  computedAt            DateTime @default(now())
+}
+
+// ============================================================
+// API KEYS (for Cellar Pro REST API access)
+// ============================================================
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String   @default("Default")
+  keyHash   String   @unique // SHA-256 hash of the actual key
+  prefix    String   // First 8 chars of key for display (e.g. "cd_abc123")
+  lastUsed  DateTime?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([keyHash])
+}
+
+// ============================================================
+// WALLS (physical walls in the cellar — parent of cabinets)
+// ============================================================
+
+model Wall {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String   @default("Wall 1")
+  location  String   @default("Home") // Storage location grouping (e.g. "Home", "Office", "Storage Unit")
+  sortOrder Int      @default(0)
+  haConfig  Json?    // Home Assistant sensor config: {haUrl, encryptedToken, tempEntityId, humidityEntityId}
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cabinets Cabinet[]
+
+  @@index([userId])
+}
+
+// ============================================================
+// CABINETS (wine storage locations / sections)
+// ============================================================
+
+model Cabinet {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallId      String
+  wall        Wall     @relation(fields: [wallId], references: [id], onDelete: Cascade)
+  name        String   @default("New Section")
+  rows        Int      @default(8)
+  cols        Int      @default(8)
+  depth       Int      @default(1)
+  storageRows Json     @default("[]") // [{row, name, type, capacity, boxes?}]
+  rowSizes    Json     @default("[]") // [{row, maxSize}] — rows absent accept "standard" and below
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  wines Wine[]
+
+  @@index([userId])
+  @@index([wallId])
+}
+
+// ============================================================
+// WINES (core inventory entity)
+// ============================================================
+
+model Wine {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cabinetId    String?
+  cabinet      Cabinet? @relation(fields: [cabinetId], references: [id], onDelete: SetNull)
+
+  // Identity
+  barcode      String  @default("")
+  name         String
+  winery       String  @default("")
+  region       String  @default("")
+  country      String  @default("")
+  vintage      Int?
+  type         String  @default("red") // Color: red, white, rosé, orange, green (kept as "sparkling"/"dessert"/"fortified" for legacy data)
+  sparkling    Boolean @default(false) // Orthogonal to color — a rosé Champagne is type="rosé" + sparkling=true
+  grapeVariety String  @default("")
+
+  // Bottle format — "half" | "standard" | "magnum" | "large". Drives the
+  // Sort Assistant's fit checks against Cabinet.rowSizes.
+  bottleSize   String  @default("standard")
+
+  // Ratings & pricing
+  userRating   Float?  // User's personal 0-5 rating
+  price        Float?  // Purchase price
+  retailPrice  Float?  // Current market/retail value
+
+  // Details
+  imageUrl     String  @default("")
+  purchaseDate String  @default("")
+  drinkBy      String  @default("")
+  notes        String  @default("")
+  description  String  @default("")
+  foodPairings String  @default("")
+  alcohol      String  @default("")
+
+  // Location in cabinet
+  row          Int?
+  col          Int?
+  depth        Int     @default(0) // 0 = front, 1+ = behind
+  zone         String  @default("") // storage zone ID
+
+  // Tags
+  tags         String[] @default([]) // User-defined custom tags
+
+  // AI analysis
+  tastingNotes Json?   // {aroma, taste, finish, overall}
+  disposition  String  @default("") // D=Drink, H=Hold, P=Past Peak
+  drinkWindow  String  @default("") // e.g. "2025-2030"
+  aiRatings    Json?   // {rating_ws, rating_rp, rating_jd, rating_ag}
+
+  addedAt      DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  // Set whenever bulk/single AI enrichment runs — independent of whether
+  // the AI returned useful data for every field. Prevents infinite
+  // re-enrichment loops on obscure wines where AI returns empty strings
+  // for foodPairings / ratings.
+  aiEnrichedAt DateTime?
+
+  @@index([userId])
+  @@index([cabinetId])
+  @@index([userId, type])
+  @@index([barcode])
+}
+
+// ============================================================
+// BUY LIST (wines the user wants to purchase)
+// ============================================================
+
+model BuyListItem {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  barcode          String    @default("")
+  name             String
+  winery           String    @default("")
+  region           String    @default("")
+  country          String    @default("")
+  vintage          Int?
+  type             String    @default("red")
+  sparkling        Boolean   @default(false)
+  grapeVariety     String    @default("")
+  imageUrl         String    @default("")
+  retailPrice      Float?
+  notes            String    @default("")
+  description      String    @default("")
+  foodPairings     String    @default("")
+  alcohol          String    @default("")
+  disposition      String    @default("")
+  drinkWindow      String    @default("")
+  aiRatings        Json?
+
+  // Delivery tracking
+  status           String    @default("wanted") // wanted | ordered | delivered
+  orderDate        DateTime?
+  expectedDelivery DateTime?
+  store            String    @default("") // Where ordered from
+
+  addedAt          DateTime  @default(now())
+
+  @@index([userId])
+  @@index([userId, status])
+}
+
+// ============================================================
+// WINE HISTORY (consumed / removed wines)
+// ============================================================
+
+model WineHistory {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalId    String?
+  name          String    @default("")
+  winery        String    @default("")
+  vintage       Int?
+  type          String    @default("")
+  region        String    @default("")
+  country       String    @default("")
+  grapeVariety  String    @default("")
+  rating        Float?
+  consumeRating Float?    // Rating given at time of removal (0-5, 0.1 precision)
+  consumeNotes  String    @default("") // Notes/tasting impressions at removal
+  price         Float?
+  retailPrice   Float?    // Market value at time of removal
+  imageUrl      String    @default("")
+  description   String    @default("")
+  foodPairings  String    @default("")
+  alcohol       String    @default("")
+  disposition   String    @default("") // D=Drink, H=Hold, P=Past Peak
+  drinkWindow   String    @default("") // e.g. "2025-2030"
+  aiRatings     Json?     // {rating_ws, rating_rp, rating_jd, rating_ag}
+  addedAt       DateTime?
+  removedAt     DateTime  @default(now())
+  reason        String    @default("other") // drank, gifted, sold, broken, spoiled, other
+
+  @@index([userId])
+  @@index([userId, removedAt(sort: Desc)])
+}
+
+// ============================================================
+// COMMUNITY RATINGS (crowdsourced "CD Score")
+// ============================================================
+
+// Canonical wine identity for aggregating ratings across users
+model CommunityWine {
+  id           String   @id @default(cuid())
+  name         String
+  winery       String
+  vintage      Int?
+  type         String   @default("red")
+  region       String   @default("")
+  country      String   @default("")
+  grapeVariety String   @default("")
+  imageUrl     String   @default("")
+
+  // Aggregated CD Score
+  cdScore      Float?   // Effective score: Bayesian blend of AI baseline + user ratings (0-5 scale)
+  cdRatingCount Int     @default(0) // Number of user ratings
+  cdScoreSum   Float    @default(0) // Running sum for incremental avg
+  /** Baseline score derived from AI-estimated critic ratings (WS/RP/JD/AG)
+   * at first sighting. Acts as a Bayesian prior — dominates when no real
+   * user ratings exist, fades as ratings accumulate. Null when the wine
+   * was created without aiRatings. 0-5 scale. */
+  aiBaselineScore  Float?
+  /** Synthetic-vote weight for the AI baseline. Default 5 means the prior
+   * carries the weight of 5 user votes — equal influence at 5 real ratings,
+   * minor influence past 50. */
+  aiBaselineWeight Float  @default(5)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ratings      CommunityRating[]
+
+  // Fuzzy match key: lowercase(winery + name + vintage) for dedup
+  @@unique([winery, name, vintage])
+  @@index([cdScore(sort: Desc)])
+  @@index([type])
+}
+
+// Individual user rating contribution
+model CommunityRating {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  communityWineId String
+  communityWine   CommunityWine   @relation(fields: [communityWineId], references: [id], onDelete: Cascade)
+  rating          Float         // 0-5 (half stars)
+  review          String        @default("") // Optional text review
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([userId, communityWineId]) // One rating per user per wine
+  @@index([communityWineId])
+}
+
+// ============================================================
+// BARCODE CACHE (shared across users)
+// ============================================================
+
+model BarcodeCache {
+  barcode  String   @id
+  data     Json
+  cachedAt DateTime @default(now())
+}
+
+// ============================================================
+// WINE METADATA CACHE (shared across all users)
+// ============================================================
+
+model WineMetadata {
+  id             String   @id @default(cuid())
+  winery         String
+  name           String
+  vintage        Int?
+  type           String   @default("")
+  region         String   @default("")
+  country        String   @default("")
+  grapeVariety   String   @default("")
+  alcohol        String   @default("")
+  description    String   @default("")
+  foodPairings   String   @default("")
+  estimatedPrice Float?
+  disposition    String   @default("")
+  drinkBy        String   @default("")
+  drinkWindow    String   @default("")
+  aiRatings      Json?
+  imageUrl       String   @default("")
+  hitCount       Int      @default(1)
+  cachedAt       DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([winery, name, vintage])
+  @@index([name])
+  @@index([winery])
+}
+
+// ============================================================
+// AI USAGE TRACKING (credit-based rate limiting)
+// ============================================================
+
+// Monthly credit counter per user — fast lookup for gating
+model AiUsage {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  yearMonth   String   // "2026-03" format
+  creditsUsed Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, yearMonth])
+  @@index([userId])
+}
+
+// Per-operation audit log for debugging and analytics
+model AiUsageLog {
+  id        String   @id @default(cuid())
+  userId    String
+  operation String   // "enrich_text", "find_image", "label_scan", "chat", etc.
+  credits   Int
+  yearMonth String
+  createdAt DateTime @default(now())
+
+  @@index([userId, yearMonth])
+}
+
+// ============================================================
+// USER FEEDBACK (support requests visible in admin panel)
+// ============================================================
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String   // "bug_report", "feature_request", "question", "general", "account", "billing"
+  message   String
+  tier      String   @default("FREE") // snapshot of user's tier at time of submission
+  status    String   @default("new")  // "new", "in_progress", "resolved", "closed"
+  adminNote String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([userId])
+}
+
+// ============================================================
+// PROCESSED STRIPE EVENTS (webhook idempotency)
+// ============================================================
+
+model ProcessedStripeEvent {
+  id          String   @id // Stripe event.id
+  type        String
+  processedAt DateTime @default(now())
+}
+
+// ============================================================
+// AUDIT LOG (sensitive action tracking)
+// ============================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // e.g. "wine.delete", "user.delete", "apikey.create", "apikey.rotate", "wine.consume", "admin.feedback_update"
+  target    String?  // e.g. wine ID, API key prefix
+  metadata  Json?    // Additional context (wine name, reason, etc.)
+  ip        String?  // Request IP if available
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ============================================================
+// CHALLENGES (weekly AI-generated gamification)
+// ============================================================
+
+model Challenge {
+  id          String    @id @default(cuid())
+  userId      String
+  title       String
+  description String
+  type        String    // "taste", "explore", "share", "learn"
+  criteria    Json      // { action: "consume", filter: { country: "France" } }
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([userId, completed])
+}
+
+model Badge {
+  id       String   @id @default(cuid())
+  userId   String
+  name     String   // "Globe Trotter", "Sommelier Streak", etc.
+  icon     String   // emoji or icon name
+  earnedAt DateTime @default(now())
+
+  // Each badge is earned at most once per user. DB-level uniqueness makes the
+  // award atomic (create throws P2002 on a concurrent dup) — the old
+  // findFirst-then-create pattern could award the same badge twice under
+  // concurrent challenge completions.
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// ============================================================
+// GUEST SESSIONS (Sommelier Mode — QR code dinner party voting)
+// ============================================================
+
+model GuestSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String   @unique
+  name      String   // "Saturday Dinner Party"
+  expiresAt DateTime
+  votes     Json     @default("{}") // { wineId: voteCount }
+  createdAt DateTime @default(now())
+
+  @@index([code])
+  @@index([userId])
+}
+
+// ============================================================
+// VALUE SNAPSHOTS (monthly cellar value tracking)
+// ============================================================
+
+// ============================================================
+// AI PROVIDER CONFIG (global admin setting — single row, singleton id="default")
+// Separate configs for text and vision, each with failover.
+// ============================================================
+
+model AIConfig {
+  id          String   @id @default("default")
+
+  // ── Text provider (primary) ──────────────────────────────
+  textProvider     String   @default("gemini") // "gemini" | "deepseek" | "mock"
+  textApiKey       String?
+  textModel        String   @default("")       // e.g. "deepseek-chat" / "gemini-2.5-flash"
+  textBaseUrl      String   @default("")       // Custom base URL (e.g. "https://api.deepseek.com")
+
+  // ── Text failover ─────────────────────────────────────────
+  textFailoverProvider String  @default("")
+  textFailoverApiKey   String?
+  textFailoverModel    String  @default("")
+  textFailoverBaseUrl  String  @default("")
+
+  // ── Vision provider (primary — images) ────────────────────
+  visionProvider     String   @default("gemini")
+  visionApiKey       String?
+  visionModel        String   @default("")
+  visionBaseUrl      String   @default("")
+
+  // ── Vision failover ───────────────────────────────────────
+  visionFailoverProvider String  @default("")
+  visionFailoverApiKey   String?
+  visionFailoverModel    String  @default("")
+  visionFailoverBaseUrl  String  @default("")
+
+  enabled     Boolean  @default(true)
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+}
+
+// B2B demo-request leads captured from the /restaurants landing page.
+// Not user-scoped — leads arrive before an account exists.
+model BusinessLead {
+  id         String   @id @default(cuid())
+  name       String
+  email      String
+  venueName  String
+  venueType  String   // "restaurant" | "wine_bar" | "wine_shop" | "other"
+  cellarSize String   @default("") // bottle-count range picked in the form
+  message    String   @default("")
+  status     String   @default("new") // "new" | "contacted" | "demo" | "won" | "lost"
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model ValueSnapshot {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  yearMonth   String   // "2026-03"
+  totalCost   Float    @default(0)
+  totalMarket Float    @default(0)
+  wineCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, yearMonth])
+  @@index([userId])
+}

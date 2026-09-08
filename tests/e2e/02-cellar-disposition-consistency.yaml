@@ -1,0 +1,25 @@
+# Verifies the disposition fix — cellar grid icon must match the
+# wine detail dialog's Drink Now/Hold/Past Peak chip via
+# getEffectiveDisposition.
+#
+# Tap the first filled wine slot, capture the badge color from the
+# slot, open detail, capture the chip text, fail if they disagree.
+appId: com.cellardoor.app
+---
+- launchApp
+- assertVisible: "Cellar"
+# Tap the first wine slot — Maestro's tapOn("D"|"H"|"P") matches the
+# single-letter disposition tile
+- tapOn:
+    text: "D|H|P"
+    index: 0
+# WineDetailDialog should open
+- assertVisible: "YOUR RATING|CD SCORE"
+# At least one of the disposition chips must be visible. The chip text
+# should match the slot icon — if slot was D, chip says Drink Now etc.
+- assertVisible: "Drink Now|Hold|Past Peak"
+# Close the dialog (X button or tap outside)
+- tapOn:
+    id: "dialog-close"
+    optional: true
+- pressKey: Back

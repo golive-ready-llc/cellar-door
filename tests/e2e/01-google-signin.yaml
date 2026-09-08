@@ -1,0 +1,59 @@
+# Verifies the Google Sign-In retry/pre-warm fix from the audit.
+#
+# Repro of the OG bug: first tap on Continue with Google would fail
+# silently on a cold APK install. Fix: prewarmNativeAuth() in
+# auth-provider.tsx fires on mount, plus signInWithGoogle() does one
+# bounded retry on transient errors.
+#
+# This flow:
+#   1. Clears app state (cold install simulation)
+#   2. Lands on /welcome (Get Started / Sign In CTAs)
+#   3. Taps "Sign In" → email/password screen has the Google button
+#   4. Taps "Continue with Google" exactly once
+#   5. Asserts we land in /cellar within 30s
+#
+# Setup: configure a Google test account on the emulator BEFORE running.
+# Settings → Accounts → Add → Google.
+appId: com.cellardoor.app
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Cellar Door"
+# Welcome screen → tap Sign In
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Continue with Google|Sign in with Google"
+    timeout: 10000
+- tapOn: "Continue with Google|Sign in with Google"
+# Google sign-in sheet — multiple shapes depending on Play Services
+# version + cached consent:
+#   - "Continue as <Name>" button
+#   - "Use your account for Cellar Door" with a single account chip + "Continue"
+#   - "Sign in to Cellar Door" with the account row + "Continue"
+#   - "Choose an account" list (multi-account)
+- extendedWaitUntil:
+    visible: "Continue as|Continue|Choose an account"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Continue as"
+    commands:
+      - tapOn: "Continue as"
+- runFlow:
+    when:
+      visible: "Choose an account"
+    commands:
+      - tapOn:
+          index: 0
+          below: "Choose an account"
+# Fall-through: tap the bare "Continue" button (single-account variants)
+- runFlow:
+    when:
+      visible: "Continue"
+      notVisible: "Continue with Google"
+    commands:
+      - tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "Cellar"
+    timeout: 30000
+- assertNotVisible: "Sign In"

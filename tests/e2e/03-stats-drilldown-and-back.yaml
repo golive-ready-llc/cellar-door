@@ -1,0 +1,40 @@
+# Verifies clickable stat cards + back-button nav fix.
+#
+# Repro of the OG bug: tapping a wine on /stats opens the detail
+# dialog, and the hardware back button popped past the dialog and
+# went to /cellar. Fix: capacitor-init.tsx intercepts back-button,
+# dispatches Escape if a Radix overlay is open.
+#
+# UI uses card titles "PAST PEAK", "DRINK NOW", "APPROACHING PEAK",
+# "SAFE TO HOLD", "UNKNOWN" — there is no "Total Bottles" card.
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Stats"
+- assertVisible: "Stats"
+# Stat cards should be tappable. Tap any of the disposition cards
+# to drill into the corresponding wines list.
+- tapOn: "DRINK NOW|Drink Now"
+# Drill-down page lists wines with that disposition; assert a wine
+# row appears below the heading.
+- extendedWaitUntil:
+    visible: "Drink Now"
+    timeout: 8000
+# Open a wine detail dialog from inside the drill-down — tap any
+# row that's below the heading.
+- tapOn:
+    index: 0
+    below: "Drink Now"
+- extendedWaitUntil:
+    visible: "YOUR RATING|CD SCORE"
+    timeout: 8000
+# Hardware back: should close the dialog ONLY (not pop the route)
+- pressKey: Back
+- assertVisible: "Drink Now"
+- assertNotVisible: "YOUR RATING"
+# Hardware back again: should pop drill-down back to /stats
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "DRINK NOW|Drink Now"
+    timeout: 5000
+- assertVisible: "PAST PEAK|Past Peak"

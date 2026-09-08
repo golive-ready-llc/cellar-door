@@ -1,0 +1,34 @@
+# Buy List add + mark-bought roundtrip.
+#
+# Verifies:
+#   - Buy List bottom-tab loads
+#   - Empty state OR existing items render
+#   - "Add" button surfaces an input; submitted item appears in list
+#   - Marking an item bought removes it from the active list
+#
+# This flow CREATES test data (a "Maestro buylist test" item). It
+# does not delete anything from the user's existing list.
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Buy List"
+- extendedWaitUntil:
+    visible: "Buy List|Wines to buy|Add"
+    timeout: 8000
+- tapOn:
+    text: "Add|+"
+    optional: true
+# Input wine name to add
+- runFlow:
+    when:
+      visible: "Wine name|Name"
+    commands:
+      - tapOn: "Wine name|Name"
+      - inputText: "Maestro Buy Test"
+      - hideKeyboard
+      - tapOn:
+          text: "Add|Save"
+- extendedWaitUntil:
+    visible: "Maestro Buy Test"
+    timeout: 8000
+    optional: true

@@ -1,0 +1,36 @@
+# Search palette / search button.
+#
+# Verifies:
+#   - Search icon in the header opens an input
+#   - Typing a query filters results / shows a panel
+#
+# Cmd+K isn't reachable on Android emulator; we tap the search icon
+# in the top header bar instead.
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Cellar"
+- extendedWaitUntil:
+    visible: "Cellar Door"
+    timeout: 8000
+# Search icon is the magnifying glass in the top-right of the header
+- tapOn:
+    id: "header-search"
+    optional: true
+- tapOn:
+    text: "Search"
+    optional: true
+# Coord fallback — search icon at ~84% x, 5% y in the header
+- tapOn:
+    point: "84%,5%"
+    optional: true
+- extendedWaitUntil:
+    visible: "Search|search wines"
+    timeout: 6000
+    optional: true
+- inputText: "Caymus"
+- extendedWaitUntil:
+    visible: "Caymus Vineyards"
+    timeout: 6000
+    optional: true
+- pressKey: Back

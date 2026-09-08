@@ -1,0 +1,25 @@
+# Wine detail dialog action buttons.
+#
+# Verifies:
+#   - Tapping a wine in the cellar opens the detail dialog
+#   - Action buttons (Edit / Decant / Terroir / Share) render
+#
+# Does NOT exercise Share (would actually post / send).
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Cellar"
+- extendedWaitUntil:
+    visible: "Cellar Door"
+    timeout: 8000
+# Tap the first filled disposition tile (D / H / P)
+- tapOn:
+    text: "D|H|P"
+    index: 0
+- extendedWaitUntil:
+    visible: "YOUR RATING|CD SCORE|Drink Now|Hold"
+    timeout: 8000
+# Action buttons appear in the dialog body — at least one should match
+- assertVisible: "Edit|Decant|Terroir|Share|Drink|Mark"
+- pressKey: Back
+- assertVisible: "Cellar Door"

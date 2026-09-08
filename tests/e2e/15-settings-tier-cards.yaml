@@ -1,0 +1,22 @@
+# Settings → Subscription / Tier cards render.
+#
+# Verifies:
+#   - Subscription section heads up
+#   - Free / Cellar+ / Cellar Pro cards display
+#
+# NEVER taps "Subscribe" / "Upgrade" — that would launch Stripe.
+appId: com.cellardoor.app
+---
+- launchApp
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Subscription"
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      text: "Subscription"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "Subscription"
+# At least one tier name should be visible
+- assertVisible: "Free|Cellar\\+|Cellar Pro"
