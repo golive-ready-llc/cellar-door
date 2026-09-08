@@ -35,6 +35,7 @@ import {
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ContactDialog } from "@/components/contact-dialog";
 import { cn } from "@/lib/utils";
 
 // ─── Tier data (duplicated from lib/tier to avoid server import issues) ───
@@ -1275,8 +1276,13 @@ export default function LandingPage() {
               Everything you wanted to know
             </h2>
             <p className="text-lg text-muted-foreground">
-              Real questions from real wine collectors. If yours isn&apos;t here,
-              email <a href="mailto:support@email242.com" className="text-primary hover:underline">support@email242.com</a>.
+              Real questions from real wine collectors. If yours isn&apos;t here,{" "}
+              <ContactDialog>
+                <button type="button" className="text-primary hover:underline">
+                  get in touch
+                </button>
+              </ContactDialog>
+              .
             </p>
           </div>
 
@@ -1299,7 +1305,7 @@ export default function LandingPage() {
                 a: "Yes. If you cancel, your account drops to the free tier — your wines stay where they are, you just lose access to AI features. If you choose to delete your account entirely, we delete all your data from our database and cancel any active Stripe subscription in the same transaction. We also keep daily encrypted backups of the database for 7 years for disaster recovery.",
               },
               {
-                q: "Can I track wines I&apos;ve already drunk?",
+                q: "Can I track wines I've already drunk?",
                 a: "Yes — the History view keeps a permanent record of every bottle you&apos;ve consumed, with optional tasting notes and a final star rating. It&apos;s separate from your active inventory but contributes to your stats (favorite regions, total spent, etc.).",
               },
               {
@@ -1311,7 +1317,7 @@ export default function LandingPage() {
                 a: "Cellar Pro lets you connect Home Assistant temp + humidity sensors via your local HA URL. Once paired, the live readings show on each cabinet card and you get historical charts in Stats. We don&apos;t sell sensors — you can get a Govee or SwitchBot for ~$30 and connect it through Home Assistant. We never store readings on our servers; they live in your HA instance.",
               },
               {
-                q: "What&apos;s the deal with Cork &amp; Fork?",
+                q: "What's the deal with Cork & Fork?",
                 a: "Tell it what you&apos;re cooking — &ldquo;mushroom risotto,&rdquo; &ldquo;BBQ ribs,&rdquo; &ldquo;Tuesday pasta&rdquo; — and AI recommends 3 wines from your actual cellar that pair well, ranked by match quality. Most of our paid users say this is their favorite feature. It only suggests bottles you own (no pushing you to buy more).",
               },
               {
@@ -1320,7 +1326,7 @@ export default function LandingPage() {
               },
               {
                 q: "Is there a mobile app or just a website?",
-                a: "Both. The web app at mycellardoor.app works on any modern browser, and we have native iOS / Android apps via Capacitor that wrap the same web experience with native camera access. Same data either way — you can scan a label on your phone and see the wine appear on your laptop instantly.",
+                a: "The web app at mycellardoor.app works in any modern browser and installs to your home screen as a PWA — full-screen, with camera access for label scanning. Native iOS / Android apps are on the way. Either way it&apos;s the same account and the same data, so you can scan a label on your phone and see the wine appear on your laptop instantly.",
               },
               {
                 q: "What about my privacy?",
@@ -1332,7 +1338,7 @@ export default function LandingPage() {
               },
               {
                 q: "I have feedback / a feature request / found a bug",
-                a: "We read every email — support@email242.com. There&apos;s also an in-app feedback button in Settings. We ship updates roughly weekly based on what users actually ask for.",
+                a: "We read every message. Use the &ldquo;get in touch&rdquo; link above, or the in-app feedback button in Settings once you&apos;re signed in. We ship updates roughly weekly based on what users actually ask for.",
               },
             ].map((item, i) => (
               <details
@@ -1424,7 +1430,9 @@ export default function LandingPage() {
               <Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link>
               <Link href="/restaurants" className="hover:text-foreground transition-colors">For Restaurants</Link>
               <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
-              <a href="mailto:support@email242.com" className="hover:text-foreground transition-colors">Support</a>
+              <ContactDialog>
+                <button type="button" className="hover:text-foreground transition-colors">Contact</button>
+              </ContactDialog>
             </div>
             <p className="text-xs text-muted-foreground">
               &copy; {new Date().getFullYear()} Golive Ready, LLC. All rights reserved.

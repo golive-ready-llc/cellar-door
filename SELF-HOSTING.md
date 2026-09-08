@@ -11,7 +11,7 @@ doesn't, and what it costs.
 | Stats, insurance report, CSV import/export, public API | ✅ | ✅ |
 | AI scanning, enrichment, sommelier chat | ✅ **with your own API key** | ✅ included |
 | Community ratings (CD Score) | ❌ empty — see below | ✅ |
-| iOS / Android apps | ❌ build your own | ✅ |
+| Native iOS / Android apps | ❌ build your own (Capacitor shell included) | 🔜 planned — web app (PWA) today |
 | Sign-in | single-user (no auth) **or** your own Firebase | ✅ managed |
 | Backups, updates, uptime | your problem | handled |
 
