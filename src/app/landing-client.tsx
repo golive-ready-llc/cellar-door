@@ -1118,6 +1118,34 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+
+          {/* Self-hosted — the open-source option, separate from the hosted tiers */}
+          <div className="max-w-4xl mx-auto mt-6">
+            <div className="rounded-2xl border border-primary/30 bg-card/50 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <Server className="h-5 w-5 text-primary" />
+                  <h3 className="text-xl font-bold">Self-Hosted</h3>
+                  <span className="text-2xl font-bold">Free</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                  Run the whole app on your own machine — <span className="text-foreground font-medium">open source under AGPL-3.0</span>, every feature unlocked, no license fee. <code className="text-xs bg-muted px-1.5 py-0.5 rounded">docker compose up -d</code> brings up the app with its own database, and a single-user mode skips login entirely. Bring your own AI provider key (you pay the provider directly); your data never leaves your hardware.
+                </p>
+                <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary shrink-0" /> Every feature, no cap</span>
+                  <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary shrink-0" /> Your own AI key</span>
+                  <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary shrink-0" /> Your data, your hardware</span>
+                </div>
+              </div>
+              <div className="shrink-0 sm:w-52">
+                <Button variant="outline" className="w-full gap-2" asChild>
+                  <a href="https://github.com/golive-ready-llc/cellar-door/blob/master/SELF-HOSTING.md" target="_blank" rel="noopener">
+                    <Code2 className="h-4 w-4" /> Self-hosting guide
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
