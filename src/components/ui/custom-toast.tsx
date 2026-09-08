@@ -68,13 +68,23 @@ function renderToast(item: ToastItem): HTMLDivElement {
     font-family: ui-sans-serif, system-ui, sans-serif;
   `;
 
+  // Escape any user-facing text before it enters innerHTML (XSS guard — toast
+  // messages can carry wine names, error strings, and other user-derived data).
+  const esc = (s: string) =>
+    String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
   const icon = ICON_SVG[item.type];
   const iconHTML = icon
     ? `<span style="flex-shrink:0;margin-top:2px;">${icon}</span>`
     : "";
 
   const descHTML = item.description
-    ? `<p style="margin:4px 0 0;font-size:12px;color:var(--muted-foreground);">${item.description}</p>`
+    ? `<p style="margin:4px 0 0;font-size:12px;color:var(--muted-foreground);">${esc(item.description)}</p>`
     : "";
 
   const actionHTML = item.action
@@ -82,13 +92,13 @@ function renderToast(item: ToastItem): HTMLDivElement {
         margin-top:6px;padding:4px 10px;border-radius:4px;border:1px solid var(--border);
         background:var(--background);color:var(--foreground);cursor:pointer;
         font-size:12px;font-weight:500;
-      ">${item.action.label}</button>`
+      ">${esc(item.action.label)}</button>`
     : "";
 
   el.innerHTML = `
     ${iconHTML}
     <div style="flex:1;min-width:0;">
-      <p style="margin:0;font-size:14px;font-weight:500;line-height:1.4;">${item.message}</p>
+      <p style="margin:0;font-size:14px;font-weight:500;line-height:1.4;">${esc(item.message)}</p>
       ${descHTML}
       ${actionHTML}
     </div>

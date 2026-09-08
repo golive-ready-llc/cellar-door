@@ -24,8 +24,10 @@ export async function POST(request: NextRequest) {
       source?: string;
     };
     const ua = request.headers.get("user-agent") ?? "";
+    // Strip CR/LF from single-line fields so a client can't forge extra log lines.
+    const oneLine = (s: string, n: number) => s.replace(/[\r\n]+/g, " ").slice(0, n);
     console.error(
-      `[client-error] source=${(body.source || "window").slice(0, 40)} path=${(body.path || "").slice(0, 200)} ua="${ua.slice(0, 120)}" — ${(body.message || "").slice(0, 500)}${body.stack ? `\n${body.stack.slice(0, 1500)}` : ""}`
+      `[client-error] source=${oneLine(body.source || "window", 40)} path=${oneLine(body.path || "", 200)} ua="${oneLine(ua, 120)}" — ${oneLine(body.message || "", 500)}${body.stack ? `\n${body.stack.slice(0, 1500)}` : ""}`
     );
     return NextResponse.json({ ok: true });
   } catch {

@@ -150,6 +150,53 @@ export async function validateHaUrl(url: string): Promise<URL> {
  *
  * Accepts an optional `fetch` override in `options` for testing or custom runtimes.
  */
+/**
+ * Validate that an arbitrary outbound URL (http/https) points at a PUBLIC host.
+ * General SSRF guard for fetching third-party pages/images (e.g. AI image
+ * enrichment) — resolves DNS and blocks any private/loopback/link-local/
+ * reserved IP, including the full 172.16.0.0/12 range (Docker's 172.17.x etc.)
+ * that a naive string prefix check misses. Throws on an invalid or blocked URL.
+ */
+export async function assertPublicUrl(url: string): Promise<URL> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("Invalid URL");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error(`Disallowed protocol: ${parsed.protocol}`);
+  }
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, "");
+  if (!hostname) throw new Error("Missing hostname");
+
+  if (isIPv4Literal(hostname)) {
+    if (isBlockedIPv4(hostname)) throw new Error(`Blocked IP range: ${hostname}`);
+    return parsed;
+  }
+  if (isIPv6Literal(hostname)) {
+    if (isBlockedIPv6(hostname)) throw new Error(`Blocked IPv6 range: ${hostname}`);
+    return parsed;
+  }
+
+  let addrs: { address: string; family: number }[];
+  try {
+    addrs = await lookup(hostname, { all: true });
+  } catch {
+    throw new Error(`DNS lookup failed for ${hostname}`);
+  }
+  if (!addrs.length) throw new Error(`No DNS records for ${hostname}`);
+  for (const a of addrs) {
+    if (a.family === 4 && isBlockedIPv4(a.address)) {
+      throw new Error(`Hostname ${hostname} resolves to blocked IP ${a.address}`);
+    }
+    if (a.family === 6 && isBlockedIPv6(a.address)) {
+      throw new Error(`Hostname ${hostname} resolves to blocked IPv6 ${a.address}`);
+    }
+  }
+  return parsed;
+}
+
 export async function createSafeFetch(
   url: string,
   options?: RequestInit & { fetch?: typeof globalThis.fetch }

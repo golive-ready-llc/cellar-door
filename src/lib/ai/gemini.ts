@@ -2,6 +2,7 @@
 // Uses @google/genai SDK for all AI operations
 
 import { GoogleGenAI } from "@google/genai";
+import { assertPublicUrl } from "@/lib/ssrf-guard";
 import type { AIProvider } from "./provider";
 import type {
   WineIdentification,
@@ -273,28 +274,15 @@ export class GeminiProvider implements AIProvider {
           const pageUrl = redirectRes.headers.get("location");
           if (!pageUrl) continue;
 
-          // Validate pageUrl: must be an https URL pointing to a public host
-          let parsedPageUrl: URL;
+          // SSRF guard: pageUrl must be https and resolve to a PUBLIC host.
+          // assertPublicUrl resolves DNS and blocks all private/reserved ranges
+          // (a string-prefix check missed 172.17-31/Docker and DNS rebinding).
           try {
-            parsedPageUrl = new URL(pageUrl);
+            const parsedPageUrl = await assertPublicUrl(pageUrl);
             if (parsedPageUrl.protocol !== "https:") continue;
-            // Skip common private/reserved hostnames
-            const hostname = parsedPageUrl.hostname.toLowerCase();
-            if (
-              hostname === "localhost" ||
-              hostname === "127.0.0.1" ||
-              hostname === "0.0.0.0" ||
-              hostname.startsWith("10.") ||
-              hostname.startsWith("192.168.") ||
-              hostname.startsWith("169.254.") ||
-              hostname.startsWith("172.16.") ||
-              hostname.endsWith(".local") ||
-              hostname.endsWith(".internal")
-            ) continue;
           } catch {
-            continue; // Invalid URL
+            continue; // invalid or private/blocked host
           }
-
 
           const pageRes = await fetch(pageUrl, {
             headers: {
@@ -302,6 +290,8 @@ export class GeminiProvider implements AIProvider {
               Accept: "text/html,*/*",
             },
             signal: AbortSignal.timeout(10000),
+            // Don't follow redirects into a private host after the public check.
+            redirect: "manual",
           });
 
           if (!pageRes.ok) continue;
@@ -335,6 +325,7 @@ export class GeminiProvider implements AIProvider {
   /** Download an image from a URL and convert to a data URL (base64) */
   private async downloadImageAsDataUrl(url: string, referer?: string): Promise<string | null> {
     try {
+      await assertPublicUrl(url); // SSRF guard: image host must be public
       const res = await fetch(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -342,6 +333,7 @@ export class GeminiProvider implements AIProvider {
           Referer: referer || "https://www.google.com/",
         },
         signal: AbortSignal.timeout(12000),
+        redirect: "manual",
       });
 
       if (!res.ok) return null;

@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createHash, timingSafeEqual } from "node:crypto";
+
+/** Constant-time compare (SHA-256 → fixed length, no early-exit length leak). */
+function constantTimeEqual(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 // Audit fix #19: simple in-memory IP rate limit to prevent brute-force of the
 // 30-day password gate. Acceptable for this low-traffic endpoint; for prod
@@ -57,7 +65,7 @@ export async function POST(request: NextRequest) {
   const password = body?.password;
   const sitePassword = process.env.SITE_PASSWORD;
 
-  if (!sitePassword || password !== sitePassword) {
+  if (!sitePassword || typeof password !== "string" || !constantTimeEqual(password, sitePassword)) {
     return NextResponse.json({ error: "Wrong password" }, { status: 401 });
   }
 
