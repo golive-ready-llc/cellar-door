@@ -16,7 +16,6 @@ import {
   Globe,
   ArrowRight,
   Check,
-  Star,
   Shield,
   Zap,
   Crown,
@@ -225,27 +224,6 @@ const FEATURES = [
       "Generate a PDF insurance report with full collection valuation, per-bottle replacement values, and optional label photos — drop it into your homeowners policy or wine collection rider. We also keep daily encrypted backups of the database for 7 years for disaster recovery, and you can export everything as JSON or CSV at any time. Import from CellarTracker, Vivino, or any spreadsheet via the CSV importer.",
     gif: "/screenshots/gif-backup.gif",
     screenshotAlt: "Insurance report generation showing collection valuation",
-  },
-];
-
-const TESTIMONIALS = [
-  {
-    name: "Marcus T.",
-    role: "Collector, 200+ bottles",
-    text: "Finally a wine app that actually looks like my cellar. The grid view is exactly what I've been looking for.",
-    rating: 5,
-  },
-  {
-    name: "Sarah K.",
-    role: "Sommelier",
-    text: "The AI enrichment is surprisingly accurate. It nailed the drinking windows and food pairings for my Burgundy collection.",
-    rating: 5,
-  },
-  {
-    name: "David L.",
-    role: "Weekend enthusiast",
-    text: "I just scan the label and everything fills in. No more typing wine names on my phone.",
-    rating: 5,
   },
 ];
 
@@ -1147,42 +1125,6 @@ export default function LandingPage() {
                 </Button>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Testimonials ───────────────────────────────── */}
-      <section id="testimonials" className="py-20 sm:py-28 bg-muted/30 border-t border-border/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Loved by wine collectors
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              See what our community is saying about Cellar Door.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {TESTIMONIALS.map((t) => (
-              <div
-                key={t.name}
-                className="rounded-2xl border border-border/50 bg-card p-6"
-              >
-                <div className="flex gap-0.5 mb-4">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                  ))}
-                </div>
-                <p className="text-sm leading-relaxed mb-4 text-muted-foreground">
-                  &ldquo;{t.text}&rdquo;
-                </p>
-                <div>
-                  <p className="text-sm font-semibold">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.role}</p>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
