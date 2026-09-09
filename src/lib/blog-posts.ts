@@ -28,6 +28,229 @@ export interface BlogPost {
 
 export const POSTS: BlogPost[] = [
   {
+    slug: "understanding-wine-drinking-windows",
+    title: "Understanding Wine Drinking Windows: When to Actually Open It",
+    excerpt:
+      "A drinking window isn't a deadline — it's a curve. Here's how to read one, how different wines age, and how to stop losing bottles to the back of the rack.",
+    date: "2026-09-08",
+    readingMinutes: 9,
+    tags: ["Aging", "Collecting"],
+    body: `
+<p>The single most expensive mistake collectors make isn't buying the wrong wine — it's forgetting the right one until it's past its best. A &ldquo;drinking window&rdquo; is the tool for avoiding that, but most people treat it as a hard deadline when it's really a curve. Here's how to think about it clearly.</p>
+
+<h2>What a drinking window actually describes</h2>
+<p>A window like &ldquo;2027&ndash;2035&rdquo; is a critic's estimate of the years a wine will show at its best. It is not a spoilage date. A wine doesn't turn to vinegar the day after the window closes, and it isn't undrinkable the day before it opens. What changes across the window is the <strong>balance</strong> between three things: fruit, tannin, and acidity.</p>
+<ul>
+  <li><strong>Before the window:</strong> fruit is loud, tannin is grippy and sometimes harsh, everything feels &ldquo;tight.&rdquo; The parts haven't integrated.</li>
+  <li><strong>During the window:</strong> primary fruit softens, tannins resolve, and secondary flavors (leather, tobacco, forest floor, dried fruit) emerge. This is peak drinking.</li>
+  <li><strong>After the window:</strong> fruit fades faster than structure, so the wine can taste hollow, acidic, or dominated by tertiary notes. Still drinkable, often interesting, but past its prime.</li>
+</ul>
+<p>Picture it as a hill, not a cliff. You're trying to catch the wine near the top, and the top is wide.</p>
+
+<h2>How different wines age</h2>
+<p>Aging potential comes mostly from tannin, acidity, sugar, and alcohol acting as preservatives. As a rough field guide:</p>
+<h3>Drink young (1&ndash;3 years)</h3>
+<p>Most whites, rosés, Beaujolais, inexpensive reds under about $20, and nearly everything labeled for easy drinking. These are made for fruit, and fruit is the first thing to go. Waiting doesn't improve them — it just costs you the fruit.</p>
+<h3>Medium term (3&ndash;8 years)</h3>
+<p>Structured whites (white Burgundy, Riesling, Chenin), mid-tier reds (Chianti Classico, Rioja Crianza/Reserva, Côtes du Rhône Villages, mid-range Cabernet), and vintage-dependent New World reds.</p>
+<h3>Long haul (10&ndash;30+ years)</h3>
+<p>Classified Bordeaux, Barolo and Barbaresco, top Northern Rhône Syrah, grand cru Burgundy, vintage Port, and the best sweet wines (Sauternes, Tokaji, auslese Riesling). High tannin or high acid plus concentration is the signature.</p>
+<p>Two myths worth killing: expensive does not automatically mean age-worthy, and red does not automatically age longer than white. A great Riesling will outlive most Merlot.</p>
+
+<h2>How to estimate a window when you don't have one</h2>
+<p>You won't always find a critic score. A workable heuristic: taste the wine now. If the tannins scrape and the fruit is explosive, it wants time. If it's soft, mellow, and showing non-fruit flavors, drink it. If it's balanced and delicious, it's in the window — and there is nothing wrong with drinking a wine throughout its window rather than gambling on a single perfect night.</p>
+<p>For age-worthy bottles you own multiples of, open one every year or two and take notes. Your own palate on your own storage beats any published chart, and you'll learn how your conditions treat wine over time.</p>
+
+<h2>The organizational problem</h2>
+<p>The reason bottles get lost isn't ignorance — it's logistics. A 200-bottle cellar with windows scattered from 2025 to 2040 is impossible to track in your head. This is exactly the gap software fills: a <em>ready-to-drink queue</em> that surfaces the bottles entering their window this season, so the decision becomes &ldquo;which of these three should I open&rdquo; instead of &ldquo;is anything ready?&rdquo; Cellar Door builds that queue automatically from each wine's drink window and can notify you as bottles come into range — the point being that the system remembers so you don't have to.</p>
+
+<h2>The bottom line</h2>
+<p>Treat the window as a hill with a wide top. Drink your everyday wines young and without guilt. Track the age-worthy ones so their peak years don't slip past the back of the rack. And when in doubt, open the bottle — a wine enjoyed slightly early beats a wine mourned slightly late.</p>
+    `,
+  },
+
+  {
+    slug: "how-to-value-a-wine-collection",
+    title: "How to Value a Wine Collection (for Insurance and for Yourself)",
+    excerpt:
+      "Replacement value, market value, and why they differ — plus how to document a collection so an insurer, an heir, or future-you can actually use it.",
+    date: "2026-09-05",
+    readingMinutes: 8,
+    tags: ["Collecting", "Insurance"],
+    body: `
+<p>At some point a wine collection stops being &ldquo;some bottles&rdquo; and becomes an asset worth a few thousand — or a few hundred thousand — dollars. When it does, two questions follow: what is it worth, and can you prove it? Here's how to answer both.</p>
+
+<h2>The two numbers that matter</h2>
+<h3>Replacement value</h3>
+<p>What it would cost to buy your collection again today, at retail. This is the number your homeowners or specialty insurer cares about, because it's what they'd pay out. It is usually <em>higher</em> than what you paid, especially for wines that have appreciated or gone out of production.</p>
+<h3>Market value</h3>
+<p>What you could actually sell the collection for — typically <em>lower</em> than replacement value, because auction houses and merchants take a cut (often 10&ndash;25%) and buyers expect a discount to retail. This is the number that matters if you ever plan to sell or are valuing an estate.</p>
+<p>For most collectors, replacement value is the working number. Just know the two aren't the same, and don't insure at market value or you'll be underinsured.</p>
+
+<h2>Where the numbers come from</h2>
+<p>Wine pricing is public in a way most collectibles aren't. Reliable references:</p>
+<ul>
+  <li><strong>Wine-Searcher</strong> — aggregates merchant listings worldwide; the best single source for current retail on a specific wine and vintage.</li>
+  <li><strong>Auction results</strong> (Sotheby's, Christie's, Zachys, Acker) — the truest market value for fine and rare bottles.</li>
+  <li><strong>Your own purchase records</strong> — the floor, and what you'll need for capital-gains math if you sell.</li>
+</ul>
+<p>Value is always <strong>wine plus vintage plus condition</strong>. A 2015 and a 2017 of the same label can differ several-fold. Condition — fill level, label, provenance, storage history — can swing a fine-wine price by 30% or more at auction.</p>
+
+<h2>Documenting it so it's actually usable</h2>
+<p>An insurer settling a claim (or an heir settling an estate) needs more than a shoebox of receipts. A usable inventory records, per bottle or lot:</p>
+<ul>
+  <li>Producer, wine name, vintage, bottle size, and quantity</li>
+  <li>Purchase price and date, and where you bought it (provenance)</li>
+  <li>Current estimated value and the date of that estimate</li>
+  <li>Photos of the labels — the single most useful thing for a claim</li>
+</ul>
+<p>Keep a copy <em>off-site or in the cloud</em>. An inventory that burns in the same fire as the cellar is worth nothing to an adjuster.</p>
+
+<h2>Insurance, briefly</h2>
+<p>A standard homeowners policy usually covers wine only as ordinary contents, with low sub-limits and no coverage for the failure most likely to hurt you — a cooling unit dying and cooking the cellar over a hot weekend. If your collection is worth more than a few thousand dollars, ask about a <strong>scheduled personal property rider</strong> or a specialty wine policy (from insurers that cover breakage, spoilage from mechanical failure, and transit). Rates are typically a small fraction of a percent of insured value per year. You will need a documented inventory to schedule it — which is the same inventory you should keep anyway.</p>
+
+<h2>Make it a report, not a spreadsheet</h2>
+<p>The practical trick is to keep the valuation current without it becoming a second job. This is the job Cellar Door's insurance report is built for: it takes your catalogued collection with per-bottle values and generates a dated PDF — full valuation, per-bottle replacement values, and label photos — that drops straight into a policy or a rider conversation, and you can export the whole thing as CSV or JSON whenever you want the raw data. The point is that the document exists and is current the day you need it, not the weekend you finally sit down to build one.</p>
+
+<h2>The bottom line</h2>
+<p>Insure at replacement value, know your market value separately, and keep a photographed, off-site inventory that's current to within a year. Do that and the collection is protected, transferable, and — if you ever choose — sellable, without a frantic weekend of reconstruction.</p>
+    `,
+  },
+
+  {
+    slug: "cellar-organization-systems",
+    title: "Cellar Organization Systems: Bin, Region, or Drink-By?",
+    excerpt:
+      "The best organization scheme is the one that answers your most common question fastest. Here are the three main systems, their trade-offs, and a hybrid that works.",
+    date: "2026-09-02",
+    readingMinutes: 7,
+    tags: ["Storage", "Collecting"],
+    body: `
+<p>Every collector past about fifty bottles hits the same wall: you know you own the wine, you just can't <em>find</em> it. The fix is a real organization system. There are three main ones, and choosing well is mostly about which question you ask the rack most often.</p>
+
+<h2>System 1: Bin numbers (organize by location)</h2>
+<p>Every slot or bin has a fixed number. A wine lives at &ldquo;C4&rdquo; and you record that. To retrieve it, you look up the wine, get its location, and walk to it.</p>
+<p><strong>Strength:</strong> retrieval is instant and unambiguous, and it scales to any size — this is how professional cellars and restaurants run. <strong>Weakness:</strong> it tells you nothing at a glance; the physical layout is meaningless without the index, so it only works if you keep the index current.</p>
+
+<h2>System 2: By region or type (organize by what it is)</h2>
+<p>All the Bordeaux together, all the Burgundy, a white section, a sparkling section. The rack itself becomes browsable.</p>
+<p><strong>Strength:</strong> intuitive, and great when you shop your own cellar by mood (&ldquo;something Italian tonight&rdquo;). <strong>Weakness:</strong> it breaks as the collection grows and shifts — every new case means reshuffling, and a lopsided collection leaves you with one overflowing section and empty racks elsewhere.</p>
+
+<h2>System 3: By drink-by date (organize by time)</h2>
+<p>Front of the cellar: drink now. Back: lay down for years. You physically sort by urgency.</p>
+<p><strong>Strength:</strong> it directly fights the biggest collector failure — losing wines past their peak — because the ready bottles are literally in front of you. <strong>Weakness:</strong> drink windows change as wines age and as your plans change, so you're constantly re-sorting, and it ignores type entirely.</p>
+
+<h2>The honest truth: pick the question, then the system</h2>
+<p>Ask yourself which sentence you say most:</p>
+<ul>
+  <li>&ldquo;Where is that specific bottle?&rdquo; &rarr; <strong>bin numbers.</strong></li>
+  <li>&ldquo;What do I have from X?&rdquo; &rarr; <strong>region/type.</strong></li>
+  <li>&ldquo;What should I drink before it fades?&rdquo; &rarr; <strong>drink-by.</strong></li>
+</ul>
+<p>Most people, honestly, ask all three at different times — which is exactly why a purely physical system always disappoints. You cannot physically sort one rack three ways at once.</p>
+
+<h2>The hybrid that actually works</h2>
+<p>Organize the <em>physical</em> cellar the simplest possible way — usually bin numbers, occasionally loose regional zones — and let <em>software</em> handle the other two questions. When the catalog knows each bottle's location, region, and drink window, you can ask any of the three questions and get an answer without touching a bottle: search for the exact wine and get its slot; filter by region to browse; sort by drink window to see what's urgent. The rack only has to solve retrieval; everything else is a query.</p>
+<p>This is the model Cellar Door is built around — a visual map that mirrors your actual racks and slots so &ldquo;C4&rdquo; is a place you can see, layered with the metadata that answers the region and timing questions on demand. You get the instant retrieval of bin numbers without giving up browsing or drink-by awareness.</p>
+
+<h2>Whatever you choose, be consistent</h2>
+<p>The system that fails is the one you half-follow. A bin system where a third of the bottles are &ldquo;somewhere in that pile&rdquo; is worse than no system, because you trust the index and get burned. Pick one, apply it to every bottle in and out, and it will save you far more time than it costs.</p>
+
+<h2>The bottom line</h2>
+<p>Keep the physical layout dumb and simple, and make the catalog smart. Bin numbers for retrieval, software for region and drink-by. That combination answers every question you'll actually ask the cellar — and it's the only approach that survives the collection doubling in size.</p>
+    `,
+  },
+
+  {
+    slug: "building-a-cellar-on-a-budget",
+    title: "Building a Cellar on a Budget: Value Regions Worth Collecting",
+    excerpt:
+      "You don't need Bordeaux money to build a cellar with real depth. Here are the regions and styles that age beautifully without the collector tax.",
+    date: "2026-08-28",
+    readingMinutes: 9,
+    tags: ["Buying", "Collecting"],
+    body: `
+<p>The famous names — first-growth Bordeaux, grand cru Burgundy, cult Napa Cabernet — are priced for their reputation as much as their contents. The good news for a collector on a budget: age-worthiness is a property of grape, acid, tannin, and winemaking, not of fame. Plenty of regions deliver serious cellar wines at a fraction of the marquee price. Here's where to look.</p>
+
+<h2>What makes a wine ageworthy on a budget</h2>
+<p>Before the regions, the principle: you're buying <strong>structure</strong> — firm tannin or bright acidity, real concentration, and a track record of that region's wines improving over time. You're skipping the &ldquo;brand premium&rdquo; you pay for a label everyone recognizes. Many classic European regions still price on tradition rather than hype, which is where the value hides.</p>
+
+<h2>Reds that age, without the tax</h2>
+<h3>Northern Rhône (and its neighbors)</h3>
+<p>Crozes-Hermitage and Saint-Joseph give you Syrah with the structure of their grander siblings (Hermitage, Côte-Rôtie) at a third of the price. Good vintages easily go 10&ndash;15 years.</p>
+<h3>Rioja and Ribera del Duero</h3>
+<p>Spain remains one of the great values in ageworthy red. A Rioja Reserva or Gran Reserva is often <em>released</em> with years of bottle age already on it — the winery did the cellaring for you — and still climbs for another decade.</p>
+<h3>Southern Italy and the classics</h3>
+<p>Chianti Classico Riserva, Aglianico from Campania and Basilicata (sometimes called &ldquo;the Barolo of the south&rdquo;), and Nerello Mascalese from Etna all offer high-acid, structured reds built for aging at everyday prices. Even Barolo and Barbaresco, while not cheap, are dramatically underpriced next to comparable Burgundy.</p>
+<h3>Portugal</h3>
+<p>The Douro's dry reds — made from the same grapes as Port — are one of the last genuine bargains in structured, age-worthy wine.</p>
+
+<h2>Whites that reward patience</h2>
+<h3>German and Alsatian Riesling</h3>
+<p>The most underappreciated ageworthy white in the world. High acidity is a preservative, and a good Riesling can improve for 10&ndash;20+ years while costing less than a mediocre Chardonnay. Kabinett and Spätlese offer the best value-to-longevity ratio anywhere.</p>
+<h3>Chenin Blanc from the Loire</h3>
+<p>Vouvray and Savennières age for decades on acid and wax and honey. Criminally cheap for what they become.</p>
+<h3>Hunter Valley Semillon and Chablis</h3>
+<p>Both transform with age into something far greater than their youthful selves, and neither carries a collector premium.</p>
+
+<h2>A strategy, not just a shopping list</h2>
+<p>Building depth on a budget rewards a few habits:</p>
+<ul>
+  <li><strong>Buy by the case, not the bottle,</strong> in strong vintages of wines you've tested. Depth means being able to open one every couple of years and watch it evolve.</li>
+  <li><strong>Buy on release</strong> for wines that appreciate, and buy back-vintages of regions the market ignores — aged Rioja and German Riesling are often cheaper than the current release.</li>
+  <li><strong>Track your cost basis.</strong> Part of the fun of value collecting is watching a $25 bottle become a $60 experience with ten years of patience — but only if you remember what you paid and when to drink it.</li>
+</ul>
+<p>That last point is where a catalog earns its keep: a budget cellar with real depth is dozens of multi-bottle lots at different maturities, which is impossible to hold in your head. Recording purchase price, vintage, and drink window per lot turns &ldquo;I think I have some Rioja somewhere&rdquo; into a plan.</p>
+
+<h2>The bottom line</h2>
+<p>Age-worthiness is for sale far below the famous labels. Lean into high-acid whites (Riesling, Chenin) and structured European reds (Northern Rhône, Rioja, southern Italy, the Douro), buy depth in good vintages, and let time do the expensive part. A thoughtful $30-a-bottle cellar can out-drink a careless $100 one.</p>
+    `,
+  },
+
+  {
+    slug: "wine-and-food-pairing-framework",
+    title: "Wine and Food Pairing: A Framework, Not a Rulebook",
+    excerpt:
+      "Forget memorizing which wine goes with which dish. Learn the five levers that decide whether a pairing works, and you can reason your way to any table.",
+    date: "2026-08-24",
+    readingMinutes: 8,
+    tags: ["Pairing", "Practical"],
+    body: `
+<p>&ldquo;Red with meat, white with fish&rdquo; is the pairing advice everyone knows and almost no one finds useful, because real meals don't fit it. The better approach isn't a longer list of rules — it's understanding the handful of levers that make any pairing succeed or fail. Learn those and you can reason your way to a good bottle for anything.</p>
+
+<h2>The five levers</h2>
+<h3>1. Weight (match intensity)</h3>
+<p>The most important rule and the one that covers &ldquo;red with meat&rdquo; as a special case. A delicate dish is flattened by a powerful wine, and a rich dish makes a light wine disappear. Match the <em>body</em> of the wine to the <em>richness</em> of the food: light sole with a crisp white, braised short ribs with a full-bodied red. This is why a heavy fish (grilled tuna, salmon) is happy with a light red — it's about weight, not color.</p>
+<h3>2. Acidity (the great equalizer)</h3>
+<p>High-acid wine cuts through fat and richness and refreshes the palate — the reason Champagne loves fried food and Sangiovese loves tomato sauce. As a rule the wine should be at least as acidic as the food, or it will taste flat and flabby beside it. When in doubt about a rich or oily dish, reach for acid.</p>
+<h3>3. Tannin (handle with care)</h3>
+<p>Tannin (the grippy, drying quality in bold reds) is softened by protein and fat — steak makes a tannic Cabernet taste smoother. But tannin collides violently with two things: <strong>salt</strong> and <strong>spicy heat</strong>, both of which amplify bitterness. A tannic red with a fiery curry is a genuinely bad time.</p>
+<h3>4. Sweetness (out-sweet the plate)</h3>
+<p>The wine should be at least as sweet as the food, or it turns sour and thin. A dry Riesling next to dessert tastes like lemon juice. This is also the secret to spicy food: a touch of sweetness (off-dry Riesling, Gewürztraminer) tames chili heat far better than a dry wine.</p>
+<h3>5. Flavor (complement or contrast)</h3>
+<p>Only after the structural levers above do specific flavors matter. You can echo (an earthy Pinot Noir with mushrooms) or contrast (a zesty Sauvignon Blanc against a creamy goat cheese). Both work; flavor is the finishing move, not the foundation.</p>
+
+<h2>Working the framework</h2>
+<p>Faced with a dish, run down the levers: How rich is it? How acidic, fatty, salty, spicy, sweet? Then pick a wine that matches the weight, meets or beats the acidity and sweetness, and keeps tannin away from salt and heat. That's it. A few reliable outcomes fall out immediately:</p>
+<ul>
+  <li><strong>Spicy Asian food:</strong> off-dry Riesling — sweetness tames heat, acid handles richness.</li>
+  <li><strong>Tomato-based pasta:</strong> high-acid Italian red (Chianti, Barbera) to meet the acid.</li>
+  <li><strong>Roast chicken:</strong> the little black dress — works with almost anything medium-bodied, red or white.</li>
+  <li><strong>Salty cheese or cured meat:</strong> sweetness or bubbles, not tannin.</li>
+</ul>
+
+<h2>The regional shortcut</h2>
+<p>When you're stuck, lean on &ldquo;what grows together goes together.&rdquo; A region's traditional food and wine coevolved for centuries, so Sancerre with goat cheese, Chianti with ragù, or Muscadet with oysters are near-automatic wins. It's a shortcut, not a law — but a reliable one.</p>
+
+<h2>Pairing from your own cellar</h2>
+<p>The framework gets more useful, not less, when you're choosing from bottles you already own rather than a shop's entire wall. The constraint is the point: given tonight's dish and the twelve reds in your rack, which one fits? That's a small, answerable question — and it's exactly what Cellar Door's Cork &amp; Fork feature automates, suggesting bottles from <em>your</em> collection that match what you're cooking, so the framework runs itself against the wines actually within reach.</p>
+
+<h2>The bottom line</h2>
+<p>Stop memorizing pairings and start reading dishes. Match weight, respect acidity and sweetness, keep tannin away from salt and spice, and treat specific flavors as the last step. Five levers beat a hundred rules — and they work at any table, with any bottle.</p>
+    `,
+  },
+
+  {
     slug: "how-to-store-wine-at-home",
     title: "How to Store Wine at Home: The Practical Guide",
     excerpt:
