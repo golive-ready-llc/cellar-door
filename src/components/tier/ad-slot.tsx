@@ -24,6 +24,15 @@ const AD_SIZES: Record<AdLocation, { width: string; height: string }> = {
   inline: { width: "w-full", height: "h-24" },
 };
 
+// AdSense ad-unit (slot) IDs per placement. Created in the AdSense dashboard —
+// a real <ins> unit needs both the client ID AND its slot ID to serve, so
+// until these are set each location falls back to the cookie-free house ads.
+const AD_SLOTS: Record<AdLocation, string | undefined> = {
+  banner: process.env.NEXT_PUBLIC_ADSENSE_SLOT_BANNER,
+  inline: process.env.NEXT_PUBLIC_ADSENSE_SLOT_INLINE,
+  sidebar: process.env.NEXT_PUBLIC_ADSENSE_SLOT_SIDEBAR,
+};
+
 // ─── Test ad content (shown when AdSense isn't configured) ──
 
 const TEST_ADS = {
@@ -104,10 +113,12 @@ export function AdSlot({ location, className }: AdSlotProps) {
   const [adIndex, setAdIndex] = useState(0);
 
   const clientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
-  // Real AdSense units require the ad script, which only loads once the visitor
-  // opts in to advertising cookies. Until then we fall back to the cookie-free
-  // house ads below, so free-tier users still see something.
-  const showRealAds = Boolean(clientId) && consent === "accepted";
+  const slot = AD_SLOTS[location];
+  // Real AdSense units require the client ID, this placement's slot ID, and the
+  // ad script — which only loads once the visitor opts in to advertising
+  // cookies. Missing any of those, we fall back to the cookie-free house ads
+  // below, so free-tier users still see something.
+  const showRealAds = Boolean(clientId) && Boolean(slot) && consent === "accepted";
 
   // Pick a random test ad on mount
   useEffect(() => {
@@ -233,6 +244,7 @@ export function AdSlot({ location, className }: AdSlotProps) {
         className="adsbygoogle"
         style={{ display: "block" }}
         data-ad-client={clientId}
+        data-ad-slot={slot}
         data-ad-format="auto"
         data-full-width-responsive="true"
       />
