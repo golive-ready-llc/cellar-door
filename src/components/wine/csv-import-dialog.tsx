@@ -89,6 +89,7 @@ const COLUMN_MAP: Record<string, string> = {
   "my rating": "userRating",
   score: "userRating",
   "my score": "userRating",
+  myscore: "userRating", // CellarTracker export header (no space)
   // Notes
   notes: "notes",
   "tasting notes": "tastingNotes",
@@ -119,6 +120,8 @@ const COLUMN_MAP: Record<string, string> = {
   enddrink: "endDrink",
   "begin drinking": "beginDrink",
   "end drinking": "endDrink",
+  beginconsume: "beginDrink", // CellarTracker export header (no space)
+  endconsume: "endDrink", // CellarTracker export header (no space)
   // Location
   location: "location",
   bin: "location",
@@ -329,6 +332,13 @@ export function CSVImportDialog({ onImport, trigger }: CSVImportDialogProps) {
           // Parse quantity — default to 1
           const quantity = row.quantity ? parseInt(row.quantity, 10) || 1 : 1;
 
+          // Parse vintage. CellarTracker encodes non-vintage (NV) wines as the
+          // sentinel year 1001 — treat that (and any unparseable value) as null
+          // so "1001" never shows up as a real vintage.
+          const vintageNum = row.vintage ? parseInt(row.vintage, 10) : NaN;
+          const vintage =
+            Number.isFinite(vintageNum) && vintageNum !== 1001 ? vintageNum : null;
+
           const wine: Omit<Wine, "id" | "addedAt" | "updatedAt" | "userId"> = {
             cabinetId: null,
             barcode: row.barcode || "",
@@ -336,7 +346,7 @@ export function CSVImportDialog({ onImport, trigger }: CSVImportDialogProps) {
             winery: row.winery || "",
             region,
             country: row.country || "",
-            vintage: row.vintage ? parseInt(row.vintage, 10) : null,
+            vintage,
             type: row.type ? inferType(row.type) : "red",
             sparkling: row.type ? isSparklingType(inferType(row.type)) : false,
             grapeVariety: row.grapeVariety || "",
