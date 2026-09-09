@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 /**
  * Public contact endpoint for the landing page — lets visitors reach us
@@ -119,7 +120,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Too many messages — please try again later." }, { status: 429 });
   }
 
-  let body: { name?: unknown; email?: unknown; message?: unknown; website?: unknown };
+  let body: {
+    name?: unknown;
+    email?: unknown;
+    message?: unknown;
+    website?: unknown;
+    turnstileToken?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -129,6 +136,15 @@ export async function POST(request: NextRequest) {
   // Honeypot: real users never fill this hidden field. Pretend success.
   if (typeof body.website === "string" && body.website.trim() !== "") {
     return NextResponse.json({ ok: true });
+  }
+
+  // Bot control: verify the Turnstile token (no-op until Turnstile is configured).
+  const token = typeof body.turnstileToken === "string" ? body.turnstileToken : null;
+  if (!(await verifyTurnstile(token, ip === "global" ? undefined : ip))) {
+    return NextResponse.json(
+      { ok: false, error: "Bot check failed — please try again." },
+      { status: 400 }
+    );
   }
 
   const name = String(body.name ?? "").trim().slice(0, 200);

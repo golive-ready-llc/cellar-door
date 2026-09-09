@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TurnstileWidget, turnstileEnabled } from "@/components/turnstile-widget";
 import { Loader2, CheckCircle2 } from "lucide-react";
 
 /**
@@ -27,6 +28,7 @@ export function ContactDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const [status, setStatus] = React.useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = React.useState("");
+  const [token, setToken] = React.useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,6 +43,7 @@ export function ContactDialog({ children }: { children: React.ReactNode }) {
       email: String(data.get("email") ?? ""),
       message: String(data.get("message") ?? ""),
       website: String(data.get("website") ?? ""), // honeypot
+      turnstileToken: token,
     };
 
     try {
@@ -69,6 +72,7 @@ export function ContactDialog({ children }: { children: React.ReactNode }) {
     if (next) {
       setStatus("idle");
       setError("");
+      setToken(null);
     }
   }
 
@@ -138,13 +142,19 @@ export function ContactDialog({ children }: { children: React.ReactNode }) {
                 <Textarea id="contact-message" name="message" required maxLength={4000} rows={5} />
               </div>
 
+              <TurnstileWidget onVerify={setToken} className="min-h-[65px]" />
+
               {status === "error" && (
                 <p className="text-sm text-destructive" role="alert">
                   {error}
                 </p>
               )}
 
-              <Button type="submit" className="mt-1" disabled={status === "sending"}>
+              <Button
+                type="submit"
+                className="mt-1"
+                disabled={status === "sending" || (turnstileEnabled && !token)}
+              >
                 {status === "sending" && <Loader2 className="h-4 w-4 animate-spin" />}
                 {status === "sending" ? "Sending…" : "Send message"}
               </Button>

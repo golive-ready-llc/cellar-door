@@ -12,7 +12,9 @@ import {
 } from "@/lib/firebase";
 import { updateProfile } from "firebase/auth";
 import { syncUser } from "@/server/actions/auth";
+import { verifyBotToken } from "@/server/actions/turnstile";
 import { markJustSignedIn } from "@/lib/auth-handoff";
+import { TurnstileWidget, turnstileEnabled } from "@/components/turnstile-widget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +40,7 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +48,11 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
+      if (turnstileEnabled && !(await verifyBotToken(token))) {
+        setError("Bot check failed — please try again.");
+        setLoading(false);
+        return;
+      }
       const firebaseAuth = auth();
       if (!firebaseAuth) throw new Error("Firebase not configured");
       const result = await createUserWithEmailAndPassword(
@@ -86,6 +94,11 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
+      if (turnstileEnabled && !(await verifyBotToken(token))) {
+        setError("Bot check failed — please try again.");
+        setLoading(false);
+        return;
+      }
       // signInWithGoogle uses the Firebase popup on web and the
       // native Google SDK via @capacitor-firebase/authentication on
       // Capacitor. Same UserCredential shape returned in both.
@@ -153,11 +166,13 @@ export default function SignupPage() {
           </div>
         )}
 
+        <TurnstileWidget onVerify={setToken} className="flex justify-center min-h-[65px]" />
+
         <Button
           variant="outline"
           className="w-full"
           onClick={handleGoogleSignup}
-          disabled={loading || !agreedToTerms}
+          disabled={loading || !agreedToTerms || (turnstileEnabled && !token)}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path
@@ -250,7 +265,7 @@ export default function SignupPage() {
             </label>
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading || !agreedToTerms}>
+          <Button type="submit" className="w-full" disabled={loading || !agreedToTerms || (turnstileEnabled && !token)}>
             {loading ? "Creating account..." : "Create Account"}
           </Button>
           {!agreedToTerms && (
