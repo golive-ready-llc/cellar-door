@@ -32,7 +32,7 @@ export default function TermsPage() {
       <section className="mb-12">
         <h1 className="text-2xl font-bold mb-1">Terms of Service</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          Effective date: March 10, 2026
+          Effective date: September 9, 2026
         </p>
 
         <div className="prose prose-sm dark:prose-invert space-y-4 text-sm text-foreground/90">
@@ -65,11 +65,23 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold mt-6">4. Subscription Plans</h2>
           <p>
             Cellar Door offers free and paid subscription tiers. Paid
-            subscriptions (Cellar+ and Cellar Pro) are billed monthly through
-            Stripe. Free trials, where offered, convert to paid subscriptions at
-            the end of the trial period unless cancelled. You may cancel your
-            subscription at any time through the Manage Subscription portal in
-            your Settings.
+            subscriptions (Cellar+ and Cellar Pro) are billed monthly or annually
+            through Stripe. Free trials, where offered, convert to paid
+            subscriptions at the end of the trial period unless cancelled. You may
+            cancel your subscription at any time through the Manage Subscription
+            portal in your Settings.
+          </p>
+          <p>
+            <strong>Refunds.</strong> If Cellar Door isn&apos;t for you, you may
+            request a full refund of your first payment for a plan within 14 days
+            of that purchase by emailing{" "}
+            <a href="mailto:support@mycellardoor.app" className="text-primary hover:underline">
+              support@mycellardoor.app
+            </a>
+            . After 14 days, payments are non-refundable except where required by
+            law or under the service-discontinuation terms below. Cancelling stops
+            future renewals; it does not refund the current billing period, and
+            you keep access until the end of the period you have already paid for.
           </p>
 
           <h2 className="text-lg font-semibold mt-6">5. User Content</h2>
@@ -125,7 +137,23 @@ export default function TermsPage() {
             Platform ceases immediately.
           </p>
 
-          <h2 className="text-lg font-semibold mt-6">11. Changes to Terms</h2>
+          <h2 className="text-lg font-semibold mt-6">
+            11. Service Availability &amp; Discontinuation
+          </h2>
+          <p>
+            We may modify, suspend, or discontinue the hosted service at any
+            time. If we permanently discontinue the hosted service: (a) we will
+            give reasonable advance notice by email where practicable; (b) if you
+            hold a prepaid subscription, such as an annual plan, we will refund
+            the unused, prorated portion of your prepaid term; (c) you will be
+            able to export your full collection as CSV or JSON before access
+            ends; and (d) because Cellar Door is open source under the AGPL-3.0,
+            you may keep using the software by self-hosting your own instance —
+            the code and your exported data remain yours. See SELF-HOSTING.md in
+            the project repository for how to run your own instance.
+          </p>
+
+          <h2 className="text-lg font-semibold mt-6">12. Changes to Terms</h2>
           <p>
             We may update these Terms from time to time. We will notify you of
             significant changes via email or an in-app notification. Continued
