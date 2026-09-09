@@ -154,8 +154,8 @@ export default function TermsPage() {
           </p>
           <p>
             For privacy inquiries, contact us at:{" "}
-            <a href="mailto:support@email242.com" className="text-primary hover:underline">
-              support@email242.com
+            <a href="mailto:support@mycellardoor.app" className="text-primary hover:underline">
+              support@mycellardoor.app
             </a>
           </p>
 
@@ -347,8 +347,8 @@ export default function TermsPage() {
           </ul>
           <p>
             To exercise any of these rights, contact us at{" "}
-            <a href="mailto:support@email242.com" className="text-primary hover:underline">
-              support@email242.com
+            <a href="mailto:support@mycellardoor.app" className="text-primary hover:underline">
+              support@mycellardoor.app
             </a>
             .
           </p>

@@ -5,7 +5,7 @@
 Please report security issues **privately** — do not open a public GitHub
 issue, discussion, or pull request for anything security-sensitive.
 
-Email **support@email242.com** with:
+Email **security@mycellardoor.app** with:
 
 - a description of the issue and its impact,
 - steps to reproduce (a proof-of-concept is ideal), and

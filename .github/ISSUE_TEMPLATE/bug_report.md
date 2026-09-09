@@ -8,7 +8,7 @@ assignees: ""
 
 <!--
 Security issue? Do NOT file it here — see SECURITY.md and email
-support@email242.com privately instead.
+security@mycellardoor.app privately instead.
 
 Self-hosting setup trouble (won't start, credential/schema errors) is
 best-effort — please confirm it's a code bug, not a configuration issue on
