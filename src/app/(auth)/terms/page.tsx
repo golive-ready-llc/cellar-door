@@ -167,7 +167,7 @@ export default function TermsPage() {
       <section id="privacy" className="scroll-mt-8">
         <h1 className="text-2xl font-bold mb-1">Privacy Policy</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          Effective date: June 15, 2026
+          Effective date: September 9, 2026
         </p>
 
         <div className="prose prose-sm dark:prose-invert space-y-4 text-sm text-foreground/90">
