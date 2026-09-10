@@ -28,6 +28,168 @@ export interface BlogPost {
 
 export const POSTS: BlogPost[] = [
   {
+    slug: "science-of-wine-aging",
+    title: "The Science of Wine Aging: What Actually Happens in the Bottle",
+    excerpt:
+      "Aging is chemistry, not magic — and most wine doesn't benefit from it. Here's what really changes inside a sealed bottle, and why some wines improve for decades.",
+    date: "2026-09-09",
+    readingMinutes: 9,
+    tags: ["Aging", "Reference"],
+    body: `
+<p>&ldquo;It'll be better in a few years&rdquo; is one of the most repeated — and most misapplied — phrases in wine. The truth is that the overwhelming majority of wine is made to drink now and gets <em>worse</em> with age, not better. Understanding what actually happens inside the bottle tells you which is which.</p>
+
+<h2>The reactions doing the work</h2>
+<p>A sealed bottle is a slow chemistry experiment. A few reactions matter most:</p>
+<h3>Tannin polymerization</h3>
+<p>In young reds, tannin molecules are small and reactive — that's the grippy, mouth-drying sensation. Over years they link into longer chains that eventually grow too heavy to stay dissolved and drop out as <strong>sediment</strong>. The wine tastes softer and rounder, and the color shifts as pigment binds up with them.</p>
+<h3>Slow oxidation and ester formation</h3>
+<p>A cork lets in a whisper of oxygen over years. In tiny doses this drives the development of <strong>tertiary aromas</strong> — the leather, tobacco, dried fruit, forest floor, and nutty notes that define an aged wine. Acids and alcohols also react to form esters, adding aromatic complexity. Too much oxygen, though, and the same process turns the wine flat and sherry-like. Aging is a controlled burn.</p>
+<h3>Color change</h3>
+<p>Reds move from purple to ruby to brick to garnet at the rim; whites deepen from pale straw to gold to amber. It's the visible signature of the reactions above, and a quick tell for a wine's age and condition.</p>
+
+<h2>Primary, secondary, tertiary</h2>
+<p>A useful way to hear what age does to aroma: <strong>primary</strong> aromas come from the grape (fresh fruit, floral, herbal); <strong>secondary</strong> from winemaking (the vanilla and toast of oak, the bready note of lees); <strong>tertiary</strong> from age (dried fruit, leather, mushroom, honey). Young wine is loud with primary fruit. Aged wine trades that fruit for tertiary complexity. The question every ager faces is whether that trade improves <em>this</em> wine — and for most wines, it doesn't, because there's nothing underneath the fruit worth waiting for.</p>
+
+<h2>What lets a wine age</h2>
+<p>Longevity comes from preservatives and structure: <strong>tannin</strong> (reds), <strong>acidity</strong> (whites and reds), <strong>sugar</strong> (sweet wines), <strong>alcohol</strong>, and above all <strong>concentration</strong>. A wine needs enough material to still have something to say once the fruit recedes. This is why a bold, tannic Barolo or a searingly acidic Riesling can go decades while a soft, fruity supermarket red is done in eighteen months — the Barolo and Riesling have preservatives and depth; the everyday red has neither.</p>
+
+<h2>The closure matters</h2>
+<p>The seal governs the oxygen supply. Natural cork allows a slow, minute exchange well-suited to long aging — at the cost of occasional &ldquo;corked&rdquo; bottles and random variation. Screwcaps seal far more tightly, keeping wines fresher and more consistent, which is ideal for aromatic whites meant to be drunk young but a subject of ongoing debate for wines intended to age for decades.</p>
+
+<h2>Storage is the throttle</h2>
+<p>Every one of these reactions is temperature-driven — roughly, warmer means faster. A wine kept at a steady cellar temperature ages gracefully over years; the same wine in a warm room races through its life and arrives cooked rather than mature. This is the chemical reason the storage rules exist: you're not just protecting the wine, you're setting the speed of the clock. (For the practical side, see our guide to storing wine at home.)</p>
+
+<h2>The bottom line</h2>
+<p>Aging swaps fruit for complexity through polymerization and slow oxidation, and only wines with the tannin, acid, and concentration to survive that trade actually improve. Everything else is best enjoyed young. Knowing the difference — and giving the age-worthy bottles steady, cool storage — is the whole game.</p>
+    `,
+  },
+
+  {
+    slug: "buying-wine-at-auction",
+    title: "Buying Wine at Auction: A Beginner's Guide",
+    excerpt:
+      "Auctions are where back-vintages and rarities live — but also where provenance, premiums, and fill levels can trip you up. Here's how to buy smart.",
+    date: "2026-09-07",
+    readingMinutes: 8,
+    tags: ["Buying", "Collecting"],
+    body: `
+<p>Once you want mature bottles or wines that are simply sold out everywhere, the auction market becomes hard to avoid — it's the main place aged and rare wine changes hands. It's also less intimidating than it looks, provided you understand a few things merchants never make you think about.</p>
+
+<h2>Where auctions fit</h2>
+<p>Retailers sell current releases; auctions sell what's already been cellared — back-vintages, large formats, and rarities. That's the appeal (you can buy a wine with twenty years of age already on it) and the risk (you're trusting how a stranger stored it for those twenty years).</p>
+<p>The major houses — Sotheby's, Christie's, Zachys, Acker — run live and online sales; platforms like WineBid run continuous online auctions better suited to everyday buying. Merchant &ldquo;fine and rare&rdquo; lists are a related, often simpler, alternative.</p>
+
+<h2>Provenance is everything</h2>
+<p>For aged wine, <strong>where it's been</strong> matters as much as what it is. A catalog that says &ldquo;from a single owner's temperature-controlled cellar&rdquo; or &ldquo;ex-château&rdquo; is worth a premium; a bottle with no history is a gamble. Good provenance is the difference between a mature treasure and an expensive bottle of cooked wine.</p>
+
+<h2>Reading condition: fill level and more</h2>
+<p>Auction listings describe condition in a shorthand worth learning:</p>
+<ul>
+  <li><strong>Fill level (ullage):</strong> how high the wine sits in the neck. For older bottles some drop is normal, but a low fill (&ldquo;top-shoulder&rdquo; or below on a Bordeaux) signals seepage or evaporation and higher risk.</li>
+  <li><strong>Label and capsule:</strong> stains and wear are cosmetic, but signs of <em>seepage</em> (sticky residue, a pushed cork) suggest heat exposure.</li>
+  <li><strong>Provenance notes:</strong> storage history, and whether the bottle was inspected.</li>
+</ul>
+<p>None of these guarantees what's inside, but together they let you price the risk.</p>
+
+<h2>The buyer's premium — bid accordingly</h2>
+<p>The number you bid is not the number you pay. Auction houses add a <strong>buyer's premium</strong> — commonly around 20&ndash;25% — on top of the hammer price, then sales tax and shipping. Always work backward from your true all-in ceiling. A &ldquo;great deal&rdquo; at hammer can be ordinary once the premium lands, so check the wine's current retail on Wine-Searcher first and treat that as your reference.</p>
+
+<h2>How to actually bid</h2>
+<p>Register in advance (the house may vet new bidders). Then you can bid live in the room, by phone, online in real time, or leave an <strong>absentee/maximum bid</strong> — you set your ceiling and the house bids up to it on your behalf. Absentee bidding is the disciplined beginner's friend: it removes the adrenaline that makes people overpay.</p>
+
+<h2>Pitfalls</h2>
+<ul>
+  <li><strong>Counterfeits</strong> exist at the trophy end (old, rare, ultra-expensive). Stick to reputable houses and well-documented provenance as the price climbs.</li>
+  <li><strong>Heat damage</strong> is the silent killer — invisible until you open the bottle. Provenance and fill level are your only defenses.</li>
+  <li><strong>Auction fever.</strong> Set your all-in maximum before the sale and hold it.</li>
+</ul>
+
+<h2>The bottom line</h2>
+<p>Auctions open the door to aged and rare wine you can't buy anywhere else — if you buy on provenance, read fill levels, and always bid to your true all-in price after the premium. Start small on online platforms, keep records of what you win and pay, and treat the first few lots as tuition.</p>
+    `,
+  },
+
+  {
+    slug: "bordeaux-vs-burgundy-introduction",
+    title: "Bordeaux vs Burgundy: A Collector's Introduction",
+    excerpt:
+      "The two reference points of the wine world work in opposite ways. Understanding how they differ is the fastest route to understanding fine wine itself.",
+    date: "2026-09-04",
+    readingMinutes: 9,
+    tags: ["Reference", "Regions"],
+    body: `
+<p>Almost everything in fine wine is measured, consciously or not, against two French regions that could hardly be more different. Learn how Bordeaux and Burgundy each work and you've built the mental framework for the rest of the wine world.</p>
+
+<h2>Bordeaux: the blend, at scale</h2>
+<p>Bordeaux reds are <strong>blends</strong>, led by Cabernet Sauvignon or Merlot with supporting grapes. The estates (&ldquo;châteaux&rdquo;) are large, some producing hundreds of thousands of bottles a year, and the wines are built to age — firm, structured, and consistent vintage to vintage.</p>
+<p>Two geographic halves define it. The <strong>Left Bank</strong> (Médoc, Graves) is Cabernet-led: powerful, tannic, long-lived. The <strong>Right Bank</strong> (Saint-Émilion, Pomerol) is Merlot-led: rounder and approachable earlier. The famous <strong>1855 Classification</strong> ranked the top Left Bank châteaux into five &ldquo;growths,&rdquo; a hierarchy that still shapes prices today.</p>
+<p>For a collector, Bordeaux's virtues are availability and consistency: it's made in quantity, sold through a broad market, offers real quality at every price tier, and ages predictably. It's the more forgiving place to start.</p>
+
+<h2>Burgundy: the single grape, obsessed with place</h2>
+<p>Burgundy is the opposite in nearly every respect. The reds are <strong>100% Pinot Noir</strong> and the whites <strong>100% Chardonnay</strong> — no blending to hide behind. The entire region is organized around <em>terroir</em>: the belief that a specific plot of land expresses itself in the glass.</p>
+<p>That belief becomes a strict hierarchy. From the ground up: <strong>regional</strong> (basic Bourgogne), <strong>village</strong> (named for a commune), <strong>premier cru</strong> (a superior named vineyard), and <strong>grand cru</strong> (the tiny handful of best plots). A single hillside can hold all four levels within a few hundred meters — each named vineyard is a &ldquo;climat.&rdquo;</p>
+<p>Production is minuscule, ownership is fragmented (a famous vineyard may be split among dozens of growers), and demand vastly outstrips supply — so prices for the top wines are punishing. You'll also meet two kinds of producer: <strong>domaines</strong> (grow and make their own) and <strong>négociants</strong> (buy grapes or wine to blend and bottle under their name).</p>
+
+<h2>How they age</h2>
+<p>Both age superbly but arrive differently. Bordeaux's tannic structure means top wines can be austere young and need a decade-plus to unwind. Burgundy's charm is more about perfume and texture than grip; village wines drink well relatively young, while premier and grand crus reward patience. Bordeaux tends to be the more <em>consistent</em> ager; Burgundy the more variable and, when it hits, transcendent.</p>
+
+<h2>Where a collector should start</h2>
+<p>Start with Bordeaux. It's more available, more consistent, better value at the entry and mid tiers, and it ages on a schedule you can plan around — ideal for learning how a wine evolves over years without betting the cellar. Add Burgundy as your palate (and budget) grows, beginning at the village level to learn the map before chasing crus. And remember that both templates repeat worldwide: &ldquo;Bordeaux-style&rdquo; Cabernet blends and &ldquo;Burgundian&rdquo; single-vineyard Pinot and Chardonnay are made from Napa to New Zealand, often at a fraction of the French price.</p>
+
+<h2>The bottom line</h2>
+<p>Bordeaux is blend, scale, structure, and consistency; Burgundy is single-grape, scarcity, terroir, and perfume. They are the two poles fine wine orients around — grasp how each works and you can read almost any wine region as a variation on one of the two.</p>
+    `,
+  },
+
+  {
+    slug: "serving-wine-temperature-glassware",
+    title: "Serving Wine: Temperature, Glassware, and Order",
+    excerpt:
+      "The most underrated way to improve a wine is free: serve it at the right temperature, in a decent glass, in the right order. Here's how.",
+    date: "2026-09-01",
+    readingMinutes: 7,
+    tags: ["Serving", "Practical"],
+    body: `
+<p>You can spend a fortune on wine and then sabotage it in the last five minutes by serving it too warm, in the wrong glass, in the wrong order. Serving is the cheapest quality upgrade there is — no bottle required, just a few principles.</p>
+
+<h2>Temperature: the biggest lever</h2>
+<p>Almost everyone serves whites too cold and reds too warm. Cold mutes aroma and exaggerates acidity; warmth makes wine taste flabby and alcoholic. Rough targets:</p>
+<ul>
+  <li><strong>Sparkling:</strong> 40&ndash;45°F (well chilled — keeps the bubbles fine and the wine crisp).</li>
+  <li><strong>Light, crisp whites &amp; rosé:</strong> 45&ndash;50°F.</li>
+  <li><strong>Full-bodied whites (oaked Chardonnay) &amp; light reds (Beaujolais, Pinot):</strong> 50&ndash;55°F.</li>
+  <li><strong>Full-bodied reds:</strong> 60&ndash;65°F — cooler than most rooms.</li>
+</ul>
+<p>&ldquo;Room temperature&rdquo; is a myth from the era of cold stone cellars; a 72°F kitchen is too warm for any red. Two easy fixes: pull reds out and put them in the fridge for 20 minutes before serving, and take whites <em>out</em> of the fridge for 15&ndash;20 minutes so they're not ice-cold. When in doubt, err cool — a wine warms in the glass, and you can always let it come up.</p>
+
+<h2>Glassware: shape over price</h2>
+<p>You don't need crystal or a different glass for every grape. What matters is <strong>shape</strong>: a bowl big enough to swirl and gather aroma, tapering slightly at the rim to funnel it to your nose. Practical guidance:</p>
+<ul>
+  <li><strong>Reds:</strong> a larger bowl to give the wine air and room to open.</li>
+  <li><strong>Whites:</strong> a smaller bowl to keep them cool and focused.</li>
+  <li><strong>Sparkling:</strong> here's a surprise — for <em>good</em> sparkling wine, a regular white-wine glass beats a narrow flute, which traps aroma. Flutes are for showing off bubbles, not tasting.</li>
+</ul>
+<p>If you buy one glass, buy a decent mid-size &ldquo;universal&rdquo; wine glass. It handles nearly everything and costs little.</p>
+
+<h2>To decant or not</h2>
+<p>Two reasons to decant: to separate an old wine from its sediment, and to aerate a young, tight wine so it opens up. Most everyday bottles need neither, but a young, structured red almost always improves with 30&ndash;60 minutes of air. (We cover the full logic in our decanting guide.)</p>
+
+<h2>Serving order at a dinner</h2>
+<p>When you're pouring several wines, sequence them so each shows well and none flattens the next. The reliable order:</p>
+<ul>
+  <li><strong>Sparkling before still.</strong></li>
+  <li><strong>Light before heavy</strong> (a big red first makes everything after it taste thin).</li>
+  <li><strong>Dry before sweet</strong> (dessert wine last, or a dry wine afterward tastes sour).</li>
+  <li><strong>Young before old</strong> (build toward the most complex and delicate bottle).</li>
+</ul>
+<p>The through-line is simple: move from lighter and simpler toward richer and finer, so the palate escalates rather than getting blown out early.</p>
+
+<h2>The bottom line</h2>
+<p>Serve whites warmer and reds cooler than instinct says, use a glass with a real bowl (and skip the flute for good fizz), decant young structured reds, and pour light-to-heavy and dry-to-sweet. None of it costs anything, and all of it makes the wine in the bottle taste like what you paid for.</p>
+    `,
+  },
+
+  {
     slug: "understanding-wine-drinking-windows",
     title: "Understanding Wine Drinking Windows: When to Actually Open It",
     excerpt:
