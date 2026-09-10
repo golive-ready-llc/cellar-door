@@ -51,7 +51,12 @@ export function TurnstileWidget({
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const cb = React.useRef(onVerify);
-  cb.current = onVerify;
+  // Keep the latest onVerify in a ref, updated in an effect (never assign a ref
+  // during render), so the mount effect below can stay [] and not re-create the
+  // widget when the parent passes a new callback each render.
+  React.useEffect(() => {
+    cb.current = onVerify;
+  }, [onVerify]);
 
   React.useEffect(() => {
     if (!SITE_KEY) return;
