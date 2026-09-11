@@ -40,24 +40,40 @@ function isBlockedIPv4(ip: string): boolean {
 
 /** Expand a compressed IPv6 address to its full 8-part form */
 function expandIPv6(ip: string): string {
-  const clean = ip.replace(/^\[|\]$/g, "");
+  // A trailing dotted quad (::ffff:127.0.0.1) is a 32-bit address, i.e. TWO
+  // 16-bit groups. Left as one group the address never splits into the 8 parts
+  // the caller expects — that is how [::ffff:169.254.169.254] passed the guard.
+  const clean = ip
+    .replace(/^\[|\]$/g, "")
+    .replace(/(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/, (quad) => {
+      const [a, b, c, d] = quad.split(".").map(Number);
+      return `${(((a << 8) | b) >>> 0).toString(16)}:${(((c << 8) | d) >>> 0).toString(16)}`;
+    });
   if (!clean.includes("::")) return clean;
-  const parts = clean.split("::");
-  const left = parts[0] ? parts[0].split(":") : [];
-  const right = parts[1] ? parts[1].split(":") : [];
+  const [head, tail] = clean.split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
   const zeros = Array(8 - left.length - right.length).fill("0");
   return [...left, ...zeros, ...right].join(":");
 }
 
 function isBlockedIPv6(ip: string): boolean {
   const lower = expandIPv6(ip.toLowerCase());
-  // Loopback ::1 (expanded)
-  if (lower === "::1" || lower === "0:0:0:0:0:0:0:1") return true;
-  // Unspecified ::
-  if (lower === "::" || lower === "0:0:0:0:0:0:0:0") return true;
-  // IPv4-mapped (::ffff:x.x.x.x) — extract and check IPv4
-  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isBlockedIPv4(mapped[1]);
+  // Loopback ::1, unspecified ::, IPv4-mapped ::ffff:a.b.c.d and the deprecated
+  // IPv4-compatible ::a.b.c.d all put an IPv4 address in the low 32 bits, so the
+  // same IPv4 rules decide them. This has to read the EXPANDED form: matching
+  // the "::ffff:" prefix against the compressed spelling is what let
+  // [::ffff:127.0.0.1] and [::ffff:169.254.169.254] through.
+  const groups = lower.split(":").map((g) => parseInt(g, 16));
+  if (
+    groups.length === 8 &&
+    groups.slice(0, 5).every((n) => n === 0) &&
+    (groups[5] === 0 || groups[5] === 0xffff)
+  ) {
+    return isBlockedIPv4(
+      `${groups[6] >> 8}.${groups[6] & 0xff}.${groups[7] >> 8}.${groups[7] & 0xff}`
+    );
+  }
   // fc00::/7 (unique local)
   if (/^f[cd][0-9a-f]{2}:/.test(lower)) return true;
   // fe80::/10 (link-local)

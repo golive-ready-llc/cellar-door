@@ -86,6 +86,28 @@ describe("validateHaUrl", () => {
     await expect(validateHaUrl("http://[fe80::1]")).rejects.toThrow(/blocked ipv6 range/i);
   });
 
+  it("rejects IPv4-mapped IPv6 literals, which embed a loopback/metadata IPv4", async () => {
+    process.env.HA_ALLOW_HTTP = "true";
+    await expect(validateHaUrl("http://[::ffff:127.0.0.1]")).rejects.toThrow(/blocked ipv6 range/i);
+    await expect(validateHaUrl("http://[::ffff:169.254.169.254]")).rejects.toThrow(
+      /blocked ipv6 range/i
+    );
+  });
+
+  it("rejects the hex and fully-expanded spellings of an IPv4-mapped literal", async () => {
+    process.env.HA_ALLOW_HTTP = "true";
+    await expect(validateHaUrl("http://[::ffff:7f00:1]")).rejects.toThrow(/blocked ipv6 range/i);
+    await expect(validateHaUrl("http://[0:0:0:0:0:ffff:127.0.0.1]")).rejects.toThrow(
+      /blocked ipv6 range/i
+    );
+  });
+
+  it("accepts an IPv4-mapped literal that embeds a public IPv4", async () => {
+    process.env.HA_ALLOW_HTTP = "true";
+    const url = await validateHaUrl("http://[::ffff:8.8.8.8]");
+    expect(url.protocol).toBe("http:");
+  });
+
   it("accepts an https hostname that resolves to a public IPv4", async () => {
     lookupMock.mockResolvedValue([{ address: "1.1.1.1", family: 4 }]);
     const url = await validateHaUrl("https://ha.example.com");
