@@ -13,228 +13,23 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { isSparklingType, type Wine, type WineType } from "@/types/wine";
-
-/**
- * Parse a price string from an arbitrary CSV export, handling both US
- * (1,234.56) and European (1.234,56 / 12,50) number formats. The decimal
- * separator is whichever of "." or "," appears last AND is followed by 1–2
- * digits; the other separator is treated as thousands grouping. Falls back
- * to a plain float parse. Returns null for blank/unparseable input.
- */
-function parseImportedPrice(raw: string): number | null {
-  if (!raw) return null;
-  let s = raw.replace(/[^0-9.,]/g, "");
-  if (!s) return null;
-  const lastComma = s.lastIndexOf(",");
-  const lastDot = s.lastIndexOf(".");
-  const decimalsAfterComma = lastComma >= 0 ? s.length - lastComma - 1 : -1;
-  if (lastComma > lastDot && decimalsAfterComma >= 1 && decimalsAfterComma <= 2) {
-    // Comma is the decimal separator (European). Drop dot thousands-groupers.
-    s = s.replace(/\./g, "").replace(",", ".");
-  } else {
-    // Dot is decimal (or integer). Drop comma thousands-groupers.
-    s = s.replace(/,/g, "");
-  }
-  const n = parseFloat(s);
-  return Number.isFinite(n) ? n : null;
-}
+import { decodeCsvBytes, parseWineCsv, type ImportedWine } from "@/lib/csv-import";
 
 interface CSVImportDialogProps {
-  onImport: (wines: Omit<Wine, "id" | "addedAt" | "updatedAt" | "userId">[]) => Promise<void>;
+  onImport: (wines: ImportedWine[]) => Promise<void>;
   trigger?: React.ReactElement;
-}
-
-// Map common CSV column headers to our field names
-// Supports CellarTracker, Vivino, and generic CSV formats
-const COLUMN_MAP: Record<string, string> = {
-  // Name
-  name: "name",
-  "wine name": "name",
-  wine: "name",
-  // Winery
-  winery: "winery",
-  producer: "winery",
-  "wine producer": "winery",
-  // Vintage
-  vintage: "vintage",
-  year: "vintage",
-  // Type
-  type: "type",
-  color: "type",
-  "wine type": "type",
-  category: "type",
-  // Grape
-  grape: "grapeVariety",
-  "grape variety": "grapeVariety",
-  grapes: "grapeVariety",
-  varietal: "grapeVariety",
-  // Region
-  region: "region",
-  appellation: "region",
-  subregion: "subRegion",
-  "sub-region": "subRegion",
-  locale: "locale",
-  // Country
-  country: "country",
-  origin: "country",
-  // Price
-  price: "price",
-  "purchase price": "price",
-  cost: "price",
-  menuprice: "price",
-  "menu price": "price",
-  // Rating
-  rating: "userRating",
-  "my rating": "userRating",
-  score: "userRating",
-  "my score": "userRating",
-  myscore: "userRating", // CellarTracker export header (no space)
-  // Notes
-  notes: "notes",
-  "tasting notes": "tastingNotes",
-  comments: "notes",
-  "bottle note": "notes",
-  "private note": "notes",
-  "purchase note": "purchaseNote",
-  "public tasting note": "tastingNotes",
-  // Description
-  description: "description",
-  // Alcohol
-  alcohol: "alcohol",
-  abv: "alcohol",
-  // Barcode
-  barcode: "barcode",
-  upc: "barcode",
-  ean: "barcode",
-  winebarcode: "barcode",
-  // Drink window (CellarTracker uses Begin/End)
-  "drink window": "drinkWindow",
-  "drink by": "drinkBy",
-  maturity: "drinkWindow",
-  begin: "beginDrink",
-  end: "endDrink",
-  "begin consumption": "beginDrink",
-  "end consumption": "endDrink",
-  begindrink: "beginDrink",
-  enddrink: "endDrink",
-  "begin drinking": "beginDrink",
-  "end drinking": "endDrink",
-  beginconsume: "beginDrink", // CellarTracker export header (no space)
-  endconsume: "endDrink", // CellarTracker export header (no space)
-  // Location
-  location: "location",
-  bin: "location",
-  shelf: "location",
-  // CellarTracker-specific
-  quantity: "quantity",
-  qty: "quantity",
-  size: "size",
-  "bottle size": "size",
-  bottlesize: "size",
-  store: "store",
-  "purchase date": "purchaseDate",
-  purchasedate: "purchaseDate",
-  "delivery date": "purchaseDate",
-};
-
-function mapRow(headers: string[], values: string[]) {
-  const row: Record<string, string> = {};
-  headers.forEach((h, i) => {
-    const key = COLUMN_MAP[h.toLowerCase().trim()];
-    if (key && values[i]) {
-      const val = values[i].trim();
-      // For note-like fields, append if already set
-      if ((key === "notes" || key === "tastingNotes") && row[key]) {
-        row[key] = row[key] + "\n" + val;
-      } else {
-        row[key] = val;
-      }
-    }
-  });
-  return row;
-}
-
-/** Auto-detect delimiter: tab vs comma */
-function detectDelimiter(text: string): string {
-  const firstLine = text.split(/\r?\n/)[0] || "";
-  const tabs = (firstLine.match(/\t/g) || []).length;
-  const commas = (firstLine.match(/,/g) || []).length;
-  return tabs > commas ? "\t" : ",";
-}
-
-function parseDelimited(text: string): string[][] {
-  const delimiter = detectDelimiter(text);
-  const rows: string[][] = [];
-  let current = "";
-  let inQuotes = false;
-  const currentRow: string[] = [];
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const next = text[i + 1];
-
-    if (inQuotes) {
-      if (char === '"' && next === '"') {
-        current += '"';
-        i++;
-      } else if (char === '"') {
-        inQuotes = false;
-      } else {
-        current += char;
-      }
-    } else {
-      if (char === '"') {
-        inQuotes = true;
-      } else if (char === delimiter) {
-        currentRow.push(current);
-        current = "";
-      } else if (char === "\n" || (char === "\r" && next === "\n")) {
-        currentRow.push(current);
-        current = "";
-        if (currentRow.some((c) => c.trim())) {
-          rows.push([...currentRow]);
-        }
-        currentRow.length = 0;
-        if (char === "\r") i++;
-      } else {
-        current += char;
-      }
-    }
-  }
-
-  // Final row
-  currentRow.push(current);
-  if (currentRow.some((c) => c.trim())) {
-    rows.push([...currentRow]);
-  }
-
-  return rows;
-}
-
-function inferType(value: string): WineType {
-  const lower = value.toLowerCase();
-  if (lower.includes("red")) return "red";
-  if (lower.includes("white")) return "white";
-  if (lower.includes("ros") || lower.includes("rosé")) return "rosé";
-  if (lower.includes("spark") || lower.includes("champ") || lower.includes("prosecco") || lower.includes("cava"))
-    return "sparkling";
-  if (lower.includes("dessert") || lower.includes("port") || lower.includes("sweet") || lower.includes("sauternes"))
-    return "dessert";
-  if (lower.includes("fortified") || lower.includes("sherry") || lower.includes("madeira"))
-    return "fortified";
-  return "red"; // default
 }
 
 export function CSVImportDialog({ onImport, trigger }: CSVImportDialogProps) {
   const [open, setOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState<
-    Omit<Wine, "id" | "addedAt" | "updatedAt" | "userId">[] | null
+    ImportedWine[] | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [_headers, setHeaders] = useState<string[]>([]);
   const [mappedFields, setMappedFields] = useState<string[]>([]);
+  const [skipped, setSkipped] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const resetState = () => {
@@ -242,6 +37,7 @@ export function CSVImportDialog({ onImport, trigger }: CSVImportDialogProps) {
     setError(null);
     setHeaders([]);
     setMappedFields([]);
+    setSkipped(0);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -253,141 +49,27 @@ export function CSVImportDialog({ onImport, trigger }: CSVImportDialogProps) {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const text = event.target?.result as string;
-        const rows = parseDelimited(text);
-
-        if (rows.length < 2) {
-          setError("CSV must have a header row and at least one data row.");
+        const buffer = event.target?.result;
+        if (!buffer || typeof buffer === "string") {
+          setError("Failed to read the file.");
           return;
         }
-
-        const csvHeaders = rows[0];
-        setHeaders(csvHeaders);
-
-        // Determine which fields we can map
-        const mapped = new Set<string>();
-        csvHeaders.forEach((h) => {
-          const key = COLUMN_MAP[h.toLowerCase().trim()];
-          if (key) mapped.add(key);
-        });
-        setMappedFields(Array.from(mapped));
-
-        if (!mapped.has("name")) {
-          setError(
-            'Could not find a "Name" column. Please ensure your CSV has a column named "Name", "Wine Name", or "Wine".'
-          );
+        // Decode the bytes ourselves: CellarTracker exports can be
+        // Windows-1252, which FileReader's UTF-8 text mode would garble.
+        const result = parseWineCsv(decodeCsvBytes(buffer));
+        setHeaders(result.headers);
+        setMappedFields(result.mappedFields);
+        setSkipped(result.skippedConsumed);
+        if (result.error) {
+          setError(result.error);
           return;
         }
-
-        // Parse data rows
-        const wines: Omit<Wine, "id" | "addedAt" | "updatedAt" | "userId">[] =
-          [];
-        for (let i = 1; i < rows.length; i++) {
-          const row = mapRow(csvHeaders, rows[i]);
-          if (!row.name) continue;
-
-          // Compose drinkWindow from Begin/End if not already set
-          let drinkWindow = row.drinkWindow || "";
-          let drinkBy = row.drinkBy || "";
-          if (!drinkWindow && (row.beginDrink || row.endDrink)) {
-            const begin = row.beginDrink || "";
-            const end = row.endDrink || "";
-            if (begin && end) {
-              drinkWindow = `${begin}-${end}`;
-            } else if (end) {
-              drinkWindow = end;
-            } else if (begin) {
-              drinkWindow = `${begin}+`;
-            }
-          }
-          if (!drinkBy && row.endDrink) {
-            drinkBy = row.endDrink;
-          }
-
-          // Merge region fields (region + subRegion)
-          let region = row.region || "";
-          if (row.subRegion && row.subRegion !== region) {
-            region = region ? `${region}, ${row.subRegion}` : row.subRegion;
-          }
-          if (!region && row.locale) {
-            region = row.locale;
-          }
-
-          // Merge notes (notes + purchaseNote + store info)
-          let notes = row.notes || "";
-          if (row.purchaseNote) {
-            notes = notes ? `${notes}\n${row.purchaseNote}` : row.purchaseNote;
-          }
-          if (row.store) {
-            const storeNote = `Purchased from: ${row.store}`;
-            notes = notes ? `${notes}\n${storeNote}` : storeNote;
-          }
-
-          // Parse purchase date
-          let purchaseDate = row.purchaseDate || "";
-          if (!purchaseDate) {
-            purchaseDate = new Date().toISOString().split("T")[0];
-          }
-
-          // Parse quantity — default to 1
-          const quantity = row.quantity ? parseInt(row.quantity, 10) || 1 : 1;
-
-          // Parse vintage. CellarTracker encodes non-vintage (NV) wines as the
-          // sentinel year 1001 — treat that (and any unparseable value) as null
-          // so "1001" never shows up as a real vintage.
-          const vintageNum = row.vintage ? parseInt(row.vintage, 10) : NaN;
-          const vintage =
-            Number.isFinite(vintageNum) && vintageNum !== 1001 ? vintageNum : null;
-
-          const wine: Omit<Wine, "id" | "addedAt" | "updatedAt" | "userId"> = {
-            cabinetId: null,
-            barcode: row.barcode || "",
-            name: row.name,
-            winery: row.winery || "",
-            region,
-            country: row.country || "",
-            vintage,
-            type: row.type ? inferType(row.type) : "red",
-            sparkling: row.type ? isSparklingType(inferType(row.type)) : false,
-            grapeVariety: row.grapeVariety || "",
-            userRating: row.userRating ? parseFloat(row.userRating) : null,
-            imageUrl: "",
-            price: row.price ? parseImportedPrice(row.price) : null,
-            retailPrice: null,
-            purchaseDate,
-            drinkBy,
-            notes,
-            description: row.description || "",
-            foodPairings: "",
-            alcohol: row.alcohol || "",
-            row: null,
-            col: null,
-            depth: 0,
-            zone: "",
-            tastingNotes: row.tastingNotes || null,
-            disposition: "",
-            drinkWindow,
-            aiRatings: null,
-            tags: [],
-          };
-
-          // Duplicate wine entries based on quantity
-          for (let q = 0; q < Math.min(quantity, 100); q++) {
-            wines.push({ ...wine });
-          }
-        }
-
-        if (wines.length === 0) {
-          setError("No valid wine entries found in the CSV.");
-          return;
-        }
-
-        setPreview(wines);
+        setPreview(result.wines);
       } catch {
         setError("Failed to parse CSV file. Please check the format.");
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const handleImport = async () => {
@@ -483,6 +165,14 @@ export function CSVImportDialog({ onImport, trigger }: CSVImportDialogProps) {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Rows skipped on purpose, e.g. CellarTracker bottles already drunk */}
+          {skipped > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Skipped {skipped} {skipped === 1 ? "row" : "rows"} marked as
+              consumed or with no bottles left.
+            </p>
           )}
 
           {/* Preview */}

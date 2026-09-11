@@ -57,8 +57,15 @@ export function DataBackupCard() {
   ) => {
     setImporting(true);
     try {
-      await bulkCreateWines(wineData);
-      toast.success(`Imported ${wineData.length} wines`);
+      const created = await bulkCreateWines(wineData);
+      const failed = wineData.length - created.length;
+      if (failed > 0) {
+        toast.warning(
+          `Imported ${created.length} of ${wineData.length} wines. ${failed} could not be saved.`
+        );
+      } else {
+        toast.success(`Imported ${created.length} wines`);
+      }
     } catch {
       toast.error("Failed to import wines");
     } finally {
