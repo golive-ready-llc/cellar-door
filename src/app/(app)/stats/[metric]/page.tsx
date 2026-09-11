@@ -51,6 +51,8 @@ function buildCabinetMap(cabinets: Cabinet[]): Map<string, string> {
 }
 import { WineListItem } from "@/components/inventory/wine-list-item";
 import { WineDetailDialog } from "@/components/wine/wine-detail-dialog";
+import { LoadMore } from "@/components/ui/load-more";
+import { useIncrementalList } from "@/hooks/use-incremental-list";
 import { WINE_TYPE_COLORS } from "@/types/constants";
 import { isLightWineType, type Wine, type WineHistoryItem, type Cabinet } from "@/types/wine";
 
@@ -242,6 +244,83 @@ interface DetailBodyProps {
   onWineClick: (wine: Wine) => void;
 }
 
+/** What the metric renders, plus the list it renders from. */
+type DetailView =
+  | { kind: "wine"; wines: Wine[]; emptyText: string }
+  | { kind: "value"; wines: Wine[] }
+  | { kind: "history" }
+  | { kind: "grouped"; groupKey: "country" | "grape"; basePath: string };
+
+/** Pure: pick the list a metric shows. Kept out of the component so the
+ *  component can memoize the result — the incremental lists restart at page
+ *  one whenever their array identity changes, so a fresh array on every
+ *  render (opening the detail dialog, editing a wine) would collapse a
+ *  scrolled list. */
+function buildView(
+  metric: Metric,
+  drillValue: string | null,
+  wines: Wine[]
+): DetailView {
+  if (metric === "countries" && drillValue) {
+    const target = decodeURIComponent(drillValue);
+    return {
+      kind: "wine",
+      wines: wines.filter((w) => (w.country || "Unknown") === target),
+      emptyText: "No wines from this country.",
+    };
+  }
+  if (metric === "grapes" && drillValue) {
+    const target = decodeURIComponent(drillValue);
+    return {
+      kind: "wine",
+      wines: wines.filter((w) =>
+        (w.grapeVariety || "")
+          .split(",")
+          .map((g) => g.trim())
+          .includes(target)
+      ),
+      emptyText: "No wines with this grape.",
+    };
+  }
+
+  switch (metric) {
+    case "bottles":
+      return { kind: "wine", wines, emptyText: "No bottles in your collection yet." };
+    case "value":
+      return { kind: "value", wines: [...wines].sort((a, b) => (b.price ?? 0) - (a.price ?? 0)) };
+    case "ratings":
+      return {
+        kind: "wine",
+        wines: wines
+          .filter((w) => w.userRating != null && w.userRating > 0)
+          .sort((a, b) => (b.userRating ?? 0) - (a.userRating ?? 0)),
+        emptyText: "No rated wines yet.",
+      };
+    case "consumed":
+      return { kind: "history" };
+    case "price":
+      return {
+        kind: "wine",
+        wines: [...wines]
+          .filter((w) => w.price != null)
+          .sort((a, b) => (b.price ?? 0) - (a.price ?? 0)),
+        emptyText: "No bottles with a recorded price.",
+      };
+    case "vintage":
+      return {
+        kind: "wine",
+        wines: [...wines]
+          .filter((w) => w.vintage != null)
+          .sort((a, b) => (a.vintage ?? 0) - (b.vintage ?? 0)),
+        emptyText: "No vintage data available.",
+      };
+    case "countries":
+      return { kind: "grouped", groupKey: "country", basePath: "/stats/countries" };
+    case "grapes":
+      return { kind: "grouped", groupKey: "grape", basePath: "/stats/grapes" };
+  }
+}
+
 function DetailBody({
   metric,
   drillValue,
@@ -252,121 +331,34 @@ function DetailBody({
   wineTextColors,
   onWineClick,
 }: DetailBodyProps) {
-  // Country / grape drilled-in views render the wine list filtered.
-  if (metric === "countries" && drillValue) {
-    const target = decodeURIComponent(drillValue);
-    const filtered = wines.filter((w) => (w.country || "Unknown") === target);
-    return (
-      <WineList
-        wines={filtered}
-        cabinets={cabinets}
-        formatPrice={formatPrice}
-        wineTextColors={wineTextColors}
-        onWineClick={onWineClick}
-        emptyText="No wines from this country."
-      />
-    );
-  }
-  if (metric === "grapes" && drillValue) {
-    const target = decodeURIComponent(drillValue);
-    const filtered = wines.filter((w) =>
-      (w.grapeVariety || "")
-        .split(",")
-        .map((g) => g.trim())
-        .includes(target)
-    );
-    return (
-      <WineList
-        wines={filtered}
-        cabinets={cabinets}
-        formatPrice={formatPrice}
-        wineTextColors={wineTextColors}
-        onWineClick={onWineClick}
-        emptyText="No wines with this grape."
-      />
-    );
-  }
+  const view = useMemo(
+    () => buildView(metric, drillValue, wines),
+    [metric, drillValue, wines]
+  );
 
-  switch (metric) {
-    case "bottles":
+  switch (view.kind) {
+    case "wine":
       return (
         <WineList
-          wines={wines}
+          wines={view.wines}
           cabinets={cabinets}
           formatPrice={formatPrice}
           wineTextColors={wineTextColors}
           onWineClick={onWineClick}
-          emptyText="No bottles in your collection yet."
+          emptyText={view.emptyText}
         />
       );
 
-    case "value": {
-      const sorted = [...wines].sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
+    case "value":
       return (
-        <ValueList
-          wines={sorted}
-          formatPrice={formatPrice}
-          onWineClick={onWineClick}
-        />
+        <ValueList wines={view.wines} formatPrice={formatPrice} onWineClick={onWineClick} />
       );
-    }
 
-    case "ratings": {
-      const rated = wines
-        .filter((w) => w.userRating != null && w.userRating > 0)
-        .sort((a, b) => (b.userRating ?? 0) - (a.userRating ?? 0));
-      return (
-        <WineList
-          wines={rated}
-          cabinets={cabinets}
-          formatPrice={formatPrice}
-          wineTextColors={wineTextColors}
-          onWineClick={onWineClick}
-          emptyText="No rated wines yet."
-        />
-      );
-    }
-
-    case "consumed":
+    case "history":
       return <HistoryList history={history} formatPrice={formatPrice} />;
 
-    case "price": {
-      const sorted = [...wines]
-        .filter((w) => w.price != null)
-        .sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
-      return (
-        <WineList
-          wines={sorted}
-          cabinets={cabinets}
-          formatPrice={formatPrice}
-          wineTextColors={wineTextColors}
-          onWineClick={onWineClick}
-          emptyText="No bottles with a recorded price."
-        />
-      );
-    }
-
-    case "vintage": {
-      const sorted = [...wines]
-        .filter((w) => w.vintage != null)
-        .sort((a, b) => (a.vintage ?? 0) - (b.vintage ?? 0));
-      return (
-        <WineList
-          wines={sorted}
-          cabinets={cabinets}
-          formatPrice={formatPrice}
-          wineTextColors={wineTextColors}
-          onWineClick={onWineClick}
-          emptyText="No vintage data available."
-        />
-      );
-    }
-
-    case "countries":
-      return <GroupedList wines={wines} groupKey="country" basePath="/stats/countries" />;
-
-    case "grapes":
-      return <GroupedList wines={wines} groupKey="grape" basePath="/stats/grapes" />;
+    case "grouped":
+      return <GroupedList wines={wines} groupKey={view.groupKey} basePath={view.basePath} />;
   }
 }
 
@@ -392,6 +384,7 @@ function WineList({
   emptyText,
 }: WineListProps) {
   const cabinetMap = useMemo(() => buildCabinetMap(cabinets), [cabinets]);
+  const { visible, hasMore, remaining, showMore, sentinelRef } = useIncrementalList(wines);
   if (wines.length === 0) {
     return (
       <Card className="border-dashed">
@@ -406,7 +399,7 @@ function WineList({
       <p className="text-xs text-muted-foreground">
         {wines.length} {wines.length === 1 ? "wine" : "wines"}
       </p>
-      {wines.map((wine) => (
+      {visible.map((wine) => (
         <WineListItem
           key={wine.id}
           wine={wine}
@@ -416,6 +409,9 @@ function WineList({
           onClick={() => onWineClick(wine)}
         />
       ))}
+      {hasMore && (
+        <LoadMore onMore={showMore} remaining={remaining} sentinelRef={sentinelRef} />
+      )}
     </div>
   );
 }
@@ -431,6 +427,7 @@ interface ValueListProps {
 }
 
 function ValueList({ wines, formatPrice, onWineClick }: ValueListProps) {
+  const { visible, hasMore, remaining, showMore, sentinelRef } = useIncrementalList(wines);
   if (wines.length === 0) {
     return (
       <Card className="border-dashed">
@@ -443,7 +440,7 @@ function ValueList({ wines, formatPrice, onWineClick }: ValueListProps) {
   return (
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">{wines.length} bottles</p>
-      {wines.map((w) => {
+      {visible.map((w) => {
         const cost = w.price ?? 0;
         const market = w.retailPrice ?? 0;
         const gain = market > 0 ? market - cost : null;
@@ -500,6 +497,9 @@ function ValueList({ wines, formatPrice, onWineClick }: ValueListProps) {
           </button>
         );
       })}
+      {hasMore && (
+        <LoadMore onMore={showMore} remaining={remaining} sentinelRef={sentinelRef} />
+      )}
     </div>
   );
 }
@@ -523,6 +523,7 @@ function HistoryList({
       ),
     [history]
   );
+  const { visible, hasMore, remaining, showMore, sentinelRef } = useIncrementalList(sorted);
 
   if (sorted.length === 0) {
     return (
@@ -539,7 +540,7 @@ function HistoryList({
       <p className="text-xs text-muted-foreground">
         {sorted.length} {sorted.length === 1 ? "entry" : "entries"}
       </p>
-      {sorted.map((h) => {
+      {visible.map((h) => {
         const dateStr = h.removedAt
           ? new Date(h.removedAt).toLocaleDateString()
           : "—";
@@ -597,6 +598,9 @@ function HistoryList({
           </div>
         );
       })}
+      {hasMore && (
+        <LoadMore onMore={showMore} remaining={remaining} sentinelRef={sentinelRef} />
+      )}
     </div>
   );
 }

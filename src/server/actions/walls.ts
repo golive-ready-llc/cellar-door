@@ -5,8 +5,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { hasFeature } from "@/lib/tier";
 import type { Wall, HaConfig } from "@/types/wine";
-import type { Tier } from "@/lib/tier";
 import { resolveServerUserId } from "@/server/auth-guard";
+import { getUserTier } from "@/server/tier-check";
 import { assertNotDemo } from "@/lib/demo";
 import { createSafeFetch } from "@/lib/ssrf-guard";
 
@@ -148,11 +148,8 @@ function mapPrismaWall(wall: PrismaWall): Wall {
 // ============================================================
 
 async function requirePremium(userId: string): Promise<void> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { tier: true },
-  });
-  if (!user || !hasFeature(user.tier as Tier, "haSensors")) {
+  const tier = await getUserTier(userId);
+  if (!hasFeature(tier, "haSensors")) {
     throw new Error("Home Assistant sensors require Cellar Pro");
   }
 }

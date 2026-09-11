@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
 
 # next.js
 /.next/
@@ -60,7 +62,7 @@ android/app/src/main/assets/public/
 ios/App/App/public/
 .env*.local
 
-# Local agent / Claude state (not for the repo — laptop-only)
+# Local agent state (not for the repo — laptop-only)
 .claude-flow/
 .swarm/
 .claude/agents/

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 process.env.DATABASE_URL = "postgresql://stub";
 
@@ -251,5 +251,36 @@ describe("testHaConnection", () => {
       PUBLIC_HA + "/api/",
       expect.objectContaining({ headers: { Authorization: "Bearer tok" } })
     );
+  });
+});
+
+// ─── haSensors gate: the NEXT_PUBLIC_DEFAULT_TIER floor ───────────────
+// Self-hosters unlock Cellar Pro features with NEXT_PUBLIC_DEFAULT_TIER=PREMIUM
+// (SELF-HOSTING.md). The gate has to ask getUserTier for the tier — reading
+// user.tier straight from the row skipped the floor and locked them out.
+describe("haSensors gate — NEXT_PUBLIC_DEFAULT_TIER floor", () => {
+  afterEach(() => {
+    // The floor is read at module load and process.env is shared across test
+    // files in the same worker, so it must not outlive this describe.
+    delete process.env.NEXT_PUBLIC_DEFAULT_TIER;
+  });
+
+  it("rejects a FREE cellar when no floor is configured", async () => {
+    wallFindFirst.mockResolvedValue(fakeWall());
+    userFindUnique.mockResolvedValue({ tier: "FREE" });
+    const { updateWallHaConfig } = await import("@/server/actions/walls");
+    const r = await updateWallHaConfig("u1", "wall1", "http://ha", "tok", "t", "h");
+    expect(r.success).toBe(false);
+  });
+
+  it("saves sensor config for a FREE cellar when the floor is PREMIUM", async () => {
+    process.env.NEXT_PUBLIC_DEFAULT_TIER = "PREMIUM";
+    vi.resetModules();
+    wallFindFirst.mockResolvedValue(fakeWall());
+    wallUpdate.mockResolvedValue(fakeWall());
+    userFindUnique.mockResolvedValue({ tier: "FREE" });
+    const { updateWallHaConfig } = await import("@/server/actions/walls");
+    const r = await updateWallHaConfig("u1", "wall1", "http://ha", "tok", "t", "h");
+    expect(r.success).toBe(true);
   });
 });

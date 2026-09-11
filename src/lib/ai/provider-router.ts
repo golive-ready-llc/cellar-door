@@ -39,10 +39,17 @@ function buildProvider(slot: ProviderSlot): AIProvider | null {
   return null;
 }
 
+/** Redact key-shaped strings so a logged provider error can never leak a secret. */
+function redactSecrets(msg: string): string {
+  return msg.replace(/\b(?:sk-[A-Za-z0-9]{8,}|AIza[A-Za-z0-9_-]{10,}|ghp_[A-Za-z0-9]{20,})/g, "[redacted]");
+}
+
 async function tryWithFailover<T>(
   fn: (provider: AIProvider) => Promise<T>,
   primary: AIProvider | null,
-  failover: AIProvider | null
+  failover: AIProvider | null,
+  primaryLabel = "primary",
+  failoverLabel = "failover"
 ): Promise<T> {
   if (primary) {
     try {
@@ -51,6 +58,11 @@ async function tryWithFailover<T>(
       // Only fall through to failover if primary threw a network/API error
       const msg = err instanceof Error ? err.message : String(err);
       if (failover && !msg.includes("does not support image")) {
+        // A dead primary key used to be silent: the failover answered, the
+        // primary's error was discarded, and nobody checked /admin for months.
+        console.warn(
+          `[ai-router] ${primaryLabel} failed, falling back to ${failoverLabel}: ${redactSecrets(msg)}`
+        );
         try { return await fn(failover); } catch { /* both failed */ }
       }
       throw err; // re-throw original if no failover or failover also failed
@@ -84,6 +96,10 @@ export class ProviderRouter implements AIProvider {
   private textFailover: AIProvider | null;
   private visionPrimary: AIProvider | null;
   private visionFailover: AIProvider | null;
+  private textPrimaryLabel: string;
+  private textFailoverLabel: string;
+  private visionPrimaryLabel: string;
+  private visionFailoverLabel: string;
   /** Gemini instance for label-image search — the one operation that is
    *  Gemini-specific (Google Search grounding), NOT generic vision. Resolved
    *  from the first Gemini slot in any position, else the env key. */
@@ -94,6 +110,11 @@ export class ProviderRouter implements AIProvider {
     this.textFailover = config.textFailover.provider ? buildProvider(config.textFailover) : null;
     this.visionPrimary = buildProvider(config.vision);
     this.visionFailover = config.visionFailover.provider ? buildProvider(config.visionFailover) : null;
+    // Labels for failover logs — which SLOT failed matters more than the class.
+    this.textPrimaryLabel = config.text.provider || "text-primary";
+    this.textFailoverLabel = config.textFailover.provider || "text-failover";
+    this.visionPrimaryLabel = config.vision.provider || "vision-primary";
+    this.visionFailoverLabel = config.visionFailover.provider || "vision-failover";
 
     const geminiSlot = [config.vision, config.visionFailover, config.text, config.textFailover]
       .find((s) => s.provider === "gemini" && (s.apiKey || process.env.GEMINI_API_KEY));
@@ -131,6 +152,8 @@ export class ProviderRouter implements AIProvider {
     // Return a proxy that tries primary then failover
     const primary = this.textPrimary;
     const failover = this.textFailover;
+    const primaryLabel = this.textPrimaryLabel;
+    const failoverLabel = this.textFailoverLabel;
     return new Proxy({} as AIProvider, {
       get(_, prop) {
         return (...args: unknown[]) => {
@@ -139,7 +162,7 @@ export class ProviderRouter implements AIProvider {
             if (typeof method !== "function") throw new Error(`Method ${String(prop)} not found`);
             return method.call(p, ...args) as Promise<unknown>;
           };
-          return tryWithFailover(fn, primary, failover);
+          return tryWithFailover(fn, primary, failover, primaryLabel, failoverLabel);
         };
       },
     });
@@ -149,6 +172,8 @@ export class ProviderRouter implements AIProvider {
   private visionProvider(): AIProvider {
     const primary = this.visionPrimary;
     const failover = this.visionFailover;
+    const primaryLabel = this.visionPrimaryLabel;
+    const failoverLabel = this.visionFailoverLabel;
     return new Proxy({} as AIProvider, {
       get(_, prop) {
         return (...args: unknown[]) => {
@@ -157,7 +182,7 @@ export class ProviderRouter implements AIProvider {
             if (typeof method !== "function") throw new Error(`Method ${String(prop)} not found`);
             return method.call(p, ...args) as Promise<unknown>;
           };
-          return tryWithFailover(fn, primary, failover);
+          return tryWithFailover(fn, primary, failover, primaryLabel, failoverLabel);
         };
       },
     });
@@ -187,10 +212,13 @@ export class ProviderRouter implements AIProvider {
     systemPrompt: string,
     messages: Array<{ role: string; content: string }>
   ): AsyncGenerator<string> {
-    const providers = [this.textPrimary, this.textFailover].filter((p): p is AIProvider => !!p);
+    const providers: Array<[AIProvider, string]> = [];
+    if (this.textPrimary) providers.push([this.textPrimary, this.textPrimaryLabel]);
+    if (this.textFailover) providers.push([this.textFailover, this.textFailoverLabel]);
     if (providers.length === 0) throw new Error("No AI provider configured for this operation");
     let lastError: unknown;
-    for (const provider of providers) {
+    for (let i = 0; i < providers.length; i++) {
+      const [provider, label] = providers[i];
       let yielded = false;
       try {
         if (provider.chatStream) {
@@ -207,6 +235,12 @@ export class ProviderRouter implements AIProvider {
       } catch (err) {
         if (yielded) throw err;
         lastError = err;
+        // Same silence bug as tryWithFailover: only the last provider's error
+        // ever surfaced. Log each pre-stream failure as it happens.
+        if (i < providers.length - 1) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[ai-router] ${label} failed before streaming, trying next: ${redactSecrets(msg)}`);
+        }
       }
     }
     throw lastError;

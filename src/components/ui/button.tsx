@@ -21,7 +21,7 @@ const buttonVariants = cva(
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         // AI-powered actions (Enrich, Decant, Terroir Twins, scans…) — soft
         // amber tint so they read as one family, distinct from neutral
-        // utilities and destructive actions. See CLAUDE.md "Button hierarchy".
+        // utilities and destructive actions. See AGENTS.md "Button hierarchy".
         ai:
           "bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20 dark:bg-amber-400/15 dark:text-amber-300 dark:hover:bg-amber-400/25 dark:focus-visible:ring-amber-400/40",
         link: "text-primary underline-offset-4 hover:underline",

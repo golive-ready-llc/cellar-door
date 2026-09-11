@@ -13,7 +13,8 @@
 import type { NextRequest } from "next/server";
 import { getAdminAuth } from "@/lib/firebase-admin";
 import { prisma } from "@/lib/db";
-import { hasFeature, type Tier } from "@/lib/tier";
+import { hasFeature } from "@/lib/tier";
+import { getUserTier } from "@/server/tier-check";
 import { decrypt } from "@/lib/encryption";
 import { validateHaUrl } from "@/lib/ssrf-guard";
 
@@ -80,9 +81,11 @@ export async function authenticateHaRequest(
 
   const user = await prisma.user.findUnique({
     where: { firebaseUid: decoded.uid },
-    select: { id: true, tier: true },
+    select: { id: true },
   });
-  if (!user || !hasFeature(user.tier as Tier, "haSensors")) {
+  // getUserTier combines the DB tier with the NEXT_PUBLIC_DEFAULT_TIER floor, so a
+  // self-hosted instance that promises all features keeps that promise.
+  if (!user || !hasFeature(await getUserTier(user.id), "haSensors")) {
     return {
       ok: false,
       status: 403,

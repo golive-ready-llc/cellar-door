@@ -15,14 +15,18 @@ const MAX_MESSAGE_CHARS = 8000;
 const MAX_WINES = 3000;
 
 function parseMessages(value: unknown): ChatMessage[] | null {
-  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_MESSAGES) return null;
+  if (!Array.isArray(value) || value.length === 0) return null;
   const out: ChatMessage[] = [];
-  for (const item of value) {
+  // The client sends the whole thread on every turn, so rejecting an over-long
+  // history (or an over-long message) used to wedge the conversation for good
+  // once it crossed the cap — every later turn resent the same rejected body.
+  // Keep the newest window instead: the model only needs the recent turns, and
+  // the bounds still cap what reaches it.
+  for (const item of value.slice(-MAX_MESSAGES)) {
     if (!item || typeof item !== "object") return null;
     const { role, content } = item as { role?: unknown; content?: unknown };
     if ((role !== "user" && role !== "assistant") || typeof content !== "string") return null;
-    if (content.length > MAX_MESSAGE_CHARS) return null;
-    out.push({ role, content });
+    out.push({ role, content: content.slice(0, MAX_MESSAGE_CHARS) });
   }
   return out;
 }

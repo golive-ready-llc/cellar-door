@@ -3,6 +3,7 @@
 import { randomBytes, createHash } from "crypto";
 import { prisma } from "@/lib/db";
 import { getAdminAuth } from "@/lib/firebase-admin";
+import { getUserTier } from "@/server/tier-check";
 import { logAudit } from "@/server/audit-log";
 
 const MAX_KEYS_PER_USER = 5;
@@ -25,7 +26,8 @@ export async function generateApiKey(
       return { error: "User not found." };
     }
 
-    if (user.tier !== "PREMIUM") {
+    const tier = await getUserTier(user.id);
+    if (tier !== "PREMIUM") {
       return { error: "API access requires Cellar Pro (PREMIUM) subscription." };
     }
 

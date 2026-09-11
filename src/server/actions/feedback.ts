@@ -1,9 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { getAdminAuth } from "@/lib/firebase-admin";
-import { isAdmin as checkAdmin } from "@/lib/admin";
-import { resolveServerUserId } from "@/server/auth-guard";
+import { requireAdmin, resolveServerUserId } from "@/server/auth-guard";
 
 export type FeedbackItem = {
   id: string;
@@ -59,9 +57,8 @@ export async function getFeedbackQueue(
   idToken: string
 ): Promise<{ data?: FeedbackItem[]; error?: string }> {
   try {
-    const decoded = await getAdminAuth()!.verifyIdToken(idToken);
-    const email = decoded.email;
-    if (!email || !checkAdmin(email)) return { error: "Access denied" };
+    const admin = await requireAdmin(idToken);
+    if (!admin.ok) return { error: admin.error };
 
     const items = await prisma.feedback.findMany({
       include: {
@@ -104,10 +101,8 @@ export async function updateFeedbackStatus(
   adminNote?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const decoded = await getAdminAuth()!.verifyIdToken(idToken);
-    const email = decoded.email;
-    if (!email || !checkAdmin(email))
-      return { success: false, error: "Access denied" };
+    const admin = await requireAdmin(idToken);
+    if (!admin.ok) return { success: false, error: admin.error };
 
     await prisma.feedback.update({
       where: { id: feedbackId },
