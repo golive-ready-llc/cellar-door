@@ -94,6 +94,27 @@ describe("POST /api/chat", () => {
     expect(res.status).toBe(400);
   });
 
+  it("keeps the newest window of an over-long history instead of rejecting it", async () => {
+    // The client resends the whole thread every turn, so a conversation past
+    // the cap used to stay broken for every turn afterwards.
+    const long = Array.from({ length: 60 }, (_, i) => ({
+      role: i % 2 === 0 ? "user" : "assistant",
+      content: `turn ${i}`,
+    }));
+    const res = await post({ messages: long, wines: [] });
+    expect(res.status).toBe(200);
+    const sent = h.streamSpy.mock.calls[0][1] as { content: string }[];
+    expect(sent).toHaveLength(50);
+    expect(sent[sent.length - 1].content).toBe("turn 59");
+  });
+
+  it("truncates an over-long message instead of failing the request", async () => {
+    const res = await post({ messages: [{ role: "user", content: "x".repeat(9000) }], wines: [] });
+    expect(res.status).toBe(200);
+    const sent = h.streamSpy.mock.calls[0][1] as { content: string }[];
+    expect(sent[0].content).toHaveLength(8000);
+  });
+
   it("streams the reply after reserving one credit", async () => {
     const res = await post(BODY);
     expect(res.status).toBe(200);
