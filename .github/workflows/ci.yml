@@ -16,3 +16,17 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm test
+  smoke:
+    # Self-hosted (containerstore) — org Actions spending limit is $0
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      # No --with-deps: that needs sudo, which the runner user does not have,
+      # and the browser system libraries are already installed on the runner.
+      - run: npx playwright install chromium
+      - run: npm run test:smoke

@@ -17,6 +17,7 @@
     "cap:build": "next build && npx cap sync",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:smoke": "playwright test",
     "e2e": "maestro test tests/e2e/",
     "e2e:studio": "maestro studio"
   },
@@ -63,6 +64,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
