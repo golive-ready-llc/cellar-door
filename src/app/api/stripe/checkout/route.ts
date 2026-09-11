@@ -3,27 +3,14 @@ import type { NextRequest } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { priceIdFromTier } from "@/lib/stripe-helpers";
 import { prisma } from "@/lib/db";
-import { getAdminAuth } from "@/lib/firebase-admin";
+import { authenticateIdToken } from "@/lib/api-auth";
 import { TIER_CONFIGS, type Tier } from "@/lib/tier";
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Verify Firebase token
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const idToken = authHeader.slice(7);
-    const adminAuth = getAdminAuth();
-    if (!adminAuth) {
-      return NextResponse.json(
-        { error: "Auth not configured" },
-        { status: 500 }
-      );
-    }
-
-    const decoded = await adminAuth.verifyIdToken(idToken);
+    // 1. Verify the caller's Firebase ID token
+    const authResult = await authenticateIdToken(request);
+    if (!authResult.ok) return authResult.response;
 
     // 2. Parse requested tier and billing interval
     const { tier, interval = "monthly" } = (await request.json()) as {
@@ -44,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Look up Prisma user
     const user = await prisma.user.findUnique({
-      where: { firebaseUid: decoded.uid },
+      where: { firebaseUid: authResult.uid },
       select: { id: true, email: true, stripeCustomerId: true },
     });
 
@@ -57,7 +44,7 @@ export async function POST(request: NextRequest) {
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
-        metadata: { userId: user.id, firebaseUid: decoded.uid },
+        metadata: { userId: user.id, firebaseUid: authResult.uid },
       });
       customerId = customer.id;
 

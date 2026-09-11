@@ -2,30 +2,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
-import { getAdminAuth } from "@/lib/firebase-admin";
+import { authenticateIdToken } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Verify Firebase token
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const idToken = authHeader.slice(7);
-    const adminAuth = getAdminAuth();
-    if (!adminAuth) {
-      return NextResponse.json(
-        { error: "Auth not configured" },
-        { status: 500 }
-      );
-    }
-
-    const decoded = await adminAuth.verifyIdToken(idToken);
+    // 1. Verify the caller's Firebase ID token
+    const authResult = await authenticateIdToken(request);
+    if (!authResult.ok) return authResult.response;
 
     // 2. Look up Prisma user
     const user = await prisma.user.findUnique({
-      where: { firebaseUid: decoded.uid },
+      where: { firebaseUid: authResult.uid },
       select: { stripeCustomerId: true },
     });
 

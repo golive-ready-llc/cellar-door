@@ -6,20 +6,24 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  * getAuthenticatedUserId() verifies the httpOnly `__session` Firebase session
  * cookie. resolveServerUserId() is STRICT: it returns the verified id or throws
  * Unauthorized — it never trusts a client-supplied userId (IDOR fix).
+ * requireAdmin() gates the admin server actions on the same Firebase ID token
+ * the client sends them.
  */
 
 process.env.DATABASE_URL = "postgresql://stub";
 
 const cookieGetSpy = vi.fn();
 const verifySessionCookieSpy = vi.fn();
+const verifyIdTokenSpy = vi.fn();
 const userFindUniqueSpy = vi.fn();
+const getAdminAuthSpy = vi.fn();
 
 vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve({ get: cookieGetSpy }),
 }));
 
 vi.mock("@/lib/firebase-admin", () => ({
-  getAdminAuth: () => ({ verifySessionCookie: verifySessionCookieSpy }),
+  getAdminAuth: () => getAdminAuthSpy(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -31,7 +35,13 @@ vi.mock("@/lib/db", () => ({
 beforeEach(() => {
   cookieGetSpy.mockReset();
   verifySessionCookieSpy.mockReset();
+  verifyIdTokenSpy.mockReset();
   userFindUniqueSpy.mockReset();
+  getAdminAuthSpy.mockReset();
+  getAdminAuthSpy.mockReturnValue({
+    verifySessionCookie: verifySessionCookieSpy,
+    verifyIdToken: verifyIdTokenSpy,
+  });
 });
 
 describe("getAuthenticatedUserId", () => {
@@ -161,5 +171,66 @@ describe("missing DATABASE_URL", () => {
     cookieGetSpy.mockReturnValue(undefined);
     const { getAuthenticatedUserId } = await import("@/server/auth-guard");
     expect(await getAuthenticatedUserId()).toBeNull();
+  });
+});
+
+describe("requireAdmin", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("admits the ADMIN_EMAIL account, whatever its case", async () => {
+    vi.stubEnv("ADMIN_EMAIL", "admin@example.com");
+    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-1", email: "Admin@Example.com" });
+    const { requireAdmin } = await import("@/server/auth-guard");
+    expect(await requireAdmin("token")).toEqual({
+      ok: true,
+      email: "Admin@Example.com",
+      uid: "fb-1",
+    });
+  });
+
+  it("rejects a signed-in user who is not the admin", async () => {
+    vi.stubEnv("ADMIN_EMAIL", "admin@example.com");
+    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-2", email: "someone@else.com" });
+    const { requireAdmin } = await import("@/server/auth-guard");
+    expect(await requireAdmin("token")).toEqual({
+      ok: false,
+      error: "Access denied. You are not an admin.",
+    });
+  });
+
+  it("rejects a token with no email claim", async () => {
+    vi.stubEnv("ADMIN_EMAIL", "admin@example.com");
+    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-3" });
+    const { requireAdmin } = await import("@/server/auth-guard");
+    const result = await requireAdmin("token");
+    expect(result.ok).toBe(false);
+  });
+
+  it("fails closed when ADMIN_EMAIL is unset — nobody is an admin", async () => {
+    vi.stubEnv("ADMIN_EMAIL", "");
+    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-1", email: "admin@example.com" });
+    const { requireAdmin } = await import("@/server/auth-guard");
+    const result = await requireAdmin("token");
+    expect(result.ok).toBe(false);
+  });
+
+  it("reports a failed verification without leaking the reason", async () => {
+    vi.stubEnv("ADMIN_EMAIL", "admin@example.com");
+    verifyIdTokenSpy.mockRejectedValue(new Error("Firebase ID token has expired"));
+    const { requireAdmin } = await import("@/server/auth-guard");
+    expect(await requireAdmin("stale")).toEqual({
+      ok: false,
+      error: "Authentication failed",
+    });
+  });
+
+  it("returns no identity when Firebase is not configured", async () => {
+    vi.stubEnv("ADMIN_EMAIL", "admin@example.com");
+    getAdminAuthSpy.mockReturnValue(null);
+    const { requireAdmin } = await import("@/server/auth-guard");
+    expect((await requireAdmin("token")).ok).toBe(false);
+    expect(verifyIdTokenSpy).not.toHaveBeenCalled();
   });
 });

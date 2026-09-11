@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { prisma } from "@/lib/db";
+import { getAdminAuth } from "@/lib/firebase-admin";
 import { NextResponse } from "next/server";
 import { getUserTier } from "@/server/tier-check";
 
@@ -111,4 +112,42 @@ export async function authenticateApiKey(
       tier: effectiveTier,
     },
   };
+}
+
+/**
+ * Result of {@link authenticateIdToken}, shaped like {@link AuthResult} so
+ * route handlers narrow on `.ok` the same way.
+ */
+export type IdTokenResult =
+  | { ok: true; uid: string; email: string | null }
+  | { ok: false; response: NextResponse };
+
+/**
+ * Authenticate a request whose caller is the signed-in browser user rather
+ * than an API client: `Authorization: Bearer <Firebase ID token>`.
+ *
+ * Only the token is verified here. Resolving the Prisma user stays with the
+ * route, because the callers select different columns.
+ */
+export async function authenticateIdToken(
+  request: Request
+): Promise<IdTokenResult> {
+  const authHeader = request.headers.get("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return { ok: false, response: apiError("Unauthorized", 401) };
+  }
+
+  const auth = getAdminAuth();
+  if (!auth) {
+    return { ok: false, response: apiError("Auth not configured", 500) };
+  }
+
+  try {
+    const decoded = await auth.verifyIdToken(authHeader.slice(7).trim());
+    return { ok: true, uid: decoded.uid, email: decoded.email ?? null };
+  } catch {
+    // Expired or forged token — unauthenticated, not a server error.
+    return { ok: false, response: apiError("Unauthorized", 401) };
+  }
 }

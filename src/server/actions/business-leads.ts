@@ -4,8 +4,7 @@
 // listing + status updates in the admin dashboard.
 
 import { prisma } from "@/lib/db";
-import { getAdminAuth } from "@/lib/firebase-admin";
-import { isAdmin } from "@/lib/admin";
+import { requireAdmin } from "@/server/auth-guard";
 
 const VENUE_TYPES = ["restaurant", "wine_bar", "wine_shop", "other"] as const;
 const LEAD_STATUSES = ["new", "contacted", "demo", "won", "lost"] as const;
@@ -69,8 +68,8 @@ export async function submitBusinessLead(
 export async function getBusinessLeads(
   idToken: string
 ): Promise<{ error?: string; data?: BusinessLead[] }> {
-  const auth = await verifyAdmin(idToken);
-  if (auth.error) return { error: auth.error };
+  const admin = await requireAdmin(idToken);
+  if (!admin.ok) return { error: admin.error };
 
   const leads = await prisma.businessLead.findMany({
     orderBy: { createdAt: "desc" },
@@ -84,8 +83,8 @@ export async function updateBusinessLeadStatus(
   leadId: string,
   status: string
 ): Promise<{ error?: string; ok?: true }> {
-  const auth = await verifyAdmin(idToken);
-  if (auth.error) return { error: auth.error };
+  const admin = await requireAdmin(idToken);
+  if (!admin.ok) return { error: admin.error };
 
   if (!(LEAD_STATUSES as readonly string[]).includes(status)) {
     return { error: `Invalid status "${status}"` };
@@ -95,16 +94,4 @@ export async function updateBusinessLeadStatus(
     data: { status },
   });
   return { ok: true };
-}
-
-async function verifyAdmin(idToken: string): Promise<{ error?: string }> {
-  try {
-    const decoded = await getAdminAuth()!.verifyIdToken(idToken);
-    if (!decoded.email || !isAdmin(decoded.email)) {
-      return { error: "Access denied. You are not an admin." };
-    }
-    return {};
-  } catch {
-    return { error: "Authentication failed" };
-  }
 }

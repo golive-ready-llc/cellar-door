@@ -1,8 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { getAdminAuth } from "@/lib/firebase-admin";
-import { isAdmin } from "@/lib/admin";
+import { requireAdmin } from "@/server/auth-guard";
 import { stripe } from "@/lib/stripe";
 
 export interface RevenueStats {
@@ -45,12 +44,8 @@ export async function getAdminStats(
   idToken: string
 ): Promise<{ error?: string; data?: AdminStats }> {
   try {
-    const decoded = await getAdminAuth()!.verifyIdToken(idToken);
-    const email = decoded.email;
-
-    if (!email || !isAdmin(email)) {
-      return { error: "Access denied. You are not an admin." };
-    }
+    const admin = await requireAdmin(idToken);
+    if (!admin.ok) return { error: admin.error };
 
     // Total users and breakdown by tier
     const [totalUsers, freeCount, proCount, premiumCount] = await Promise.all([
