@@ -35,6 +35,19 @@ export function CellarChatWrapper() {
     });
   }, [hasAI, userId]);
 
+  // The list above loads once, when the app opens, so without this the chat
+  // never saw bottles added afterwards and told new users their cellar was
+  // empty. Reload it each time the chat opens. Reads are cached and every
+  // write clears that cache, so this is cheap and always current.
+  const refreshWines = useCallback(() => {
+    if (!hasAI) return;
+    fetchWines(userId)
+      .then(setWines)
+      .catch(() => {
+        // Keep the list we have; the chat still works with it.
+      });
+  }, [hasAI, userId]);
+
   // Fallback: if the user opens chat on a page that doesn't itself
   // populate WineDataContext (e.g. /settings, /admin), push our locally
   // fetched wines so the chat-spawned WineDetailDialog still works.
@@ -63,7 +76,13 @@ export function CellarChatWrapper() {
 
   return (
     <>
-      <CellarChat wines={wines} onWineClick={handleWineClick} hasAI={hasAI} userId={userId} />
+      <CellarChat
+        wines={wines}
+        onWineClick={handleWineClick}
+        hasAI={hasAI}
+        userId={userId}
+        onOpen={refreshWines}
+      />
       {selectedWine && (
         <WineDetailDialog
           wine={selectedWine}

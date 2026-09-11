@@ -32,9 +32,10 @@ interface CellarChatProps {
   onWineClick?: (wine: Wine) => void;
   /** Whether user has AI access (Cellar+ or higher) */
   hasAI: boolean;
-  /** Prisma user ID for server-side tier enforcement */
   /** No longer used: /api/chat identifies the caller from the session. */
   userId?: string | null;
+  /** Called each time the chat opens, so the caller can refresh `wines`. */
+  onOpen?: () => void;
 }
 
 const QUICK_ACTIONS = [
@@ -314,8 +315,14 @@ function ChatUpgradePanel() {
   );
 }
 
-export function CellarChat({ wines, onWineClick, hasAI }: CellarChatProps) {
+export function CellarChat({ wines, onWineClick, hasAI, onOpen }: CellarChatProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  // Let the caller refresh the wine list whenever the chat opens, so bottles
+  // added since the app loaded are part of what the chat answers from.
+  useEffect(() => {
+    if (isOpen) onOpen?.();
+  }, [isOpen, onOpen]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);

@@ -164,7 +164,7 @@ export default function HistoryPage() {
   }, [items]);
 
   const handleDeleteHistoryItem = async (id: string) => {
-    await removeHistoryItem(id);
+    await removeHistoryItem(id, userId);
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
@@ -193,7 +193,7 @@ export default function HistoryPage() {
     setBatchLoading(true);
     try {
       for (const id of selectedIds) {
-        await removeHistoryItem(id);
+        await removeHistoryItem(id, userId);
       }
       setItems((prev) => prev.filter((i) => !selectedIds.has(i.id)));
       setBatchDeleteOpen(false);

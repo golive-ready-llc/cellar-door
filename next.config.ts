@@ -8,6 +8,15 @@ const nextConfig: NextConfig = {
   ...(process.env.DOCKER_BUILD === "true"
     ? { output: "standalone" as const }
     : {}),
+  // Build identity shown at the bottom of Settings ("v<sha> · <env>").
+  // Explicit values win, so Docker and self-hosted builds can set their own;
+  // on Vercel, fall back to the commit and environment it provides at build
+  // time. Without this, production showed "vdev · local".
+  env: {
+    NEXT_PUBLIC_BUILD_SHA:
+      process.env.NEXT_PUBLIC_BUILD_SHA || (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7),
+    NEXT_PUBLIC_BUILD_VERSION: process.env.NEXT_PUBLIC_BUILD_VERSION || process.env.VERCEL_ENV || "",
+  },
   typescript: {
     // Skip type checking during build — existing type issues to fix incrementally
     ignoreBuildErrors: true,

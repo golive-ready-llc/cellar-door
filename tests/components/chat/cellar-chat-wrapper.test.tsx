@@ -39,10 +39,14 @@ vi.mock("@/components/chat/cellar-chat", () => {
       wines: Wine[];
       onWineClick?: (wine: Wine) => void;
       hasAI: boolean;
+      onOpen?: () => void;
     }) => {
       return (
         <div>
           <button data-testid="cellar-chat-fab">FAB ({props.wines.length})</button>
+          <button data-testid="cellar-chat-open" onClick={() => props.onOpen?.()}>
+            open
+          </button>
           {props.wines[0] && (
             <button
               data-testid="wine-link"
@@ -155,5 +159,23 @@ describe("CellarChatWrapper", () => {
       expect(screen.getByTestId("cellar-chat-fab")).toBeInTheDocument();
     });
     expect(fetchWines).not.toHaveBeenCalled();
+  });
+
+  it("reloads the wine list each time the chat opens, so new bottles are included", async () => {
+    // The app loaded with an empty cellar; a wine was added before the chat opened.
+    fetchWines.mockResolvedValueOnce([]).mockResolvedValueOnce([makeWine()]);
+    render(<CellarChatWrapper />);
+    await waitFor(() => {
+      expect(screen.getByTestId("cellar-chat-fab")).toHaveTextContent("FAB (0)");
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("cellar-chat-open"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("cellar-chat-fab")).toHaveTextContent("FAB (1)");
+    });
+    expect(fetchWines).toHaveBeenCalledTimes(2);
   });
 });

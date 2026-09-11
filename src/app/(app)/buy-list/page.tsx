@@ -128,7 +128,7 @@ export default function BuyListPage() {
   };
 
   const handleRemoveItem = async (id: string) => {
-    await removeBuyListItem(id);
+    await removeBuyListItem(id, userId);
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
@@ -166,7 +166,7 @@ export default function BuyListPage() {
     }, userId);
 
     if (newWine) {
-      await removeBuyListItem(item.id);
+      await removeBuyListItem(item.id, userId);
       setItems((prev) => prev.filter((i) => i.id !== item.id));
     }
   };
@@ -196,7 +196,7 @@ export default function BuyListPage() {
     setBatchLoading(true);
     try {
       for (const id of selectedIds) {
-        await removeBuyListItem(id);
+        await removeBuyListItem(id, userId);
       }
       setItems((prev) => prev.filter((i) => !selectedIds.has(i.id)));
       setBatchDeleteOpen(false);
