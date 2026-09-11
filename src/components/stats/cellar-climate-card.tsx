@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useTier } from "@/hooks/use-tier";
 import { useHaSensors } from "@/hooks/use-ha-sensors";
 import type { Wall } from "@/types/wine";
+import type { HistoryResponse } from "@/types/ha";
 import {
   AreaChart,
   Area,
@@ -18,22 +19,6 @@ import {
 } from "recharts";
 
 type Period = "24h" | "7d" | "30d";
-
-interface DataPoint {
-  time: string;
-  value: number;
-}
-
-interface SeriesResponse {
-  data: DataPoint[];
-  unit: string;
-}
-
-interface HistoryResponse {
-  temp: SeriesResponse | null;
-  humidity: SeriesResponse | null;
-  error?: string;
-}
 
 interface CellarClimateCardProps {
   walls: Wall[];

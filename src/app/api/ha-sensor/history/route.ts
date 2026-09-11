@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getAdminAuth } from "@/lib/firebase-admin";
-import { prisma } from "@/lib/db";
-import { hasFeature, type Tier } from "@/lib/tier";
-import { decrypt } from "@/lib/encryption";
+import { authenticateHaRequest, resolveHaWall } from "@/server/ha-access";
 import { validateHaUrl } from "@/lib/ssrf-guard";
+import type { DataPoint, HistoryResponse, SeriesResponse } from "@/types/ha";
 
 type Period = "24h" | "7d" | "30d";
 
@@ -16,22 +14,6 @@ const PERIOD_HOURS: Record<Period, number> = {
 
 const VALID_PERIODS = new Set<string>(Object.keys(PERIOD_HOURS));
 const MAX_POINTS = 100;
-
-interface DataPoint {
-  time: string;
-  value: number;
-}
-
-interface SeriesResponse {
-  data: DataPoint[];
-  unit: string;
-}
-
-interface HistoryResponse {
-  temp: SeriesResponse | null;
-  humidity: SeriesResponse | null;
-  error?: string;
-}
 
 interface HaStateEntry {
   state: string;
@@ -67,7 +49,7 @@ function downsample(points: DataPoint[], maxPoints: number): DataPoint[] {
 async function fetchHaHistory(
   haUrl: string,
   token: string,
-  entityId: string,
+  entityId: string | undefined,
   startTime: string,
   endTime: string
 ): Promise<DataPoint[]> {
@@ -109,7 +91,7 @@ async function fetchHaHistory(
 async function fetchEntityUnit(
   haUrl: string,
   token: string,
-  entityId: string
+  entityId?: string
 ): Promise<string> {
   if (!entityId) return "";
 
@@ -132,96 +114,32 @@ async function fetchEntityUnit(
   return data.attributes?.unit_of_measurement || "";
 }
 
+/** Both series null — the shape this route answers every failure with. */
+function fail(message: string, status: number) {
+  const body: HistoryResponse = { temp: null, humidity: null, error: message };
+  return NextResponse.json(body, { status });
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // 1. Authenticate
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { temp: null, humidity: null, error: "Unauthorized" } as HistoryResponse,
-        { status: 401 }
-      );
-    }
+    // 1. Authenticate and confirm the caller's tier covers sensors
+    const caller = await authenticateHaRequest(request);
+    if (!caller.ok) return fail(caller.error, caller.status);
 
-    const idToken = authHeader.slice(7);
-    const adminAuth = getAdminAuth();
-    if (!adminAuth) {
-      return NextResponse.json(
-        { temp: null, humidity: null, error: "Auth not configured" } as HistoryResponse,
-        { status: 500 }
-      );
-    }
-
-    const decoded = await adminAuth.verifyIdToken(idToken);
-
-    // 2. Get user and verify tier
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decoded.uid },
-      select: { id: true, tier: true },
-    });
-    if (!user || !hasFeature(user.tier as Tier, "haSensors")) {
-      return NextResponse.json(
-        { temp: null, humidity: null, error: "Cellar Pro required" } as HistoryResponse,
-        { status: 403 }
-      );
-    }
-
-    // 3. Get wall config
+    // 2. Resolve the wall and the requested period
     const wallId = request.nextUrl.searchParams.get("wallId");
-    if (!wallId) {
-      return NextResponse.json(
-        { temp: null, humidity: null, error: "wallId required" } as HistoryResponse,
-        { status: 400 }
-      );
-    }
+    if (!wallId) return fail("wallId required", 400);
 
     const periodParam = request.nextUrl.searchParams.get("period") || "7d";
     if (!VALID_PERIODS.has(periodParam)) {
-      return NextResponse.json(
-        { temp: null, humidity: null, error: "Invalid period. Use 24h, 7d, or 30d" } as HistoryResponse,
-        { status: 400 }
-      );
+      return fail("Invalid period. Use 24h, 7d, or 30d", 400);
     }
     const period = periodParam as Period;
 
-    const wall = await prisma.wall.findFirst({
-      where: { id: wallId, userId: user.id },
-    });
-    if (!wall) {
-      return NextResponse.json(
-        { temp: null, humidity: null, error: "Wall not found" } as HistoryResponse,
-        { status: 404 }
-      );
-    }
+    const access = await resolveHaWall(caller.userId, wallId);
+    if (!access.ok) return fail(access.error, access.status);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const config = (wall as any).haConfig as Record<string, string> | null;
-    if (!config?.encryptedToken || !config?.haUrl) {
-      return NextResponse.json(
-        { temp: null, humidity: null, error: "No sensor configured" } as HistoryResponse,
-        { status: 404 }
-      );
-    }
-
-    // 4. Decrypt token and compute time range
-    const token = decrypt(config.encryptedToken);
-    const haUrl = config.haUrl;
-
-    // Validate URL upfront (fail-fast before parallel fetches).
-    try {
-      await validateHaUrl(haUrl);
-    } catch (e) {
-      console.error("HA URL validation error:", e instanceof Error ? e.message : "rejected");
-      return NextResponse.json(
-        {
-          temp: null,
-          humidity: null,
-          error: "Invalid Home Assistant URL",
-        } as HistoryResponse,
-        { status: 400 }
-      );
-    }
-
+    // 3. Compute the time range
     const now = new Date();
     const startTime = new Date(
       now.getTime() - PERIOD_HOURS[period] * 60 * 60 * 1000
@@ -229,27 +147,37 @@ export async function GET(request: NextRequest) {
     const startIso = startTime.toISOString();
     const endIso = now.toISOString();
 
-    // 5. Fetch history and units in parallel
+    // 4. Fetch history and units in parallel
     const [tempHistory, humidityHistory, tempUnit, humidityUnit] =
       await Promise.all([
-        fetchHaHistory(haUrl, token, config.tempEntityId, startIso, endIso),
         fetchHaHistory(
-          haUrl,
-          token,
-          config.humidityEntityId,
+          access.haUrl,
+          access.token,
+          access.config.tempEntityId,
           startIso,
           endIso
         ),
-        fetchEntityUnit(haUrl, token, config.tempEntityId),
-        fetchEntityUnit(haUrl, token, config.humidityEntityId),
+        fetchHaHistory(
+          access.haUrl,
+          access.token,
+          access.config.humidityEntityId,
+          startIso,
+          endIso
+        ),
+        fetchEntityUnit(access.haUrl, access.token, access.config.tempEntityId),
+        fetchEntityUnit(
+          access.haUrl,
+          access.token,
+          access.config.humidityEntityId
+        ),
       ]);
 
-    // 6. Downsample and build response
-    const temp: SeriesResponse | null = config.tempEntityId
+    // 5. Downsample and build the response
+    const temp: SeriesResponse | null = access.config.tempEntityId
       ? { data: downsample(tempHistory, MAX_POINTS), unit: tempUnit }
       : null;
 
-    const humidity: SeriesResponse | null = config.humidityEntityId
+    const humidity: SeriesResponse | null = access.config.humidityEntityId
       ? { data: downsample(humidityHistory, MAX_POINTS), unit: humidityUnit }
       : null;
 
@@ -265,9 +193,6 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("Sensor history error:", msg);
-    return NextResponse.json(
-      { temp: null, humidity: null, error: "Sensor error" } as HistoryResponse,
-      { status: 500 }
-    );
+    return fail("Sensor error", 500);
   }
 }
