@@ -1,27 +1,17 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getAdminAuth } from "@/lib/firebase-admin";
-import { prisma } from "@/lib/db";
-import { hasFeature } from "@/lib/tier";
-import { getUserTier } from "@/server/tier-check";
-import { decrypt } from "@/lib/encryption";
+import {
+  authenticateHaRequest,
+  resolveHaWall,
+  type HaAccessFailure,
+} from "@/server/ha-access";
 import { validateHaUrl } from "@/lib/ssrf-guard";
-
-interface SensorValue {
-  value: number;
-  unit: string;
-}
-
-interface SensorResponse {
-  temp: SensorValue | null;
-  humidity: SensorValue | null;
-  error?: string;
-}
+import type { HaErrorResponse, SensorResponse, SensorValue } from "@/types/ha";
 
 async function fetchHaEntity(
   haUrl: string,
   token: string,
-  entityId: string
+  entityId?: string
 ): Promise<SensorValue | null> {
   if (!entityId) return null;
 
@@ -60,89 +50,39 @@ async function fetchHaEntity(
   }
 }
 
+/** An error with no readings to report. */
+function error(message: string, status: number) {
+  const body: HaErrorResponse = { error: message };
+  return NextResponse.json(body, { status });
+}
+
+/** Both readings null — the shape a successful read has when HA answered
+ *  nothing, and the shape an unusable wall URL answers with. */
+function emptyReadings(message: string, status: number) {
+  const body: SensorResponse = { temp: null, humidity: null, error: message };
+  return NextResponse.json(body, { status });
+}
+
+function accessError(failure: HaAccessFailure) {
+  return failure.reason === "url-rejected"
+    ? emptyReadings(failure.error, failure.status)
+    : error(failure.error, failure.status);
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // 1. Authenticate
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" } as SensorResponse, {
-        status: 401,
-      });
-    }
+    const caller = await authenticateHaRequest(request);
+    if (!caller.ok) return accessError(caller);
 
-    const idToken = authHeader.slice(7);
-    const adminAuth = getAdminAuth();
-    if (!adminAuth) {
-      return NextResponse.json(
-        { error: "Auth not configured" } as SensorResponse,
-        { status: 500 }
-      );
-    }
-
-    const decoded = await adminAuth.verifyIdToken(idToken);
-
-    // 2. Get user and verify tier
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decoded.uid },
-      select: { id: true },
-    });
-    if (!user || !hasFeature(await getUserTier(user.id), "haSensors")) {
-      return NextResponse.json(
-        { error: "Cellar Pro required" } as SensorResponse,
-        { status: 403 }
-      );
-    }
-
-    // 3. Get wall config
     const wallId = request.nextUrl.searchParams.get("wallId");
-    if (!wallId) {
-      return NextResponse.json(
-        { error: "wallId required" } as SensorResponse,
-        { status: 400 }
-      );
-    }
+    if (!wallId) return error("wallId required", 400);
 
-    const wall = await prisma.wall.findFirst({
-      where: { id: wallId, userId: user.id },
-    });
-    if (!wall) {
-      return NextResponse.json(
-        { error: "Wall not found" } as SensorResponse,
-        { status: 404 }
-      );
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const config = (wall as any).haConfig as Record<string, string> | null;
-    if (!config?.encryptedToken || !config?.haUrl) {
-      return NextResponse.json(
-        { error: "No sensor configured" } as SensorResponse,
-        { status: 404 }
-      );
-    }
-
-    // 4. Decrypt token and fetch both sensors in parallel
-    const token = decrypt(config.encryptedToken);
-    const haUrl = config.haUrl;
-
-    // Validate URL upfront (cheap fail-fast before doing parallel work).
-    try {
-      await validateHaUrl(haUrl);
-    } catch (e) {
-      console.error("HA URL validation error:", e instanceof Error ? e.message : "rejected");
-      return NextResponse.json(
-        {
-          temp: null,
-          humidity: null,
-          error: "Invalid Home Assistant URL",
-        } as SensorResponse,
-        { status: 400 }
-      );
-    }
+    const access = await resolveHaWall(caller.userId, wallId);
+    if (!access.ok) return accessError(access);
 
     const [temp, humidity] = await Promise.all([
-      fetchHaEntity(haUrl, token, config.tempEntityId),
-      fetchHaEntity(haUrl, token, config.humidityEntityId),
+      fetchHaEntity(access.haUrl, access.token, access.config.tempEntityId),
+      fetchHaEntity(access.haUrl, access.token, access.config.humidityEntityId),
     ]);
 
     const response: SensorResponse = {
@@ -157,9 +97,6 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("Sensor error:", msg);
-    return NextResponse.json(
-      { temp: null, humidity: null, error: "Sensor error" } as SensorResponse,
-      { status: 500 }
-    );
+    return emptyReadings("Sensor error", 500);
   }
 }

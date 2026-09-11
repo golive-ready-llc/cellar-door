@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-
-interface SensorValue {
-  value: number;
-  unit: string;
-}
+import type { SensorValue } from "@/types/ha";
 
 export interface HaSensorData {
   temp: SensorValue | null;
