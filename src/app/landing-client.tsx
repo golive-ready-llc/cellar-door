@@ -117,7 +117,7 @@ const FEATURES = [
     description:
       "Snap a photo, the AI identifies the wine and fills the form in ~3 seconds. Producer, vintage, region, varietal, alcohol, drink window, critic scores — all auto-filled.",
     expandedDescription:
-      "Point your camera at any wine label and Google Gemini's vision model identifies the producer, vintage, region, varietal, ABV, drinkability window, and estimated WS / RP / JD / AG critic scores. Works on labels in any language and handles small text gracefully. You just confirm and tap save — no typing needed for 95% of bottles.",
+      "Point your camera at any wine label and Google Gemini's vision model identifies the producer, vintage, region, varietal, ABV, drinkability window, and estimated WS / RP / JD / AG critic scores. Works on labels in any language and handles small text gracefully. You just confirm and tap save — usually no typing needed.",
     gif: "/screenshots/gif-scan.gif",
     screenshotAlt: "Adding a wine via label scan — tap Add Wine, choose Scan Label, AI fills the form",
   },
@@ -125,7 +125,7 @@ const FEATURES = [
     icon: UtensilsCrossed,
     title: "Cork & Fork",
     description:
-      "Tell it what you're cooking and AI recommends 3 wines from YOUR cellar that pair well — ranked by match quality. The most-loved feature among paid users.",
+      "Tell it what you're cooking and AI recommends 3 wines from YOUR cellar that pair well — ranked by match quality.",
     expandedDescription:
       "Type any meal — \"mushroom risotto,\" \"BBQ ribs,\" \"Tuesday pasta,\" \"date-night sushi\" — and the AI sommelier picks 3 bottles from your actual collection that pair well, ranked by match quality with reasoning. It only suggests bottles you own, so it never pushes you to buy more. Works for casual weeknight meals and serious dinner parties alike.",
     gif: "/screenshots/gif-chat.gif",
@@ -221,7 +221,7 @@ const FEATURES = [
     description:
       "Generate a PDF insurance report for your contents policy. Daily encrypted backups + JSON / CSV export. Your data is yours.",
     expandedDescription:
-      "Generate a PDF insurance report with full collection valuation, per-bottle replacement values, and optional label photos — drop it into your homeowners policy or wine collection rider. We also keep daily encrypted backups of the database for 7 years for disaster recovery, and you can export everything as JSON or CSV at any time. Import from CellarTracker, Vivino, or any spreadsheet via the CSV importer.",
+      "Generate a PDF insurance report with full collection valuation, per-bottle replacement values, and optional label photos — drop it into your homeowners policy or wine collection rider. We also keep daily encrypted backups of the database for disaster recovery, and you can export everything as JSON or CSV at any time. Import from CellarTracker, Vivino, or any spreadsheet via the CSV importer.",
     gif: "/screenshots/gif-backup.gif",
     screenshotAlt: "Insurance report generation showing collection valuation",
   },
@@ -546,10 +546,10 @@ export default function LandingPage() {
             "text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight leading-[1.1] mb-6 transition-all duration-700 delay-100",
             mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           )}>
-            Your wine collection,
+            Your cellar, visualized
             <br />
             <span className="bg-gradient-to-r from-primary via-amber-500 to-primary bg-clip-text text-transparent">
-              beautifully organized
+              and beautifully organized
             </span>
           </h1>
 
@@ -892,7 +892,7 @@ export default function LandingPage() {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Whether you have 12 bottles or 1,200, Cellar Door grows with your
-              collection. Here&apos;s how three real-world collectors use it.
+              collection. Here&apos;s how it fits three kinds of collectors.
             </p>
           </div>
 
@@ -984,13 +984,13 @@ export default function LandingPage() {
               <tbody className="divide-y divide-border/50">
                 {[
                   { feat: "Visual cellar map (slot-by-slot)", us: "yes", v: "no", ct: "limited" },
-                  { feat: "AI label scan (no manual typing)", us: "yes", v: "yes", ct: "no" },
+                  { feat: "AI label scan (no manual typing)", us: "yes", v: "yes", ct: "yes" },
                   { feat: "AI meal pairing from your cellar", us: "yes", v: "no", ct: "no" },
                   { feat: "Restaurant wine list scanner", us: "yes", v: "no", ct: "no" },
                   { feat: "Live temp + humidity (Home Assistant)", us: "yes", v: "no", ct: "no" },
                   { feat: "AI-estimated WS/RP/JD/AG critic scores", us: "yes", v: "user-rated only", ct: "yes" },
                   { feat: "Insurance report PDF", us: "yes", v: "no", ct: "limited" },
-                  { feat: "Free tier", us: "unlimited", v: "unlimited", ct: "unlimited (read-only)" },
+                  { feat: "Free tier", us: "unlimited", v: "unlimited", ct: "unlimited" },
                   { feat: "Mobile + web (same data)", us: "yes", v: "mobile-first", ct: "web-first" },
                   { feat: "Built for collectors first", us: "yes", v: "social-first", ct: "yes" },
                 ].map((row, i) => (
@@ -1013,10 +1013,10 @@ export default function LandingPage() {
 
           <p className="text-xs text-muted-foreground text-center mt-6 max-w-2xl mx-auto">
             Comparison reflects the apps as we&apos;ve experienced them as paying
-            users. Each app has its strengths — Vivino is unmatched for casual
+            users, as of September 2026. Each app has its strengths — Vivino is unmatched for casual
             social discovery, CellarTracker for community tasting notes, and
             Cellar Door for collectors who want a beautiful visual cellar with
-            modern AI built in. Many of our users use more than one.
+            modern AI built in.
           </p>
         </div>
       </section>
@@ -1029,7 +1029,7 @@ export default function LandingPage() {
               Simple, transparent pricing
             </h2>
             <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-              Start free. Upgrade when you need AI features or more capacity.
+              Start free. Upgrade when you want the AI features.
             </p>
           </div>
 
@@ -1070,6 +1070,11 @@ export default function LandingPage() {
                     </>
                   )}
                 </div>
+                {plan.annualPrice !== null && (
+                  <p className="text-xs text-muted-foreground mb-1">
+                    or ${plan.annualPrice.toFixed(2)}/year
+                  </p>
+                )}
                 {plan.trial && (
                   <p className="text-xs text-primary font-medium mb-3">
                     {plan.trial}-day free trial
@@ -1219,7 +1224,7 @@ export default function LandingPage() {
               Everything you wanted to know
             </h2>
             <p className="text-lg text-muted-foreground">
-              Real questions from real wine collectors. If yours isn&apos;t here,{" "}
+              Common questions from wine collectors. If yours isn&apos;t here,{" "}
               <ContactDialog>
                 <button type="button" className="text-primary hover:underline">
                   get in touch
@@ -1241,7 +1246,7 @@ export default function LandingPage() {
               },
               {
                 q: "How does AI label scanning actually work?",
-                a: "You snap a photo of a wine label with your phone. We send the image to Google Gemini's vision model, which identifies the winery, name, vintage, region, grape variety, alcohol, drinkability window, and estimated WS/RP/JD/AG critic scores in about 3 seconds. You review the result and tap save. No manual typing for 95% of bottles.",
+                a: "You snap a photo of a wine label with your phone. We send the image to Google Gemini's vision model, which identifies the winery, name, vintage, region, grape variety, alcohol, drinkability window, and estimated WS/RP/JD/AG critic scores in about 3 seconds. You review the result and tap save. Usually no manual typing at all.",
               },
               {
                 q: "Will my wine data be safe if I cancel my subscription?",
@@ -1261,11 +1266,11 @@ export default function LandingPage() {
               },
               {
                 q: "What's the deal with Cork & Fork?",
-                a: "Tell it what you&apos;re cooking — &ldquo;mushroom risotto,&rdquo; &ldquo;BBQ ribs,&rdquo; &ldquo;Tuesday pasta&rdquo; — and AI recommends 3 wines from your actual cellar that pair well, ranked by match quality. Most of our paid users say this is their favorite feature. It only suggests bottles you own (no pushing you to buy more).",
+                a: "Tell it what you&apos;re cooking — &ldquo;mushroom risotto,&rdquo; &ldquo;BBQ ribs,&rdquo; &ldquo;Tuesday pasta&rdquo; — and AI recommends 3 wines from your actual cellar that pair well, ranked by match quality. It only suggests bottles you own (no pushing you to buy more).",
               },
               {
                 q: "Can I import my existing cellar from CellarTracker / Vivino / a spreadsheet?",
-                a: "Yes — Cellar Pro supports CSV import with column mapping. We have presets for CellarTracker exports and Vivino exports, or you can map any spreadsheet&apos;s columns to our fields. Most users get a 200-bottle import in under 5 minutes.",
+                a: "Yes — every plan, including Free, can import a CSV from Settings. It recognizes CellarTracker and Vivino export columns automatically, along with common spreadsheet column names like producer, vintage, and region.",
               },
               {
                 q: "Is there a mobile app or just a website?",
@@ -1308,7 +1313,7 @@ export default function LandingPage() {
                 <Lock className="h-5 w-5 text-primary" />
               </div>
               <p className="text-sm font-semibold">Encrypted backups</p>
-              <p className="text-xs text-muted-foreground">7-year retention</p>
+              <p className="text-xs text-muted-foreground">Daily, stored off-site</p>
             </div>
             <div className="flex flex-col items-center gap-2">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -1344,7 +1349,7 @@ export default function LandingPage() {
             Ready to organize your cellar?
           </h2>
           <p className="text-lg text-muted-foreground mb-8">
-            Join thousands of collectors who trust Cellar Door to manage their wine.
+            Set up your cellar in minutes and see every bottle at a glance.
             Free forever, unlimited bottles.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
