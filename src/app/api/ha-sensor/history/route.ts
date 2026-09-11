@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getAdminAuth } from "@/lib/firebase-admin";
 import { prisma } from "@/lib/db";
-import { hasFeature, type Tier } from "@/lib/tier";
+import { hasFeature } from "@/lib/tier";
+import { getUserTier } from "@/server/tier-check";
 import { decrypt } from "@/lib/encryption";
 import { validateHaUrl } from "@/lib/ssrf-guard";
 
@@ -157,9 +158,9 @@ export async function GET(request: NextRequest) {
     // 2. Get user and verify tier
     const user = await prisma.user.findUnique({
       where: { firebaseUid: decoded.uid },
-      select: { id: true, tier: true },
+      select: { id: true },
     });
-    if (!user || !hasFeature(user.tier as Tier, "haSensors")) {
+    if (!user || !hasFeature(await getUserTier(user.id), "haSensors")) {
       return NextResponse.json(
         { temp: null, humidity: null, error: "Cellar Pro required" } as HistoryResponse,
         { status: 403 }

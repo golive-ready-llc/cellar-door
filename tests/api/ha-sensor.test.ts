@@ -119,3 +119,37 @@ describe("/api/ha-sensor SSRF guard", () => {
     expect(res.status).toBe(401);
   });
 });
+
+// Self-hosters unlock Cellar Pro features with NEXT_PUBLIC_DEFAULT_TIER=PREMIUM
+// (SELF-HOSTING.md names Home Assistant sensors specifically). The gate has to
+// ask getUserTier for the tier — reading user.tier straight from the row
+// skipped the floor and answered 403 on their own instance.
+describe("/api/ha-sensor Cellar Pro gate — NEXT_PUBLIC_DEFAULT_TIER floor", () => {
+  afterEach(() => {
+    // The floor is read at module load and process.env is shared across test
+    // files in the same worker, so it must not outlive this describe.
+    delete process.env.NEXT_PUBLIC_DEFAULT_TIER;
+  });
+
+  it("403 for a FREE cellar when no floor is configured", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ id: "user_1", tier: "FREE" });
+    const res = await GET(
+      req("http://localhost/api/ha-sensor?wallId=wall_1", { authorization: "Bearer tok" })
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("Cellar Pro required");
+  });
+
+  it("reads sensors for a FREE cellar when the floor is PREMIUM", async () => {
+    process.env.NEXT_PUBLIC_DEFAULT_TIER = "PREMIUM";
+    vi.resetModules();
+    prismaMock.user.findUnique.mockResolvedValue({ id: "user_1", tier: "FREE" });
+    const { GET: GETWithFloor } = await import("@/app/api/ha-sensor/route");
+    const res = await GETWithFloor(
+      req("http://localhost/api/ha-sensor", { authorization: "Bearer tok" })
+    );
+    // Past the tier gate — it now fails on the missing wallId instead.
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("wallId required");
+  });
+});
