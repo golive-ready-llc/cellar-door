@@ -63,7 +63,17 @@ vi.mock("@/server/audit-log", () => ({
 
 vi.mock("@/server/actions/community", () => ({
   getCommunityScoresBatch: vi.fn().mockResolvedValue(new Map()),
+}));
+
+// Baseline seeding moved out of the "use server" file (unauthenticated-write
+// fix) — wines.ts now imports it from the internal store module.
+vi.mock("@/server/community-baseline-store", () => ({
   seedCommunityBaseline: vi.fn().mockResolvedValue(undefined),
+  canonKey: (name: string, winery: string, vintage: number | null) => ({
+    name: (name || "").trim().toLowerCase(),
+    winery: (winery || "").trim().toLowerCase(),
+    vintage: vintage ?? null,
+  }),
 }));
 
 // Expert Score population hooks in addWine: metadata-cache lookup + the
