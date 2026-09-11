@@ -46,23 +46,22 @@ import {
   getAiCreditsRemaining,
   TierError,
 } from "@/server/tier-check";
-import { getAuthenticatedUserId } from "@/server/auth-guard";
+import { getAuthenticatedUserId, resolveServerUserId } from "@/server/auth-guard";
+import { metadataWhere } from "@/lib/wine-metadata-key";
 import type { TierFeatures, AiOperation } from "@/lib/tier";
 
 /**
  * Build an AI gate for the current request.
  *
- * Prefers the verified session-cookie userId. Falls back to the client-
- * supplied id (audit #1 rollback 2026-05-01) until the __session cookie
- * flow is rolled out — without the fallback, every existing user fails
- * with Unauthorized because the cookie is never set.
+ * The caller is identified ONLY by the verified `__session` cookie. The
+ * client-supplied id is ignored: exported "use server" functions are public
+ * endpoints, so trusting it let anyone spend a paying user's AI credits. That
+ * fallback (the audit #1 rollback) was removed 2026-09-10; every signed-in
+ * client already gets the session cookie during auth init, and all other
+ * server actions rely on it via resolveServerUserId.
  *
  * Returns `null` for demo-mode visitors (mock provider, no gate needed).
- * Throws "Unauthorized" only when BOTH the cookie and the client id are
- * missing — anonymous callers still cannot invoke paid Gemini calls.
- *
- * TODO(security): once __session cookie rolls out, drop the clientUserId
- * fallback so the audit #1 fix is fully restored.
+ * Throws "Unauthorized" when there is no verified session.
  */
 async function buildGate(
   feature: keyof TierFeatures,
@@ -71,12 +70,24 @@ async function buildGate(
   clientUserId?: string
 ): Promise<AIGate | null> {
   if (await isDemoRequest()) return null;
-  const verifiedId = await getAuthenticatedUserId();
-  const userId = verifiedId || clientUserId;
+  const userId = await getAuthenticatedUserId();
   if (!userId) {
     throw new Error("Unauthorized");
   }
+  if (clientUserId && clientUserId !== userId) {
+    console.warn("[ai] client-supplied userId ignored; using the verified session");
+  }
   return { userId, feature, operation, credits };
+}
+
+/**
+ * Scope for the per-user in-memory result caches and the in-flight dedup map.
+ * Uses the verified session, never the client-supplied id, so a spoofed id
+ * can't read another user's cached (paid) result.
+ */
+async function cacheScope(): Promise<string> {
+  if (await isDemoRequest()) return "demo";
+  return (await getAuthenticatedUserId()) ?? "anon";
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -182,7 +193,7 @@ export async function aiSearchWine(
   // Check in-memory cache first. Key is scoped by userId: a cache HIT returns
   // before buildGate()/reserveAiCredits(), so a shared key let one user's paid
   // lookup be served free to every other user (credit-metering bypass).
-  const cacheKey = `search::${_userId ?? "anon"}::${query.toLowerCase().trim()}`;
+  const cacheKey = `search::${await cacheScope()}::${query.toLowerCase().trim()}`;
   const cached = wineIdCache.get(cacheKey);
   if (cached && Date.now() - cached.cachedAt < WINE_ID_CACHE_TTL) {
     return { success: true, data: cached.data, isMock: false };
@@ -195,12 +206,12 @@ export async function aiSearchWine(
 
   // Cache successful results in-memory
   if (result.success) {
-    wineIdCache.set(cacheKey, { data: result.data, cachedAt: Date.now() });
+    wineIdCache.set(cacheKey, { data: result.data, cachedAt: Date.now() }); capCache(wineIdCache);
   }
 
   // Post-save: cache metadata for future lookups
   if (result.success && result.data.name && result.data.winery) {
-    const { saveWineMetadata } = await import("./wine-metadata");
+    const { saveWineMetadata } = await import("@/server/wine-metadata-store");
     saveWineMetadata(result.data).catch(() => {});
   }
   return result;
@@ -223,7 +234,7 @@ export async function aiSearchWineSuggestions(
   const clamped = Math.max(1, Math.min(20, limit ?? 8));
   // Scope the in-flight dedup key by userId — otherwise a concurrent identical
   // query from a different user shares this user's promise (and its gate).
-  const key = `suggestions::${_userId ?? "anon"}::${trimmed}::${clamped}`;
+  const key = `suggestions::${await cacheScope()}::${trimmed}::${clamped}`;
   return deduplicate(key, () => wrapAI(
     async () => (await getProviderForRequest()).searchWineSuggestions(trimmed, clamped),
     () => buildGate("barcodeAiLookup", "auto_fill", 0, _userId)
@@ -249,7 +260,7 @@ export async function aiBarcodeLookup(
   // per-user credit gate isn't bypassed by another user's cached lookup.
   // (The shared DB barcodeCache below is intentionally universal — a UPC maps
   // to the same wine for everyone — and is checked separately.)
-  const barcodeCacheKey = `barcode::${_userId ?? "anon"}::${code}`;
+  const barcodeCacheKey = `barcode::${await cacheScope()}::${code}`;
   const memCached = wineIdCache.get(barcodeCacheKey);
   if (memCached && Date.now() - memCached.cachedAt < WINE_ID_CACHE_TTL) {
     return { success: true, data: memCached.data, isMock: false };
@@ -306,8 +317,8 @@ export async function aiBarcodeLookup(
             }
           });
           // Populate in-memory cache
-          wineIdCache.set(barcodeCacheKey, { data: wineData, cachedAt: Date.now() });
-          const { saveWineMetadata } = await import("./wine-metadata");
+          wineIdCache.set(barcodeCacheKey, { data: wineData, cachedAt: Date.now() }); capCache(wineIdCache);
+          const { saveWineMetadata } = await import("@/server/wine-metadata-store");
           saveWineMetadata(wineData).catch(() => {});
           return { success: true, data: wineData, isMock: false };
         }
@@ -325,7 +336,7 @@ export async function aiBarcodeLookup(
 
   // Cache successful AI results in both in-memory and DB caches
   if (aiResult.success) {
-    wineIdCache.set(barcodeCacheKey, { data: aiResult.data, cachedAt: Date.now() });
+    wineIdCache.set(barcodeCacheKey, { data: aiResult.data, cachedAt: Date.now() }); capCache(wineIdCache);
     await prisma.barcodeCache.create({
       data: { barcode: code, data: aiResult.data as unknown as import("@/generated/prisma/client").Prisma.InputJsonValue },
     }).catch((err) => {
@@ -333,7 +344,7 @@ export async function aiBarcodeLookup(
         console.error("[barcode cache write error]", err);
       }
     });
-    const { saveWineMetadata } = await import("./wine-metadata");
+    const { saveWineMetadata } = await import("@/server/wine-metadata-store");
     saveWineMetadata(aiResult.data).catch(() => {});
   }
 
@@ -400,7 +411,7 @@ export async function aiScanLabel(
   );
   // Post-save: cache metadata for future enrichment lookups
   if (result.success && result.data.name && result.data.winery) {
-    const { saveWineMetadata } = await import("./wine-metadata");
+    const { saveWineMetadata } = await import("@/server/wine-metadata-store");
     saveWineMetadata(result.data).catch(() => {});
   }
   return result;
@@ -465,7 +476,7 @@ export async function aiEstimateCriticScores(
   // shared cache.
   if (result.success && !result.isMock && result.data.ratings &&
       wine.name && wine.winery && !(await isDemoRequest())) {
-    const { saveWineMetadata } = await import("./wine-metadata");
+    const { saveWineMetadata } = await import("@/server/wine-metadata-store");
     saveWineMetadata({
       name: wine.name,
       winery: wine.winery,
@@ -514,9 +525,7 @@ export async function aiFetchWineImage(
     const db = (await import("@/lib/db")).prisma;
     const cached = await db.wineMetadata.findFirst({
       where: {
-        winery: { equals: wine.winery, mode: "insensitive" },
-        name: { equals: wine.name, mode: "insensitive" },
-        vintage: wine.vintage ?? null,
+        ...metadataWhere(wine.winery, wine.name, wine.vintage ?? null),
         imageUrl: { not: "" },
       },
       select: { imageUrl: true },
@@ -533,7 +542,7 @@ export async function aiFetchWineImage(
 
   // Post-save: cache the image URL
   if (result.success && result.data.imageUrl && wine.winery && wine.name) {
-    const { saveWineMetadataImage } = await import("./wine-metadata");
+    const { saveWineMetadataImage } = await import("@/server/wine-metadata-store");
     saveWineMetadataImage(wine.winery, wine.name, wine.vintage, result.data.imageUrl).catch(() => {});
   }
 
@@ -648,6 +657,16 @@ const VINTAGE_STORY_CACHE_TTL = 3_600_000; // 1 hour
 
 /** In-memory cache for wine identifications — avoids repeat API calls for popular searches. */
 const wineIdCache = new Map<string, { data: WineIdentification; cachedAt: number }>();
+
+/** Bound the in-memory result caches so a long-lived server can't grow them forever. */
+const RESULT_CACHE_MAX = 500;
+function capCache(cache: Map<string, unknown>): void {
+  while (cache.size > RESULT_CACHE_MAX) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+}
 const WINE_ID_CACHE_TTL = 86_400_000; // 24 hours
 
 export async function aiVintageStory(
@@ -658,7 +677,7 @@ export async function aiVintageStory(
 ): Promise<AIResult<import("@/lib/ai").VintageStoryResult>> {
   // Scoped by userId so a cache hit doesn't serve one user's paid result to
   // another for free (the hit returns before buildGate/reserveAiCredits).
-  const cacheKey = `vintage-story::${_userId ?? "anon"}::${region.toLowerCase()}::${country.toLowerCase()}::${vintage}`;
+  const cacheKey = `vintage-story::${await cacheScope()}::${region.toLowerCase()}::${country.toLowerCase()}::${vintage}`;
 
   // Check in-memory cache first
   const cached = vintageStoryCache.get(cacheKey);
@@ -673,7 +692,7 @@ export async function aiVintageStory(
 
   // Cache successful results in-memory
   if (result.success) {
-    vintageStoryCache.set(cacheKey, { data: result.data, cachedAt: Date.now() });
+    vintageStoryCache.set(cacheKey, { data: result.data, cachedAt: Date.now() }); capCache(vintageStoryCache);
   }
 
   return result;
@@ -702,12 +721,14 @@ export async function aiCheckAvailability(): Promise<{
 }
 
 /** Get remaining AI credits for the current user (for UI display) */
-export async function getCreditsRemaining(userId: string): Promise<{
+/** The signed-in caller's own credit usage. The userId argument is not trusted. */
+export async function getCreditsRemaining(userId?: string): Promise<{
   used: number;
   limit: number;
   remaining: number;
 }> {
-  const result = await getAiCreditsRemaining(userId);
+  const uid = await resolveServerUserId(userId);
+  const result = await getAiCreditsRemaining(uid);
   return { used: result.used, limit: result.limit, remaining: result.remaining };
 }
 

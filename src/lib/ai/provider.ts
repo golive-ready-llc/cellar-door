@@ -136,4 +136,10 @@ export interface AIProvider {
    * sommelier advice. Returns natural language response text.
    */
   chat(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string>;
+
+  /**
+   * Streaming variant of chat(): yields the reply in chunks as it's written.
+   * Optional; callers fall back to chat() when a provider doesn't have it.
+   */
+  chatStream?(systemPrompt: string, messages: Array<{ role: string; content: string }>): AsyncIterable<string>;
 }

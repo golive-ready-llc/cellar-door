@@ -58,3 +58,28 @@ describe("/api/guest/[code]", () => {
     expect(json.error).toBe("Failed to record vote");
   });
 });
+
+describe("guest code format (2026-09-10)", () => {
+  it("GET accepts the new 8-character codes", async () => {
+    const res = await GET(new Request("http://localhost/api/guest/ABCDEFGH"), {
+      params: Promise.resolve({ code: "ABCDEFGH" }),
+    });
+    expect(res.status).not.toBe(400);
+  });
+
+  it("GET rejects a 7-character code", async () => {
+    const res = await GET(new Request("http://localhost/api/guest/ABCDEFG"), {
+      params: Promise.resolve({ code: "ABCDEFG" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("POST rejects a malformed code before recording a vote", async () => {
+    const before = voteForWineMock.mock.calls.length;
+    const res = await POST(makePost("BAD!", { wineId: "wine_1" }), {
+      params: Promise.resolve({ code: "BAD!" }),
+    });
+    expect(res.status).toBe(400);
+    expect(voteForWineMock.mock.calls.length).toBe(before);
+  });
+});

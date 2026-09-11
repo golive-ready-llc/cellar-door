@@ -50,7 +50,7 @@ vi.mock("@/types/constants", () => ({
   ],
 }));
 
-vi.mock("@/server/actions/audit", () => ({ logAudit: vi.fn() }));
+vi.mock("@/server/audit-log", () => ({ logAudit: vi.fn() }));
 
 beforeEach(() => {
   vi.clearAllMocks();

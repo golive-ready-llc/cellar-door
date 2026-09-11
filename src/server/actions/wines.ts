@@ -5,7 +5,10 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import type { AiRatings, Wine } from "@/types/wine";
 import { isSparklingType } from "@/types/wine";
-import { logAudit } from "./audit";
+import { logAudit } from "@/server/audit-log";
+import { limitWineText } from "@/lib/wine-text-limits";
+import { listImageUrl, parseWineImageRef } from "@/lib/wine-image-ref";
+import { resolveImageRef } from "@/server/wine-image-refs";
 import { resolveServerUserId } from "@/server/auth-guard";
 import { assertNotDemo } from "@/lib/demo";
 import { getCommunityScoresBatch, seedCommunityBaseline } from "./community";
@@ -106,6 +109,8 @@ function assertSlotInBounds(
 export async function addWine(input: AddWineInput): Promise<Wine | DuplicateWineCheck> {
   await assertNotDemo("add wines");
   const uid = await resolveServerUserId(input.userId);
+  input = limitWineText(input);
+  if (input.imageUrl) input = { ...input, imageUrl: await resolveImageRef(uid, input.imageUrl) };
 
   // Verify cabinet ownership if cabinetId is provided
   if (input.cabinetId) {
@@ -154,44 +159,7 @@ export async function addWine(input: AddWineInput): Promise<Wine | DuplicateWine
   }
 
   const wine = await prisma.wine.create({
-    data: {
-      userId: uid,
-      cabinetId: input.cabinetId ?? null,
-      barcode: input.barcode ?? "",
-      name: input.name,
-      winery: input.winery ?? "",
-      region: input.region ?? "",
-      country: input.country ?? "",
-      vintage: input.vintage ?? null,
-      type: (input.type ?? "red").toLowerCase(),
-      // Derive sparkling from the explicit flag first, then from the lowercased type
-      // so callers passing type="Sparkling" or type="Champagne" etc. get sparkling:true.
-      sparkling: input.sparkling ?? isSparklingType(input.type ?? ""),
-      // Bottle format: validated against known sizes; unknown falls back to standard.
-      bottleSize: VALID_BOTTLE_SIZES.includes(input.bottleSize ?? "")
-        ? input.bottleSize
-        : "standard",
-      grapeVariety: input.grapeVariety ?? "",
-      userRating: input.userRating ?? null,
-      imageUrl: input.imageUrl ?? "",
-      price: input.price ?? null,
-      retailPrice: input.retailPrice ?? null,
-      purchaseDate: input.purchaseDate ?? "",
-      drinkBy: input.drinkBy ?? "",
-      notes: input.notes ?? "",
-      description: input.description ?? "",
-      foodPairings: input.foodPairings ?? "",
-      alcohol: input.alcohol ?? "",
-      row: input.row ?? null,
-      col: input.col ?? null,
-      depth: input.depth ?? 0,
-      zone: input.zone ?? "",
-      disposition: input.disposition ?? "",
-      drinkWindow: input.drinkWindow ?? "",
-      tags: Array.isArray(input.tags) ? input.tags.filter((t) => typeof t === "string") : [],
-      tastingNotes: (input.tastingNotes || Prisma.JsonNull) as Prisma.InputJsonValue,
-      aiRatings: (aiRatings ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-    },
+    data: wineCreateData(uid, input, aiRatings),
   });
 
   // Seed the canonical CommunityWine baseline from AI critic scores so
@@ -227,14 +195,124 @@ export async function addWine(input: AddWineInput): Promise<Wine | DuplicateWine
   return mapPrismaWine(wine);
 }
 
-export async function getWines(userId?: string): Promise<Wine[]> {
+/** Prisma create data for one wine, shared by addWine and importWines. */
+function wineCreateData(
+  uid: string,
+  input: AddWineInput,
+  aiRatings: AiRatings | null | undefined
+): Prisma.WineCreateManyInput {
+  return {
+    userId: uid,
+    cabinetId: input.cabinetId ?? null,
+    barcode: input.barcode ?? "",
+    name: input.name,
+    winery: input.winery ?? "",
+    region: input.region ?? "",
+    country: input.country ?? "",
+    vintage: input.vintage ?? null,
+    type: (input.type ?? "red").toLowerCase(),
+    // Derive sparkling from the explicit flag first, then from the lowercased type
+    // so callers passing type="Sparkling" or type="Champagne" etc. get sparkling:true.
+    sparkling: input.sparkling ?? isSparklingType(input.type ?? ""),
+    // Bottle format: validated against known sizes; unknown falls back to standard.
+    bottleSize: VALID_BOTTLE_SIZES.includes(input.bottleSize ?? "")
+      ? input.bottleSize
+      : "standard",
+    grapeVariety: input.grapeVariety ?? "",
+    userRating: input.userRating ?? null,
+    imageUrl: input.imageUrl ?? "",
+    price: input.price ?? null,
+    retailPrice: input.retailPrice ?? null,
+    purchaseDate: input.purchaseDate ?? "",
+    drinkBy: input.drinkBy ?? "",
+    notes: input.notes ?? "",
+    description: input.description ?? "",
+    foodPairings: input.foodPairings ?? "",
+    alcohol: input.alcohol ?? "",
+    row: input.row ?? null,
+    col: input.col ?? null,
+    depth: input.depth ?? 0,
+    zone: input.zone ?? "",
+    disposition: input.disposition ?? "",
+    drinkWindow: input.drinkWindow ?? "",
+    tags: Array.isArray(input.tags) ? input.tags.filter((t) => typeof t === "string") : [],
+    tastingNotes: (input.tastingNotes || Prisma.JsonNull) as Prisma.InputJsonValue,
+    aiRatings: (aiRatings ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+  };
+}
+
+const MAX_IMPORT_ROWS = 2000;
+const IMPORT_BATCH = 200;
+
+/**
+ * Import many wines in one call (CSV import, "duplicate" with a count). One
+ * auth check and one transaction of batched inserts, instead of a server
+ * action plus several queries per bottle. Imported bottles land unfiled.
+ * Deliberately skips addWine's per-bottle side effects: the duplicate check
+ * (imports legitimately repeat wines) and the background AI critic-score
+ * estimate, which would silently spend one AI credit per imported row.
+ */
+export async function importWines(
+  userId: string | undefined,
+  inputs: AddWineInput[]
+): Promise<Wine[]> {
+  await assertNotDemo("import wines");
+  const uid = await resolveServerUserId(userId);
+  if (!Array.isArray(inputs) || inputs.length === 0) return [];
+  if (inputs.length > MAX_IMPORT_ROWS) {
+    throw new Error(`Import at most ${MAX_IMPORT_ROWS} bottles at a time`);
+  }
+  await requireCanAddWine(uid);
+
+  // "Duplicate" sends list image URLs back; resolve each distinct one once.
+  const resolvedImages = new Map<string, string>();
+  for (const raw of inputs) {
+    if (raw.imageUrl && parseWineImageRef(raw.imageUrl) && !resolvedImages.has(raw.imageUrl)) {
+      resolvedImages.set(raw.imageUrl, await resolveImageRef(uid, raw.imageUrl));
+    }
+  }
+
+  const rows = inputs.map((raw) =>
+    wineCreateData(
+      uid,
+      {
+        ...limitWineText(raw),
+        imageUrl: resolvedImages.get(raw.imageUrl ?? "") ?? raw.imageUrl,
+        cabinetId: null,
+        row: null,
+        col: null,
+        depth: 0,
+        zone: "",
+      },
+      (raw.aiRatings as AiRatings | null | undefined) ?? null
+    )
+  );
+
+  const created = await prisma.$transaction(
+    async (tx) => {
+      const out: Awaited<ReturnType<typeof tx.wine.createManyAndReturn>> = [];
+      for (let i = 0; i < rows.length; i += IMPORT_BATCH) {
+        out.push(...(await tx.wine.createManyAndReturn({ data: rows.slice(i, i + IMPORT_BATCH) })));
+      }
+      return out;
+    },
+    { timeout: 30_000 }
+  );
+  return created.map(mapPrismaWine);
+}
+
+export async function getWines(
+  userId?: string,
+  options?: { fullImages?: boolean }
+): Promise<Wine[]> {
   const uid = await resolveServerUserId(userId);
   const wines = await prisma.wine.findMany({
     where: { userId: uid },
     orderBy: { addedAt: "desc" },
   });
 
-  return populateCdScores(wines.map(mapPrismaWine));
+  // Lists reference images by URL; backups ask for the image data itself.
+  return populateCdScores(wines.map(options?.fullImages ? mapPrismaWine : mapListWine));
 }
 
 export async function getWinesByCabinet(
@@ -247,7 +325,7 @@ export async function getWinesByCabinet(
     orderBy: { addedAt: "desc" },
   });
 
-  return populateCdScores(wines.map(mapPrismaWine));
+  return populateCdScores(wines.map(mapListWine));
 }
 
 export async function getWine(
@@ -277,6 +355,17 @@ export async function updateWine(
   });
   if (!existing) {
     throw new Error("Unauthorized");
+  }
+  data = limitWineText(data);
+  // Lists reference images by URL, so an edit form sends that URL back. Our
+  // own image URL means "unchanged"; another record's is resolved to its
+  // stored image (only if the caller owns it).
+  if (typeof data.imageUrl === "string" && parseWineImageRef(data.imageUrl)) {
+    const ref = parseWineImageRef(data.imageUrl);
+    data =
+      ref?.kind === "wine" && ref.id === wineId
+        ? { ...data, imageUrl: undefined }
+        : { ...data, imageUrl: await resolveImageRef(uid, data.imageUrl) };
   }
 
   // Resolve the cabinet this update targets: the new one if cabinetId is being
@@ -625,11 +714,17 @@ export async function removeWine(
 // History queries
 // ============================================================
 
-export async function getHistory(userId?: string): Promise<import("@/types/wine").WineHistoryItem[]> {
+export async function getHistory(
+  userId?: string,
+  limit?: number,
+  options?: { fullImages?: boolean }
+): Promise<import("@/types/wine").WineHistoryItem[]> {
   const uid = await resolveServerUserId(userId);
   const rows = await prisma.wineHistory.findMany({
     where: { userId: uid },
     orderBy: { removedAt: "desc" },
+    // Optional cap for views that only show recent events (activity feed).
+    ...(limit ? { take: Math.min(Math.max(1, Math.floor(limit)), 1000) } : {}),
   });
   return rows.map((r) => ({
     id: r.id,
@@ -646,7 +741,7 @@ export async function getHistory(userId?: string): Promise<import("@/types/wine"
     consumeNotes: r.consumeNotes,
     price: r.price,
     retailPrice: r.retailPrice,
-    imageUrl: r.imageUrl,
+    imageUrl: options?.fullImages ? r.imageUrl : listImageUrl("history", r.id, r.imageUrl),
     description: r.description,
     foodPairings: r.foodPairings,
     alcohol: r.alcohol,
@@ -844,6 +939,12 @@ async function populateCdScores(wines: Wine[]): Promise<Wine[]> {
       ? { ...w, cdScore: hit.cdScore, cdRatingCount: hit.cdRatingCount }
       : { ...w, cdScore: null, cdRatingCount: 0 };
   });
+}
+
+/** mapPrismaWine for list responses: images are referenced by URL (see wine-image-ref). */
+function mapListWine(wine: PrismaWine): Wine {
+  const mapped = mapPrismaWine(wine);
+  return { ...mapped, imageUrl: listImageUrl("wine", wine.id, wine.imageUrl) };
 }
 
 function mapPrismaWine(wine: PrismaWine): Wine {

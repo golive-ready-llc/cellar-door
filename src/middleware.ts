@@ -4,6 +4,12 @@ import type { NextRequest } from "next/server";
 /**
  * Site-wide password gate for development/preview.
  * Set SITE_PASSWORD env var to enable. Remove it to disable.
+ *
+ * This is a convenience gate, not access control: crawler user agents are let
+ * through so AdSense and SEO work. In single-user mode there is no sign-in
+ * behind the gate, so the crawler and demo exceptions are disabled and the
+ * password is the only way in. Real protection for a private instance is a
+ * VPN or reverse-proxy auth (see SELF-HOSTING.md).
  * When enabled, ALL pages require the password — only the gate page,
  * essential API routes, legitimate crawlers, and verification files
  * are excluded.
@@ -74,21 +80,22 @@ export function middleware(request: NextRequest) {
   // This is cosmetic-only protection (anyone can spoof UA), but it's
   // intentional: the gate keeps curious humans out, while letting real
   // bots verify the site.
+  // Single-user mode has no sign-in behind this gate, so a spoofable
+  // user-agent must not open it.
+  const singleUser = process.env.NEXT_PUBLIC_SINGLE_USER_MODE === "true";
   const ua = request.headers.get("user-agent") || "";
-  if (ua && BOT_UA_PATTERNS.some((rx) => rx.test(ua))) {
+  if (!singleUser && ua && BOT_UA_PATTERNS.some((rx) => rx.test(ua))) {
     return NextResponse.next();
   }
 
-  // Check cookies — password-gate cookie OR demo session both grant access.
-  // Audit fix #18: demo_session is the dedicated httpOnly cookie issued by
-  // /api/demo (separate from the 30-day site_access cookie). demo_mode is
-  // kept for backward compatibility with already-issued client cookies.
+  // Check cookies. The password cookie always opens the gate. The httpOnly
+  // demo session (issued by /api/demo) opens it on multi-user deployments
+  // only: anyone can request one, so it must not open a single-user instance.
+  // The legacy demo_mode cookie is client-settable and no longer opens it.
   const granted = request.cookies.get("site_access")?.value;
   if (granted === "granted") return NextResponse.next();
   const demoSession = request.cookies.get("demo_session")?.value;
-  if (demoSession === "granted") return NextResponse.next();
-  const demoMode = request.cookies.get("demo_mode")?.value;
-  if (demoMode === "true") return NextResponse.next();
+  if (!singleUser && demoSession === "granted") return NextResponse.next();
 
   // Redirect to gate
   const gateUrl = new URL("/gate", request.url);

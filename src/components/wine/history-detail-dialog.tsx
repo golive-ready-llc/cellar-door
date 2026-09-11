@@ -34,7 +34,7 @@ import { StarRating } from "@/components/ui/star-rating";
 import { DialRateDialog } from "@/components/wine/dial-rate-dialog";
 import { WINE_TYPE_LABELS, WINE_TYPE_COLORS } from "@/types/constants";
 import type { WineHistoryItem, WineType } from "@/types/wine";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/custom-toast";
 import { useTier } from "@/hooks/use-tier";
 
 const REASON_META: Record<

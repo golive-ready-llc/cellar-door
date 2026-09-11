@@ -14,8 +14,8 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 if [ -z "$ENCRYPTION_KEY" ]; then
-  echo "WARNING: ENCRYPTION_KEY is not set — AI provider keys and Home" >&2
-  echo "         Assistant tokens will be stored UNENCRYPTED at rest." >&2
+  echo "WARNING: ENCRYPTION_KEY is not set — you won't be able to save AI" >&2
+  echo "         provider keys in /admin or Home Assistant tokens." >&2
   echo "         Generate one with: openssl rand -hex 32" >&2
 fi
 
