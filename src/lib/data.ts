@@ -27,11 +27,7 @@ const DEMO_USER_ID = "demo-user-001";
  * this is purely to surface a clean UX message.
  */
 function assertNotDemoClient(action: string) {
-  if (typeof document === "undefined") return;
-  const isDemo = document.cookie
-    .split(";")
-    .some((c) => c.trim().startsWith("demo_mode=true"));
-  if (isDemo) {
+  if (isDemoCookie()) {
     throw new Error(
       `Demo mode is read-only. Sign up to ${action} with your own account.`
     );
@@ -61,15 +57,6 @@ function isDemoCookie(): boolean {
  */
 function isMockMode(): boolean {
   return isDev || isDemoCookie();
-}
-
-/**
- * Check write mode. In dev, uses mock store. In production, uses Prisma.
- * Demo mode is read-only on the CLIENT side (auth provider doesn't call mutations).
- */
-function writeMode(): "dev" | "production" {
-  if (isDev) return "dev";
-  return "production";
 }
 
 /** Resolve user ID — in dev/demo mode use fixed IDs; in production require real userId */
@@ -162,8 +149,7 @@ export async function createWine(
   assertNotDemoClient("add wines");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") return (await loadMockStore()).addWine({ ...data, userId: uid });
+  if (isDev) return (await loadMockStore()).addWine({ ...data, userId: uid });
   const { addWine } = await import("@/server/actions/wines");
   const result = await addWine({ ...data, userId: uid });
   // The server action RETURNS a duplicate sentinel rather than throwing —
@@ -184,8 +170,7 @@ export async function editWine(
   assertNotDemoClient("edit wines");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") return (await loadMockStore()).updateWine(wineId, data);
+  if (isDev) return (await loadMockStore()).updateWine(wineId, data);
   const { updateWine } = await import("@/server/actions/wines");
   return updateWine(uid, wineId, data);
 }
@@ -200,8 +185,7 @@ export async function deleteWine(
   assertNotDemoClient("remove wines");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") { (await loadMockStore()).removeWine(wineId, reason, rating, notes); return; }
+  if (isDev) { (await loadMockStore()).removeWine(wineId, reason, rating, notes); return; }
   const { removeWine } = await import("@/server/actions/wines");
   const result = await removeWine(uid, wineId, reason, rating, notes);
   if (!result.success) {
@@ -217,8 +201,7 @@ export async function bulkDeleteWines(
   assertNotDemoClient("remove wines");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") {
+  if (isDev) {
     for (const id of wineIds) (await loadMockStore()).removeWine(id, reason);
     return wineIds.length;
   }
@@ -246,8 +229,7 @@ export async function createWall(
   assertNotDemoClient("add walls");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") return (await loadMockStore()).addWall({ userId: uid, name: data.name ?? "New Wall", location: data.location ?? "", sortOrder: data.sortOrder ?? 0 });
+  if (isDev) return (await loadMockStore()).addWall({ userId: uid, name: data.name ?? "New Wall", location: data.location ?? "", sortOrder: data.sortOrder ?? 0 });
   const { addWall } = await import("@/server/actions/walls");
   return addWall({ userId: uid, ...data });
 }
@@ -260,8 +242,7 @@ export async function editWall(
   assertNotDemoClient("edit walls");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") return (await loadMockStore()).updateWall(wallId, data);
+  if (isDev) return (await loadMockStore()).updateWall(wallId, data);
   const { updateWall } = await import("@/server/actions/walls");
   return updateWall(uid, wallId, data);
 }
@@ -270,8 +251,7 @@ export async function removeWall(wallId: string, userId?: string | null): Promis
   assertNotDemoClient("delete walls");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") { (await loadMockStore()).deleteWall(wallId); return; }
+  if (isDev) { (await loadMockStore()).deleteWall(wallId); return; }
   const { deleteWall } = await import("@/server/actions/walls");
   return deleteWall(uid, wallId);
 }
@@ -303,8 +283,7 @@ export async function createCabinet(
   assertNotDemoClient("add sections");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") return (await loadMockStore()).addCabinet({ userId: uid, wallId: data.wallId, name: data.name ?? "New Section", rows: data.rows ?? 8, cols: data.cols ?? 8, depth: data.depth ?? 1, storageRows: data.storageRows ?? [], sortOrder: data.sortOrder ?? 0 });
+  if (isDev) return (await loadMockStore()).addCabinet({ userId: uid, wallId: data.wallId, name: data.name ?? "New Section", rows: data.rows ?? 8, cols: data.cols ?? 8, depth: data.depth ?? 1, storageRows: data.storageRows ?? [], sortOrder: data.sortOrder ?? 0 });
   const { addCabinet } = await import("@/server/actions/cabinets");
   return addCabinet({ userId: uid, ...data });
 }
@@ -317,8 +296,7 @@ export async function editCabinet(
   assertNotDemoClient("edit sections");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") return (await loadMockStore()).updateCabinet(cabinetId, data);
+  if (isDev) return (await loadMockStore()).updateCabinet(cabinetId, data);
   const { updateCabinet } = await import("@/server/actions/cabinets");
   return updateCabinet(uid, cabinetId, data);
 }
@@ -327,8 +305,7 @@ export async function removeCabinet(cabinetId: string, userId?: string | null): 
   assertNotDemoClient("delete sections");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") { (await loadMockStore()).deleteCabinet(cabinetId); return; }
+  if (isDev) { (await loadMockStore()).deleteCabinet(cabinetId); return; }
   const { deleteCabinet } = await import("@/server/actions/cabinets");
   return deleteCabinet(uid, cabinetId);
 }
@@ -363,8 +340,7 @@ export async function removeHistoryItem(id: string, userId?: string | null): Pro
   assertNotDemoClient("edit history");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") { (await loadMockStore()).deleteHistoryItem(id); return; }
+  if (isDev) { (await loadMockStore()).deleteHistoryItem(id); return; }
   const { deleteHistoryItem } = await import("@/server/actions/wines");
   return deleteHistoryItem(uid, id);
 }
@@ -377,8 +353,7 @@ export async function editHistoryItem(
   assertNotDemoClient("edit history");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") return { success: true };
+  if (isDev) return { success: true };
   const { updateHistoryItem } = await import("@/server/actions/wines");
   return updateHistoryItem(uid, id, updates as Parameters<typeof updateHistoryItem>[2]);
 }
@@ -403,8 +378,7 @@ export async function addBuyListItem(
   assertNotDemoClient("add buy-list items");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") return (await loadMockStore()).addBuyListItem({ ...data, userId: uid });
+  if (isDev) return (await loadMockStore()).addBuyListItem({ ...data, userId: uid });
   const { addBuyListItem: serverAdd } = await import("@/server/actions/buy-list");
   return serverAdd(uid, data);
 }
@@ -417,8 +391,7 @@ export async function updateBuyListItemData(
   assertNotDemoClient("edit buy-list items");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") return (await loadMockStore()).updateBuyListItem(id, data);
+  if (isDev) return (await loadMockStore()).updateBuyListItem(id, data);
   const { updateBuyListItem: serverUpdate } = await import("@/server/actions/buy-list");
   return serverUpdate(uid, id, data);
 }
@@ -427,8 +400,7 @@ export async function removeBuyListItem(id: string, userId?: string | null): Pro
   assertNotDemoClient("remove buy-list items");
   invalidateReadCache();
   const uid = resolveUserId(userId);
-  const mode = writeMode();
-  if (mode === "dev") { (await loadMockStore()).removeBuyListItem(id); return; }
+  if (isDev) { (await loadMockStore()).removeBuyListItem(id); return; }
   const { removeBuyListItem: serverRemove } = await import("@/server/actions/buy-list");
   return serverRemove(uid, id);
 }
@@ -469,8 +441,7 @@ export async function updateProfile(
 ): Promise<UserProfile> {
   assertNotDemoClient("edit your profile");
   invalidateReadCache();
-  const mode = writeMode();
-  if (mode === "dev") return (await loadMockStore()).updateProfile(data);
+  if (isDev) return (await loadMockStore()).updateProfile(data);
   const { updateUserProfile } = await import("@/server/actions/auth");
   return updateUserProfile(data, userId ?? undefined);
 }
@@ -484,10 +455,9 @@ export async function fetchAllDataForBackup(userId?: string | null) {
   if (isMockMode()) {
     return (await loadMockStore()).getAllData();
   }
-  const { getWines: serverGetWines } = await import("@/server/actions/wines");
+  const { getWines: serverGetWines, getHistory } = await import("@/server/actions/wines");
   const { getWalls } = await import("@/server/actions/walls");
   const { getCabinets } = await import("@/server/actions/cabinets");
-  const { getHistory } = await import("@/server/actions/wines");
   const { getBuyList } = await import("@/server/actions/buy-list");
 
   const [wines, walls, cabinets, history, buyList] = await Promise.all([
@@ -513,8 +483,7 @@ export async function restoreFromBackup(
 ) {
   assertNotDemoClient("restore a backup");
   invalidateReadCache();
-  const mode = writeMode();
-  if (mode === "dev") { (await loadMockStore()).replaceAllData(data); return; }
+  if (isDev) { (await loadMockStore()).replaceAllData(data); return; }
   const uid = resolveUserId(userId);
   const { restoreBackup } = await import("@/server/actions/backup");
   await restoreBackup(data, uid);
@@ -526,7 +495,7 @@ export async function bulkCreateWines(
 ): Promise<Wine[]> {
   assertNotDemoClient("import wines");
   invalidateReadCache();
-  if (writeMode() === "dev") {
+  if (isDev) {
     // Mock store: create them one at a time. Imports legitimately repeat wines, so
     // skip the duplicate check.
     const created: Wine[] = [];
@@ -595,7 +564,7 @@ export async function submitCdRating(
     userId
   );
   return {
-    cdScore: result.cdScore != null ? result.cdScore : rating,
+    cdScore: result.cdScore ?? rating,
     cdRatingCount: result.cdRatingCount,
   };
 }
