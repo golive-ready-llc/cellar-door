@@ -474,7 +474,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Cellar Door" className="h-9 w-auto rounded-lg" />
+            <img src="/logo-small.png" alt="Cellar Door" className="h-9 w-auto rounded-lg" />
             <span className="text-xl font-bold">Cellar Door</span>
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
@@ -1262,7 +1262,7 @@ export default function LandingPage() {
               },
               {
                 q: "How does the temperature monitoring work?",
-                a: "Cellar Pro lets you connect Home Assistant temp + humidity sensors via your local HA URL. Once paired, the live readings show on each cabinet card and you get historical charts in Stats. We don&apos;t sell sensors — you can get a Govee or SwitchBot for ~$30 and connect it through Home Assistant. We never store readings on our servers; they live in your HA instance.",
+                a: "Cellar Pro lets you connect Home Assistant temp + humidity sensors using your Home Assistant&apos;s public HTTPS address (Nabu Casa works well). Once paired, the live readings show on each cabinet card and you get historical charts in Stats. We don&apos;t sell sensors — you can get a Govee or SwitchBot for ~$30 and connect it through Home Assistant. We never store readings on our servers; they live in your HA instance.",
               },
               {
                 q: "What's the deal with Cork & Fork?",
@@ -1371,7 +1371,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="Cellar Door" className="h-8 w-auto rounded-lg" />
+              <img src="/logo-small.png" alt="Cellar Door" className="h-8 w-auto rounded-lg" />
               <span className="text-lg font-bold">Cellar Door</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">

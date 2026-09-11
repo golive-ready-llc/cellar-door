@@ -1062,19 +1062,19 @@ export const mockStore = {
     const key = `${winery.toLowerCase()}|${name.toLowerCase()}|${vintage ?? ""}`;
     const ratingsByWine: Record<string, import("@/types/wine").CommunityRating[]> = {
       "caymus vineyards|caymus cabernet sauvignon|2021": [
-        { id: "r1", userId: "u1", username: "WineEnthusiast42", rating: 5, review: "Absolutely stunning Napa Cab. Dark fruit, chocolate, and a silky finish.", tastingNotes: { aroma: "Blackberry, dark chocolate, vanilla", taste: "Full-bodied, ripe plum, cassis", finish: "Long, velvety, hints of cedar" }, createdAt: "2025-12-15" },
-        { id: "r2", userId: "u2", username: "SommLife", rating: 4, review: "Classic Caymus style. Rich but approachable.", tastingNotes: { aroma: "Cherry, oak, mocha", taste: "Smooth tannins, black cherry", finish: "Medium-long, spicy" }, createdAt: "2025-11-20" },
-        { id: "r3", userId: "u3", username: "CellarRat", rating: 4, review: "Reliable and delicious. Great for a dinner party.", tastingNotes: null, createdAt: "2025-10-05" },
+        { id: "r1", username: "WineEnthusiast42", rating: 5, review: "Absolutely stunning Napa Cab. Dark fruit, chocolate, and a silky finish.", tastingNotes: { aroma: "Blackberry, dark chocolate, vanilla", taste: "Full-bodied, ripe plum, cassis", finish: "Long, velvety, hints of cedar" }, createdAt: "2025-12-15" },
+        { id: "r2", username: "SommLife", rating: 4, review: "Classic Caymus style. Rich but approachable.", tastingNotes: { aroma: "Cherry, oak, mocha", taste: "Smooth tannins, black cherry", finish: "Medium-long, spicy" }, createdAt: "2025-11-20" },
+        { id: "r3", username: "CellarRat", rating: 4, review: "Reliable and delicious. Great for a dinner party.", tastingNotes: null, createdAt: "2025-10-05" },
       ],
       "château lafite rothschild|château lafite rothschild|2010": [
-        { id: "r4", userId: "u4", username: "BordeauxLover", rating: 5, review: "A legendary vintage. Pure elegance and complexity.", tastingNotes: { aroma: "Graphite, cassis, violets, cedar", taste: "Ethereal, perfectly balanced", finish: "Extraordinarily long, mineral" }, createdAt: "2025-09-10" },
-        { id: "r5", userId: "u5", username: "GrandCruCollector", rating: 5, review: "One of the finest Lafites. Will age for decades more.", tastingNotes: { aroma: "Lead pencil, dark fruit, tobacco", taste: "Seamless, deep concentration", finish: "Endless, silk and iron" }, createdAt: "2025-08-22" },
-        { id: "r6", userId: "u1", username: "WineEnthusiast42", rating: 5, review: "Perfection in a glass.", tastingNotes: null, createdAt: "2025-07-15" },
-        { id: "r7", userId: "u6", username: "VintageHunter", rating: 4, review: "Outstanding but needs more time.", tastingNotes: { aroma: "Still tight, cassis emerging", taste: "Powerful structure", finish: "Long, tannic grip" }, createdAt: "2025-06-01" },
+        { id: "r4", username: "BordeauxLover", rating: 5, review: "A legendary vintage. Pure elegance and complexity.", tastingNotes: { aroma: "Graphite, cassis, violets, cedar", taste: "Ethereal, perfectly balanced", finish: "Extraordinarily long, mineral" }, createdAt: "2025-09-10" },
+        { id: "r5", username: "GrandCruCollector", rating: 5, review: "One of the finest Lafites. Will age for decades more.", tastingNotes: { aroma: "Lead pencil, dark fruit, tobacco", taste: "Seamless, deep concentration", finish: "Endless, silk and iron" }, createdAt: "2025-08-22" },
+        { id: "r6", username: "WineEnthusiast42", rating: 5, review: "Perfection in a glass.", tastingNotes: null, createdAt: "2025-07-15" },
+        { id: "r7", username: "VintageHunter", rating: 4, review: "Outstanding but needs more time.", tastingNotes: { aroma: "Still tight, cassis emerging", taste: "Powerful structure", finish: "Long, tannic grip" }, createdAt: "2025-06-01" },
       ],
       "château d'yquem|château d'yquem|2015": [
-        { id: "r8", userId: "u2", username: "SommLife", rating: 5, review: "Liquid gold. Apricot, honey, and saffron with perfect acidity.", tastingNotes: { aroma: "Honey, apricot, saffron", taste: "Luscious, vibrant acidity", finish: "Eternal, crystalline sweetness" }, createdAt: "2025-11-01" },
-        { id: "r9", userId: "u7", username: "DessertWineFan", rating: 5, review: "The greatest sweet wine. Worth every penny.", tastingNotes: null, createdAt: "2025-10-15" },
+        { id: "r8", username: "SommLife", rating: 5, review: "Liquid gold. Apricot, honey, and saffron with perfect acidity.", tastingNotes: { aroma: "Honey, apricot, saffron", taste: "Luscious, vibrant acidity", finish: "Eternal, crystalline sweetness" }, createdAt: "2025-11-01" },
+        { id: "r9", username: "DessertWineFan", rating: 5, review: "The greatest sweet wine. Worth every penny.", tastingNotes: null, createdAt: "2025-10-15" },
       ],
     };
     return ratingsByWine[key] ?? [];

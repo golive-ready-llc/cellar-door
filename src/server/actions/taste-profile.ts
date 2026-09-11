@@ -303,7 +303,7 @@ export async function generateTasteProfile(
       );
     }
 
-    const client = new GoogleGenAI({ apiKey });
+    const client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 60_000 } });
     const response = await client.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,

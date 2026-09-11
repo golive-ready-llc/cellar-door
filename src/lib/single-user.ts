@@ -15,12 +15,12 @@
  * and can read and modify the entire cellar. It is appropriate for:
  *
  *   * a personal instance on your LAN or behind a VPN/Tailscale
- *   * an instance behind SITE_PASSWORD
  *   * an instance behind your own reverse-proxy auth (Authelia, oauth2-proxy)
  *
  * It is NOT appropriate for anything exposed to the open internet without one
- * of those in front of it. The mode is opt-in and off by default; when it is
- * enabled without SITE_PASSWORD the server logs a startup warning.
+ * of those in front of it. SITE_PASSWORD is a convenience gate, not access
+ * control; don't rely on it alone. The mode is opt-in and off by default, and
+ * the server logs a startup warning whenever it is enabled.
  *
  * Multi-user instances should leave this unset and use Firebase.
  */

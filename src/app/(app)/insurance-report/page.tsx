@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Printer, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth-provider";
@@ -9,6 +10,7 @@ import { fetchWines, fetchWalls } from "@/lib/data";
 import type { Wine, Wall } from "@/types/wine";
 
 export default function InsuranceReportPage() {
+  const router = useRouter();
   const { user, userId } = useAuth();
   const { tier } = useTier();
   const isPremium = tier === "PREMIUM";
@@ -169,7 +171,7 @@ export default function InsuranceReportPage() {
             if (window.history.length > 1) {
               window.history.back();
             } else {
-              window.location.href = "/stats";
+              router.push("/stats");
             }
           }}
           className="text-xs gap-1 whitespace-nowrap"

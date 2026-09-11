@@ -91,6 +91,13 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(self), microphone=(), geolocation=()",
           },
+          // Baseline CSP: no plugins, no <base> hijacking, no framing by other
+          // sites. Scripts aren't restricted yet (AdSense, Firebase, Stripe
+          // and Turnstile all load third-party code).
+          {
+            key: "Content-Security-Policy",
+            value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'",
+          },
         ],
       },
       // The proxied Firebase auth helper embeds /__/auth/iframe in a hidden
@@ -103,6 +110,10 @@ const nextConfig: NextConfig = {
           {
             key: "X-Frame-Options",
             value: "SAMEORIGIN",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "base-uri 'self'; object-src 'none'; frame-ancestors 'self'",
           },
         ],
       },

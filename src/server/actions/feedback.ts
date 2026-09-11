@@ -25,6 +25,15 @@ export async function submitFeedback(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const uid = await resolveServerUserId(userId);
+    // Bound what one request can store.
+    const cleanSubject = (subject ?? "").trim().slice(0, 200);
+    const cleanMessage = (message ?? "").trim();
+    if (!cleanMessage) {
+      return { success: false, error: "Please enter a message." };
+    }
+    if (cleanMessage.length > 5000) {
+      return { success: false, error: "Message is too long (5,000 characters max)." };
+    }
     const user = await prisma.user.findUnique({
       where: { id: uid },
       select: { tier: true },
@@ -33,8 +42,8 @@ export async function submitFeedback(
     await prisma.feedback.create({
       data: {
         userId: uid,
-        subject,
-        message,
+        subject: cleanSubject,
+        message: cleanMessage,
         tier: user?.tier ?? "FREE",
       },
     });

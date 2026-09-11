@@ -4,7 +4,15 @@
 
 import type { Wine, Wall, Cabinet, WineHistoryItem, BuyListItem, NewWineInput } from "@/types/wine";
 import { DuplicateWineError } from "./errors";
-import { mockStore } from "./mock-store";
+import type { AddWineInput } from "@/server/actions/wines";
+
+// The demo/dev data set is ~70 KB. Load it only when mock or demo mode is
+// actually in use, so it stays out of every signed-in user's bundle.
+let mockStorePromise: Promise<typeof import("./mock-store")["mockStore"]> | null = null;
+function loadMockStore() {
+  mockStorePromise ??= import("./mock-store").then((m) => m.mockStore);
+  return mockStorePromise;
+}
 
 const isDev = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 const DEV_USER_ID = "dev-user-001";
@@ -43,7 +51,7 @@ function isDemoCookie(): boolean {
  * True for:
  *   - local dev (NEXT_PUBLIC_USE_MOCK), and
  *   - demo-mode visitors (demo_mode cookie). The auth provider forces the
- *     demo user id here, and mockStore.normalizeUserId maps it onto the
+ *     demo user id here, and (await loadMockStore()).normalizeUserId maps it onto the
  *     seeded sample cellar — so /demo lands in a populated cellar instead
  *     of the empty first-run setup.
  * Reads only: every mutation is blocked upstream by assertNotDemoClient, so
@@ -126,7 +134,7 @@ async function cachedRead<T>(key: string, uid: string, load: () => Promise<T>): 
 
 export async function fetchWines(userId?: string | null): Promise<Wine[]> {
   const uid = resolveUserId(userId);
-  if (isMockMode()) return mockStore.getWines(uid);
+  if (isMockMode()) return (await loadMockStore()).getWines(uid);
   return cachedRead("wines", uid, async () => {
     const { getWines } = await import("@/server/actions/wines");
     return getWines(uid);
@@ -135,14 +143,14 @@ export async function fetchWines(userId?: string | null): Promise<Wine[]> {
 
 export async function fetchWinesByCabinet(cabinetId: string, userId?: string | null): Promise<Wine[]> {
   const uid = resolveUserId(userId);
-  if (isMockMode()) return mockStore.getWinesByCabinet(uid, cabinetId);
+  if (isMockMode()) return (await loadMockStore()).getWinesByCabinet(uid, cabinetId);
   const { getWinesByCabinet } = await import("@/server/actions/wines");
   return getWinesByCabinet(uid, cabinetId);
 }
 
 export async function fetchWine(wineId: string, userId?: string | null): Promise<Wine | null> {
   const uid = resolveUserId(userId);
-  if (isMockMode()) return mockStore.getWine(uid, wineId);
+  if (isMockMode()) return (await loadMockStore()).getWine(uid, wineId);
   const { getWine } = await import("@/server/actions/wines");
   return getWine(uid, wineId);
 }
@@ -155,7 +163,7 @@ export async function createWine(
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") return mockStore.addWine({ ...data, userId: uid });
+  if (mode === "dev") return (await loadMockStore()).addWine({ ...data, userId: uid });
   const { addWine } = await import("@/server/actions/wines");
   const result = await addWine({ ...data, userId: uid });
   // The server action RETURNS a duplicate sentinel rather than throwing —
@@ -177,7 +185,7 @@ export async function editWine(
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") return mockStore.updateWine(wineId, data);
+  if (mode === "dev") return (await loadMockStore()).updateWine(wineId, data);
   const { updateWine } = await import("@/server/actions/wines");
   return updateWine(uid, wineId, data);
 }
@@ -193,7 +201,7 @@ export async function deleteWine(
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") { mockStore.removeWine(wineId, reason, rating, notes); return; }
+  if (mode === "dev") { (await loadMockStore()).removeWine(wineId, reason, rating, notes); return; }
   const { removeWine } = await import("@/server/actions/wines");
   const result = await removeWine(uid, wineId, reason, rating, notes);
   if (!result.success) {
@@ -211,7 +219,7 @@ export async function bulkDeleteWines(
   const uid = resolveUserId(userId);
   const mode = writeMode();
   if (mode === "dev") {
-    for (const id of wineIds) mockStore.removeWine(id, reason);
+    for (const id of wineIds) (await loadMockStore()).removeWine(id, reason);
     return wineIds.length;
   }
   const { bulkRemoveWines } = await import("@/server/actions/wines");
@@ -224,7 +232,7 @@ export async function bulkDeleteWines(
 
 export async function fetchWalls(userId?: string | null): Promise<Wall[]> {
   const uid = resolveUserId(userId);
-  if (isMockMode()) return mockStore.getWalls(uid);
+  if (isMockMode()) return (await loadMockStore()).getWalls(uid);
   return cachedRead("walls", uid, async () => {
     const { getWalls } = await import("@/server/actions/walls");
     return getWalls(uid);
@@ -239,7 +247,7 @@ export async function createWall(
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") return mockStore.addWall({ userId: uid, name: data.name ?? "New Wall", location: data.location ?? "", sortOrder: data.sortOrder ?? 0 });
+  if (mode === "dev") return (await loadMockStore()).addWall({ userId: uid, name: data.name ?? "New Wall", location: data.location ?? "", sortOrder: data.sortOrder ?? 0 });
   const { addWall } = await import("@/server/actions/walls");
   return addWall({ userId: uid, ...data });
 }
@@ -253,7 +261,7 @@ export async function editWall(
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") return mockStore.updateWall(wallId, data);
+  if (mode === "dev") return (await loadMockStore()).updateWall(wallId, data);
   const { updateWall } = await import("@/server/actions/walls");
   return updateWall(uid, wallId, data);
 }
@@ -263,7 +271,7 @@ export async function removeWall(wallId: string, userId?: string | null): Promis
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") { mockStore.deleteWall(wallId); return; }
+  if (mode === "dev") { (await loadMockStore()).deleteWall(wallId); return; }
   const { deleteWall } = await import("@/server/actions/walls");
   return deleteWall(uid, wallId);
 }
@@ -274,7 +282,7 @@ export async function removeWall(wallId: string, userId?: string | null): Promis
 
 export async function fetchCabinets(userId?: string | null): Promise<Cabinet[]> {
   const uid = resolveUserId(userId);
-  if (isMockMode()) return mockStore.getCabinets(uid);
+  if (isMockMode()) return (await loadMockStore()).getCabinets(uid);
   return cachedRead("cabinets", uid, async () => {
     const { getCabinets } = await import("@/server/actions/cabinets");
     return getCabinets(uid);
@@ -283,7 +291,7 @@ export async function fetchCabinets(userId?: string | null): Promise<Cabinet[]> 
 
 export async function fetchCabinet(cabinetId: string, userId?: string | null): Promise<Cabinet | null> {
   const uid = resolveUserId(userId);
-  if (isMockMode()) return mockStore.getCabinet(uid, cabinetId);
+  if (isMockMode()) return (await loadMockStore()).getCabinet(uid, cabinetId);
   const { getCabinet } = await import("@/server/actions/cabinets");
   return getCabinet(uid, cabinetId);
 }
@@ -296,7 +304,7 @@ export async function createCabinet(
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") return mockStore.addCabinet({ userId: uid, wallId: data.wallId, name: data.name ?? "New Section", rows: data.rows ?? 8, cols: data.cols ?? 8, depth: data.depth ?? 1, storageRows: data.storageRows ?? [], sortOrder: data.sortOrder ?? 0 });
+  if (mode === "dev") return (await loadMockStore()).addCabinet({ userId: uid, wallId: data.wallId, name: data.name ?? "New Section", rows: data.rows ?? 8, cols: data.cols ?? 8, depth: data.depth ?? 1, storageRows: data.storageRows ?? [], sortOrder: data.sortOrder ?? 0 });
   const { addCabinet } = await import("@/server/actions/cabinets");
   return addCabinet({ userId: uid, ...data });
 }
@@ -310,7 +318,7 @@ export async function editCabinet(
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") return mockStore.updateCabinet(cabinetId, data);
+  if (mode === "dev") return (await loadMockStore()).updateCabinet(cabinetId, data);
   const { updateCabinet } = await import("@/server/actions/cabinets");
   return updateCabinet(uid, cabinetId, data);
 }
@@ -320,7 +328,7 @@ export async function removeCabinet(cabinetId: string, userId?: string | null): 
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") { mockStore.deleteCabinet(cabinetId); return; }
+  if (mode === "dev") { (await loadMockStore()).deleteCabinet(cabinetId); return; }
   const { deleteCabinet } = await import("@/server/actions/cabinets");
   return deleteCabinet(uid, cabinetId);
 }
@@ -331,10 +339,23 @@ export async function removeCabinet(cabinetId: string, userId?: string | null): 
 
 export async function fetchHistory(userId?: string | null): Promise<WineHistoryItem[]> {
   const uid = resolveUserId(userId);
-  if (isMockMode()) return mockStore.getHistory(uid);
+  if (isMockMode()) return (await loadMockStore()).getHistory(uid);
   return cachedRead("history", uid, async () => {
     const { getHistory } = await import("@/server/actions/wines");
     return getHistory(uid);
+  });
+}
+
+/** Only the most recent history events (activity feed), not a lifetime of history. */
+export async function fetchRecentHistory(
+  userId: string | null | undefined,
+  limit: number
+): Promise<WineHistoryItem[]> {
+  const uid = resolveUserId(userId);
+  if (isMockMode()) return (await loadMockStore()).getHistory(uid).slice(0, limit);
+  return cachedRead(`history-recent-${limit}`, uid, async () => {
+    const { getHistory } = await import("@/server/actions/wines");
+    return getHistory(uid, limit);
   });
 }
 
@@ -343,7 +364,7 @@ export async function removeHistoryItem(id: string, userId?: string | null): Pro
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") { mockStore.deleteHistoryItem(id); return; }
+  if (mode === "dev") { (await loadMockStore()).deleteHistoryItem(id); return; }
   const { deleteHistoryItem } = await import("@/server/actions/wines");
   return deleteHistoryItem(uid, id);
 }
@@ -368,7 +389,7 @@ export async function editHistoryItem(
 
 export async function fetchBuyList(userId?: string | null): Promise<BuyListItem[]> {
   const uid = resolveUserId(userId);
-  if (isMockMode()) return mockStore.getBuyList(uid);
+  if (isMockMode()) return (await loadMockStore()).getBuyList(uid);
   return cachedRead("buyList", uid, async () => {
     const { getBuyList } = await import("@/server/actions/buy-list");
     return getBuyList(uid);
@@ -383,7 +404,7 @@ export async function addBuyListItem(
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") return mockStore.addBuyListItem({ ...data, userId: uid });
+  if (mode === "dev") return (await loadMockStore()).addBuyListItem({ ...data, userId: uid });
   const { addBuyListItem: serverAdd } = await import("@/server/actions/buy-list");
   return serverAdd(uid, data);
 }
@@ -397,7 +418,7 @@ export async function updateBuyListItemData(
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") return mockStore.updateBuyListItem(id, data);
+  if (mode === "dev") return (await loadMockStore()).updateBuyListItem(id, data);
   const { updateBuyListItem: serverUpdate } = await import("@/server/actions/buy-list");
   return serverUpdate(uid, id, data);
 }
@@ -407,7 +428,7 @@ export async function removeBuyListItem(id: string, userId?: string | null): Pro
   invalidateReadCache();
   const uid = resolveUserId(userId);
   const mode = writeMode();
-  if (mode === "dev") { mockStore.removeBuyListItem(id); return; }
+  if (mode === "dev") { (await loadMockStore()).removeBuyListItem(id); return; }
   const { removeBuyListItem: serverRemove } = await import("@/server/actions/buy-list");
   return serverRemove(uid, id);
 }
@@ -430,7 +451,7 @@ export async function fetchProfile(userId?: string | null): Promise<UserProfile>
     // Note: mock mode returns the single dev profile regardless of userId
     // since the in-memory mockStore only holds one profile. In production
     // the Prisma query correctly filters by the requested userId.
-    return mockStore.getProfile();
+    return (await loadMockStore()).getProfile();
   }
   const { getFullUserProfile } = await import("@/server/actions/auth");
   const profile = await getFullUserProfile(undefined, userId ?? undefined);
@@ -449,7 +470,7 @@ export async function updateProfile(
   assertNotDemoClient("edit your profile");
   invalidateReadCache();
   const mode = writeMode();
-  if (mode === "dev") return mockStore.updateProfile(data);
+  if (mode === "dev") return (await loadMockStore()).updateProfile(data);
   const { updateUserProfile } = await import("@/server/actions/auth");
   return updateUserProfile(data, userId ?? undefined);
 }
@@ -461,7 +482,7 @@ export async function updateProfile(
 export async function fetchAllDataForBackup(userId?: string | null) {
   const uid = resolveUserId(userId);
   if (isMockMode()) {
-    return mockStore.getAllData();
+    return (await loadMockStore()).getAllData();
   }
   const { getWines: serverGetWines } = await import("@/server/actions/wines");
   const { getWalls } = await import("@/server/actions/walls");
@@ -470,10 +491,10 @@ export async function fetchAllDataForBackup(userId?: string | null) {
   const { getBuyList } = await import("@/server/actions/buy-list");
 
   const [wines, walls, cabinets, history, buyList] = await Promise.all([
-    serverGetWines(uid),
+    serverGetWines(uid, { fullImages: true }),
     getWalls(uid),
     getCabinets(uid),
-    getHistory(uid),
+    getHistory(uid, undefined, { fullImages: true }),
     getBuyList(uid),
   ]);
 
@@ -493,39 +514,31 @@ export async function restoreFromBackup(
   assertNotDemoClient("restore a backup");
   invalidateReadCache();
   const mode = writeMode();
-  if (mode === "dev") { mockStore.replaceAllData(data); return; }
+  if (mode === "dev") { (await loadMockStore()).replaceAllData(data); return; }
   const uid = resolveUserId(userId);
   const { restoreBackup } = await import("@/server/actions/backup");
   await restoreBackup(data, uid);
 }
 
 export async function bulkCreateWines(
-  wineDataList: Omit<Wine, "id" | "addedAt" | "updatedAt" | "userId">[],
+  wineDataList: NewWineInput[],
   userId?: string | null
 ): Promise<Wine[]> {
   assertNotDemoClient("import wines");
   invalidateReadCache();
-  // Bulk imports (CSV) legitimately contain multiples of the same wine
-  // (quantity rows) and wines already in the cellar — skip the dup check.
-  const results = await Promise.allSettled(
-    wineDataList.map((data) => createWine({ ...data, skipDuplicateCheck: true }, userId))
-  );
-  const created: Wine[] = [];
-  let errors = 0;
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      created.push(result.value);
-    } else {
-      errors++;
-      console.error("Failed to create wine:", result.reason);
+  if (writeMode() === "dev") {
+    // Mock store: create them one at a time. Imports legitimately repeat wines, so
+    // skip the duplicate check.
+    const created: Wine[] = [];
+    for (const data of wineDataList) {
+      created.push(await createWine({ ...data, skipDuplicateCheck: true }, userId));
     }
+    return created;
   }
-  if (errors > 0) {
-    console.warn(
-      `${errors} wine(s) failed to create out of ${wineDataList.length}`
-    );
-  }
-  return created;
+  // Production: one server action and a batched, all-or-nothing insert.
+  const uid = resolveUserId(userId);
+  const { importWines } = await import("@/server/actions/wines");
+  return importWines(uid, wineDataList as AddWineInput[]);
 }
 
 // ============================================================
@@ -538,7 +551,7 @@ export async function fetchCommunityScore(
   vintage: number | null
 ): Promise<{ cdScore: number | null; cdRatingCount: number } | null> {
   if (isMockMode()) {
-    return mockStore.getCommunityScore(name, winery, vintage);
+    return (await loadMockStore()).getCommunityScore(name, winery, vintage);
   }
   const { getCommunityScore } = await import("@/server/actions/community");
   return getCommunityScore(name, winery, vintage);
@@ -558,7 +571,7 @@ export async function submitCdRating(
   assertNotDemoClient("rate community wines");
   invalidateReadCache();
   if (isMockMode()) {
-    return mockStore.submitCommunityRating(
+    return (await loadMockStore()).submitCommunityRating(
       DEV_USER_ID,
       name,
       winery,
@@ -593,7 +606,7 @@ export async function fetchCommunityRatings(
   vintage: number | null
 ): Promise<import("@/types/wine").CommunityRating[]> {
   if (isMockMode()) {
-    return mockStore.getCommunityRatings(name, winery, vintage);
+    return (await loadMockStore()).getCommunityRatings(name, winery, vintage);
   }
   const { getCommunityRatings } = await import("@/server/actions/community");
   return getCommunityRatings(name, winery, vintage);

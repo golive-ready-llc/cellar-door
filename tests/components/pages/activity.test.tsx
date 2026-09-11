@@ -8,6 +8,8 @@ const historyMock = vi.fn<() => Promise<Partial<WineHistoryItem>[]>>(async () =>
 vi.mock("@/lib/data", () => ({
   fetchWines: (...args: unknown[]) => winesMock(...(args as [])),
   fetchHistory: (...args: unknown[]) => historyMock(...(args as [])),
+  // The feed now reads only recent history (fetchRecentHistory).
+  fetchRecentHistory: (...args: unknown[]) => historyMock(...(args as [])),
 }));
 vi.mock("@/components/auth-provider", () => ({
   useAuth: () => ({ userId: "u1", user: null, tier: "PRO" }),

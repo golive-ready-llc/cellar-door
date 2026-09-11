@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 /**
  * Unit tests for `src/server/auth-guard.ts`.
@@ -137,5 +137,29 @@ describe("resolveServerUserId (strict — cookie required)", () => {
     userFindUniqueSpy.mockResolvedValue(null);
     const { resolveServerUserId } = await import("@/server/auth-guard");
     await expect(resolveServerUserId("client-fallback")).rejects.toThrow("Unauthorized");
+  });
+});
+
+describe("missing DATABASE_URL", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("uses the fixed dev identity only outside production", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("NODE_ENV", "development");
+    vi.resetModules();
+    const { getAuthenticatedUserId } = await import("@/server/auth-guard");
+    expect(await getAuthenticatedUserId()).toBe("dev-user-001");
+  });
+
+  it("fails closed in production: no session means no identity", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.resetModules();
+    cookieGetSpy.mockReturnValue(undefined);
+    const { getAuthenticatedUserId } = await import("@/server/auth-guard");
+    expect(await getAuthenticatedUserId()).toBeNull();
   });
 });

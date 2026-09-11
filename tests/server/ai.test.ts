@@ -14,6 +14,7 @@ process.env.DATABASE_URL = "postgresql://stub";
 
 const isDemoRequestSpy = vi.fn().mockResolvedValue(false);
 const getAuthenticatedUserIdSpy = vi.fn().mockResolvedValue(null as string | null);
+const resolveServerUserIdSpy = vi.fn();
 const requireFeatureSpy = vi.fn().mockResolvedValue("PRO");
 const reserveAiCreditsSpy = vi.fn();
 const refundOnFailureSpy = vi.fn().mockResolvedValue(undefined);
@@ -57,7 +58,7 @@ vi.mock("@/lib/demo", () => ({
 
 vi.mock("@/server/auth-guard", () => ({
   getAuthenticatedUserId: () => getAuthenticatedUserIdSpy(),
-  resolveServerUserId: vi.fn(),
+  resolveServerUserId: (...a: unknown[]) => resolveServerUserIdSpy(...a),
 }));
 
 vi.mock("@/server/tier-check", () => ({
@@ -89,7 +90,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-vi.mock("@/server/actions/wine-metadata", () => ({
+vi.mock("@/server/wine-metadata-store", () => ({
   saveWineMetadata: (...a: unknown[]) => saveWineMetadataSpy(...a),
   saveWineMetadataImage: vi.fn(),
 }));
@@ -108,6 +109,7 @@ beforeEach(() => {
   vi.resetModules();
   isDemoRequestSpy.mockResolvedValue(false);
   getAuthenticatedUserIdSpy.mockResolvedValue(null);
+  resolveServerUserIdSpy.mockReset();
   requireFeatureSpy.mockResolvedValue("PRO");
   isAIAvailableSpy.mockReturnValue(true);
   searchWineSpy.mockResolvedValue({ name: "Chateau X", winery: "Wx" });
@@ -129,7 +131,7 @@ beforeEach(() => {
 
 describe("aiSearchWine — gate building", () => {
   it("cookie auth path: gate built from verified userId, not client param", async () => {
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce("verified-uid");
+    getAuthenticatedUserIdSpy.mockResolvedValue("verified-uid");
     const { aiSearchWine } = await import("@/server/actions/ai");
     const result = await aiSearchWine("Bordeaux", "client-uid");
     expect(result.success).toBe(true);
@@ -138,16 +140,18 @@ describe("aiSearchWine — gate building", () => {
     expect(reserveAiCreditsSpy).toHaveBeenCalledWith("verified-uid", "auto_fill", 1);
   });
 
-  it("cookie missing → falls back to clientUserId (audit-1 rollback)", async () => {
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce(null);
+  it("cookie missing → Unauthorized even with a client id (no fallback)", async () => {
+    getAuthenticatedUserIdSpy.mockResolvedValue(null);
     const { aiSearchWine } = await import("@/server/actions/ai");
-    const result = await aiSearchWine("Bordeaux", "client-uid");
-    expect(result.success).toBe(true);
-    expect(requireFeatureSpy).toHaveBeenCalledWith("client-uid", "barcodeAiLookup");
+    const result = await aiSearchWine("Bordeaux", "victim-uid");
+    expect(result).toMatchObject({ success: false, error: "Unauthorized" });
+    expect(requireFeatureSpy).not.toHaveBeenCalled();
+    expect(reserveAiCreditsSpy).not.toHaveBeenCalled();
+    expect(searchWineSpy).not.toHaveBeenCalled();
   });
 
   it("anonymous (no cookie + no client) → success:false Unauthorized", async () => {
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce(null);
+    getAuthenticatedUserIdSpy.mockResolvedValue(null);
     const { aiSearchWine } = await import("@/server/actions/ai");
     const result = await aiSearchWine("Bordeaux", undefined);
     expect(result).toMatchObject({ success: false, error: "Unauthorized" });
@@ -168,7 +172,7 @@ describe("aiSearchWine — gate building", () => {
 
 describe("aiSearchWine — refund flow", () => {
   it("AI throws → refundOnFailure called, error returned", async () => {
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce("u1");
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
     searchWineSpy.mockRejectedValueOnce(new Error("Gemini timed out"));
     const { aiSearchWine } = await import("@/server/actions/ai");
     const result = await aiSearchWine("Bordeaux");
@@ -177,7 +181,7 @@ describe("aiSearchWine — refund flow", () => {
   });
 
   it("AI throws + refund itself fails → original error still returned, no crash", async () => {
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce("u1");
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
     searchWineSpy.mockRejectedValueOnce(new Error("Gemini timed out"));
     refundOnFailureSpy.mockRejectedValueOnce(new Error("refund DB write failed"));
     const { aiSearchWine } = await import("@/server/actions/ai");
@@ -190,7 +194,7 @@ describe("aiSearchWine — refund flow", () => {
   });
 
   it("TierError(CREDITS_EXHAUSTED) from reservation → returns code:CREDITS_EXHAUSTED", async () => {
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce("u1");
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
     reserveAiCreditsSpy.mockResolvedValueOnce({
       ok: false,
       reason: "CREDITS_EXHAUSTED",
@@ -211,7 +215,7 @@ describe("aiSearchWine — refund flow", () => {
   });
 
   it("requireFeature throws UPGRADE_REQUIRED → code surfaces, no AI call, no refund", async () => {
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce("u1");
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
     requireFeatureSpy.mockRejectedValueOnce(
       new MockTierError("UPGRADE_REQUIRED", "PRO", "Upgrade")
     );
@@ -238,12 +242,12 @@ describe("aiBarcodeLookup", () => {
     }
     expect(reserveAiCreditsSpy).not.toHaveBeenCalled();
     expect(searchWineSpy).not.toHaveBeenCalled();
-    expect(getAuthenticatedUserIdSpy).not.toHaveBeenCalled();
+    expect(requireFeatureSpy).not.toHaveBeenCalled();
   });
 
   it("verified userId beats client-supplied id for the gate", async () => {
     barcodeFindUniqueSpy.mockResolvedValueOnce(null);
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce("verified");
+    getAuthenticatedUserIdSpy.mockResolvedValue("verified");
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("OFF down"));
     const { aiBarcodeLookup } = await import("@/server/actions/ai");
     await aiBarcodeLookup("9990000000001", "client-spoof");
@@ -252,7 +256,7 @@ describe("aiBarcodeLookup", () => {
 
   it("anonymous (no cookie + no client) → Unauthorized, no AI call", async () => {
     barcodeFindUniqueSpy.mockResolvedValueOnce(null);
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce(null);
+    getAuthenticatedUserIdSpy.mockResolvedValue(null);
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("OFF down"));
     const { aiBarcodeLookup } = await import("@/server/actions/ai");
     const result = await aiBarcodeLookup("8880000000002", undefined);
@@ -262,7 +266,7 @@ describe("aiBarcodeLookup", () => {
 
   it("cache miss + Open Food Facts fails → AI fallback builds gate, reserves credits", async () => {
     barcodeFindUniqueSpy.mockResolvedValueOnce(null);
-    getAuthenticatedUserIdSpy.mockResolvedValueOnce("u1");
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
     // Stub global fetch so the OFF call cleanly fails to "no wine".
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -282,5 +286,36 @@ describe("aiBarcodeLookup", () => {
     expect(result).toMatchObject({ success: false, error: "Invalid barcode" });
     expect(barcodeFindUniqueSpy).not.toHaveBeenCalled();
     expect(searchWineSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("security: no client-supplied identity (2026-09-10)", () => {
+  it("a spoofed client id can't read another user's cached result", async () => {
+    const { aiSearchWine } = await import("@/server/actions/ai");
+    getAuthenticatedUserIdSpy.mockResolvedValue("victim");
+    await aiSearchWine("Rare Query", "victim");
+    expect(searchWineSpy).toHaveBeenCalledTimes(1);
+
+    getAuthenticatedUserIdSpy.mockResolvedValue("attacker");
+    await aiSearchWine("Rare Query", "victim");
+    // The cache is scoped to the verified caller, so the attacker misses the
+    // victim's cached result and is gated (and charged) as themselves.
+    expect(searchWineSpy).toHaveBeenCalledTimes(2);
+    expect(requireFeatureSpy).toHaveBeenLastCalledWith("attacker", "barcodeAiLookup");
+  });
+
+  it("getCreditsRemaining reports the verified caller, not the id passed in", async () => {
+    resolveServerUserIdSpy.mockResolvedValue("verified");
+    const { getCreditsRemaining } = await import("@/server/actions/ai");
+    await getCreditsRemaining("victim");
+    expect(resolveServerUserIdSpy).toHaveBeenCalledWith("victim");
+    expect(getAiCreditsRemainingSpy).toHaveBeenCalledWith("verified");
+  });
+
+  it("getCreditsRemaining rejects without a session", async () => {
+    resolveServerUserIdSpy.mockRejectedValue(new Error("Unauthorized"));
+    const { getCreditsRemaining } = await import("@/server/actions/ai");
+    await expect(getCreditsRemaining("victim")).rejects.toThrow("Unauthorized");
+    expect(getAiCreditsRemainingSpy).not.toHaveBeenCalled();
   });
 });

@@ -6,9 +6,12 @@ import { getAdminAuth } from "@/lib/firebase-admin";
 import { stripe } from "@/lib/stripe";
 import { DEFAULT_CABINETS } from "@/types/constants";
 import { mockStore } from "@/lib/mock-store";
-import { logAudit } from "./audit";
+import { logAudit } from "@/server/audit-log";
 
-const isDev = !process.env.DATABASE_URL || process.env.DATABASE_URL === "";
+// No DATABASE_URL means local development without a database: use a fixed dev
+// identity. Never in production. A deploy that lost its DATABASE_URL must fail
+// closed (no sign-in), not hand every visitor the same identity.
+const isDev = !process.env.DATABASE_URL && process.env.NODE_ENV !== "production";
 
 /** Name of the httpOnly session cookie that authenticates server actions. */
 const SESSION_COOKIE = "__session";

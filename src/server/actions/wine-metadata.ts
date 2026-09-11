@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
+import { metadataWhere } from "@/lib/wine-metadata-key";
 import type { WineIdentification, AiWineEnrichmentResult } from "@/lib/ai/types";
 import type { AiRatings } from "@/types/wine";
 
@@ -17,11 +17,7 @@ export async function findWineMetadata(
   if (!winery || !name) return null;
 
   const row = await prisma.wineMetadata.findFirst({
-    where: {
-      winery: { equals: winery, mode: "insensitive" },
-      name: { equals: name, mode: "insensitive" },
-      vintage: vintage ?? null,
-    },
+    where: metadataWhere(winery, name, vintage ?? null),
   });
 
   if (!row) return null;
@@ -62,11 +58,7 @@ export async function findEnrichmentMetadata(
   if (!winery || !name) return null;
 
   const row = await prisma.wineMetadata.findFirst({
-    where: {
-      winery: { equals: winery, mode: "insensitive" },
-      name: { equals: name, mode: "insensitive" },
-      vintage: vintage ?? null,
-    },
+    where: metadataWhere(winery, name, vintage ?? null),
   });
 
   if (!row) return null;
@@ -95,83 +87,6 @@ export async function findEnrichmentMetadata(
   };
 }
 
-/**
- * Save or update wine metadata from AI results.
- * Upserts by (winery, name, vintage). Only saves if name+winery are non-empty.
- * Merges new data with existing — never overwrites non-empty fields with empty ones.
- */
-export async function saveWineMetadata(
-  data: Partial<WineIdentification> & { name: string; winery: string; foodPairings?: string }
-): Promise<void> {
-  if (!data.name || !data.winery) return;
-
-  const key = {
-    winery: data.winery,
-    name: data.name,
-    vintage: data.vintage ?? null,
-  };
-
-  try {
-    const existing = await prisma.wineMetadata.findFirst({
-      where: {
-        winery: { equals: key.winery, mode: "insensitive" },
-        name: { equals: key.name, mode: "insensitive" },
-        vintage: key.vintage,
-      },
-    });
-
-    // Merge: only update fields that are non-empty in the new data and empty in existing
-    const merged = {
-      type: data.type || existing?.type || "",
-      region: data.region || existing?.region || "",
-      country: data.country || existing?.country || "",
-      grapeVariety: data.grapeVariety || existing?.grapeVariety || "",
-      alcohol: data.alcohol || existing?.alcohol || "",
-      description: data.description || existing?.description || "",
-      foodPairings: data.foodPairings || existing?.foodPairings || "",
-      estimatedPrice: data.estimatedPrice ?? existing?.estimatedPrice ?? null,
-      disposition: data.disposition || existing?.disposition || "",
-      drinkBy: data.drinkBy || existing?.drinkBy || "",
-      drinkWindow: data.drinkWindow || existing?.drinkWindow || "",
-      aiRatings: data.ratings ?? existing?.aiRatings ?? undefined,
-    };
-
-    if (existing) {
-      await prisma.wineMetadata.update({
-        where: { id: existing.id },
-        data: merged as Prisma.WineMetadataUpdateInput,
-      });
-    } else {
-      await prisma.wineMetadata.create({
-        data: { ...key, ...merged } as Prisma.WineMetadataCreateInput,
-      });
-    }
-  } catch {
-    // Ignore duplicate key / race condition errors
-  }
-}
-
-/**
- * Save image URL to existing wine metadata.
- */
-export async function saveWineMetadataImage(
-  winery: string,
-  name: string,
-  vintage: number | null,
-  imageUrl: string
-): Promise<void> {
-  if (!winery || !name || !imageUrl) return;
-
-  try {
-    await prisma.wineMetadata.updateMany({
-      where: {
-        winery: { equals: winery, mode: "insensitive" },
-        name: { equals: name, mode: "insensitive" },
-        vintage: vintage ?? null,
-      },
-      data: { imageUrl },
-    });
-  } catch {
-    // Ignore errors
-  }
-}
+// Cache WRITES live in src/server/wine-metadata-store.ts, not here. Every
+// export of a "use server" file is a public endpoint, and open writes would
+// let anyone poison the shared cache that feeds other users' wines.

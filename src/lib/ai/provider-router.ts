@@ -181,6 +181,37 @@ export class ProviderRouter implements AIProvider {
   vintageStory(region: string, country: string, vintage: number): Promise<VintageStoryResult> { return this.textProvider().vintageStory(region, country, vintage); }
   chat(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string> { return this.textProvider().chat(systemPrompt, messages); }
 
+  /** Streamed chat with failover: the failover provider is tried only if the
+   *  primary fails before producing any text (a half-sent reply can't be retried). */
+  async *chatStream(
+    systemPrompt: string,
+    messages: Array<{ role: string; content: string }>
+  ): AsyncGenerator<string> {
+    const providers = [this.textPrimary, this.textFailover].filter((p): p is AIProvider => !!p);
+    if (providers.length === 0) throw new Error("No AI provider configured for this operation");
+    let lastError: unknown;
+    for (const provider of providers) {
+      let yielded = false;
+      try {
+        if (provider.chatStream) {
+          for await (const chunk of provider.chatStream(systemPrompt, messages)) {
+            yielded = true;
+            yield chunk;
+          }
+        } else {
+          const reply = await provider.chat(systemPrompt, messages);
+          yielded = true;
+          yield reply;
+        }
+        return;
+      } catch (err) {
+        if (yielded) throw err;
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
   // ─── Vision operations → visionProvider ──────────────────
   scanLabel(imageBase64: string, mimeType: string): Promise<WineIdentification> { return this.visionProvider().scanLabel(imageBase64, mimeType); }
   fetchWineImage(wine: WineDataInput): Promise<AiWineImageResult> {

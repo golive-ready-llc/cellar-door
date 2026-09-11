@@ -10,6 +10,8 @@ import { BatchActionsBar } from "@/components/wine/batch-actions-bar";
 import { useWineTextColors } from "@/hooks/use-wine-colors";
 import { useCurrency } from "@/hooks/use-currency";
 import { useInventoryData } from "@/hooks/use-inventory-data";
+import { useIncrementalList } from "@/hooks/use-incremental-list";
+import { LoadMore } from "@/components/ui/load-more";
 import { getCabinetName } from "@/lib/inventory-utils";
 import { InventoryHeader } from "@/components/inventory/inventory-header";
 import { InventoryToolbar } from "@/components/inventory/inventory-toolbar";
@@ -28,6 +30,10 @@ export default function InventoryPage() {
   const wineTextColors = useWineTextColors();
   const { formatPrice } = useCurrency();
   const inv = useInventoryData();
+  // Mount long lists a page at a time as the user scrolls.
+  const groupedList = useIncrementalList(inv.groupedFilteredWines);
+  const flatList = useIncrementalList(inv.filteredWines);
+  const activeList = inv.groupDuplicates && !inv.selectMode ? groupedList : flatList;
   const { setWineData } = useWineData();
 
   // Push inventory data into the shared WineDataContext so any
@@ -131,7 +137,7 @@ export default function InventoryPage() {
           // ── Grouped view ──
           inv.viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {inv.groupedFilteredWines.map((group) => (
+              {groupedList.visible.map((group) => (
                 <WineGridItem
                   key={group.groupKey}
                   wine={group.wine}
@@ -147,7 +153,7 @@ export default function InventoryPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {inv.groupedFilteredWines.map((group) => (
+              {groupedList.visible.map((group) => (
                 <WineListItem
                   key={group.groupKey}
                   wine={group.wine}
@@ -166,7 +172,7 @@ export default function InventoryPage() {
           // ── Ungrouped / select mode view ──
           inv.viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {inv.filteredWines.map((wine) => (
+              {flatList.visible.map((wine) => (
                 <WineGridItem
                   key={wine.id}
                   wine={wine}
@@ -186,7 +192,7 @@ export default function InventoryPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {inv.filteredWines.map((wine) => (
+              {flatList.visible.map((wine) => (
                 <WineListItem
                   key={wine.id}
                   wine={wine}
@@ -221,6 +227,14 @@ export default function InventoryPage() {
             description="Try adjusting your search or filter criteria."
           />
         )
+      )}
+
+      {inv.viewMode !== "gallery" && activeList.hasMore && (
+        <LoadMore
+          onMore={activeList.showMore}
+          remaining={activeList.remaining}
+          sentinelRef={activeList.sentinelRef}
+        />
       )}
 
       {/* Wine Detail Dialog */}

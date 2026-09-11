@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { toast } from "@/components/ui/custom-toast";
-import { fetchWines, fetchCabinets, createWine, editWine, deleteWine } from "@/lib/data";
+import { fetchWines, fetchCabinets, createWine, editWine, deleteWine, bulkCreateWines, bulkDeleteWines } from "@/lib/data";
 import { useAddWine } from "@/components/add-wine-context";
 import { useAuth } from "@/components/auth-provider";
 import type { Wine, Cabinet, WineType, NewWineInput } from "@/types/wine";
@@ -195,12 +195,8 @@ export function useInventoryData() {
 
   const handleBatchDelete = useCallback(
     async (wineIds: string[]) => {
-      for (let i = 0; i < wineIds.length; i += 5) {
-        const chunk = wineIds.slice(i, i + 5);
-        await Promise.all(
-          chunk.map((id) => deleteWine(id, "other", undefined, undefined, userId))
-        );
-      }
+      // One bulk call (single transaction) instead of one delete per bottle.
+      await bulkDeleteWines(wineIds, "other", userId);
       setWines((prev) => prev.filter((w) => !wineIds.includes(w.id)));
     },
     [userId]
@@ -251,11 +247,14 @@ export function useInventoryData() {
       const { id: _id, addedAt: _addedAt, updatedAt: _updatedAt, userId: _u, cabinetId: _c, row: _r, col: _col, depth: _d, zone: _z, ...wineData } = selectedWine;
       // Duplicating IS creating a duplicate — never block it on the dup check.
       const payload = { ...wineData, cabinetId: null, row: null, col: null, depth: 0, zone: "", skipDuplicateCheck: true } as NewWineInput;
-      for (let i = 0; i < safeCount; i++) {
-        await handleAddWine(payload);
-      }
+      // One batched insert instead of up to 99 sequential creates.
+      const created = await bulkCreateWines(
+        Array.from({ length: safeCount }, () => ({ ...payload })),
+        userId
+      );
+      setWines((prev) => [...created, ...prev]);
     },
-    [selectedWine, handleAddWine]
+    [selectedWine, userId]
   );
 
   const selectAll = useCallback(() => {
