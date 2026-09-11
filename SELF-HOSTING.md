@@ -77,10 +77,16 @@ first boot. No Google account, no Firebase project, no external service of any
 kind.
 
 > ⚠️ **This disables authentication.** Anyone who can reach the server has
-> full access to your cellar. That is fine on a LAN, over a VPN/Tailscale,
-> behind `SITE_PASSWORD`, or behind your own reverse-proxy auth — but do not
-> expose it to the open internet as-is. The server logs a warning at startup
-> if you enable it without `SITE_PASSWORD`.
+> full access to your cellar. That is fine on a LAN, over a VPN/Tailscale, or
+> behind your own reverse-proxy auth (Authelia, oauth2-proxy, Cloudflare
+> Access) — but do not expose it to the open internet as-is. The server logs a
+> warning at startup whenever single-user mode is on.
+>
+> `SITE_PASSWORD` adds a shared-password page in front of the app. It keeps
+> casual visitors out, but it is a convenience gate, not access control: use
+> it on top of a VPN or proxy auth, never instead of one. In single-user mode
+> the gate has no crawler or demo exceptions, so the password is the only way
+> through it.
 
 **Firebase** — leave `NEXT_PUBLIC_SINGLE_USER_MODE` blank and configure a
 Firebase project instead (see step 3 of the manual install). Use this if you
@@ -183,8 +189,11 @@ openssl rand -hex 32
 ```
 
 Set it as `ENCRYPTION_KEY`. This encrypts AI provider keys and Home
-Assistant tokens at rest. Without it those are stored in plaintext. Use the
-same value everywhere that shares a database.
+Assistant tokens at rest, and you need it to save either one: without it,
+Home Assistant tokens can't be saved, and in production the admin console
+refuses to store provider keys. Keys set through environment variables, like
+`GEMINI_API_KEY`, don't need it. Use the same value everywhere that shares a
+database.
 
 ### 5. Unlock the features (skip Stripe)
 
@@ -213,7 +222,24 @@ Two ways:
 Vision-capable models are required for label/receipt scanning. Text-only
 models still power enrichment and chat.
 
-### 7. Run
+### 7. Home Assistant sensors (optional)
+
+Cellar temperature and humidity come from your own Home Assistant. Each wall's
+settings take its URL and a long-lived access token; the token is encrypted
+with `ENCRYPTION_KEY`. It's a Cellar Pro feature, which
+`NEXT_PUBLIC_DEFAULT_TIER=PREMIUM` unlocks.
+
+Cellar Door's server fetches the readings, and it refuses private, loopback,
+and link-local addresses so the feature can't be used to probe your network.
+That applies to self-hosted instances too, so a LAN-only address such as
+`http://homeassistant.local:8123` or `http://192.168.1.20:8123` won't work.
+Give Home Assistant a public HTTPS address instead: Nabu Casa, or your own
+reverse proxy with a real hostname and certificate.
+
+`HA_ALLOW_HTTP=true` permits plain `http://` URLs, but only to public
+addresses. It does not unlock private networks.
+
+### 8. Run
 
 ```bash
 npm run dev            # development

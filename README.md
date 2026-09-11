@@ -2,20 +2,26 @@
 
 # Cellar Door
 
-**Know every bottle you own, exactly where it sits, and the moment it's ready to drink.**
+**Your cellar, visualized and beautifully organized.**
+
+A visual-first wine cellar manager: see every bottle exactly where it sits,
+let AI do the cataloguing, and know the moment each wine is ready to drink.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
-[Hosted service](https://mycellardoor.app) · [Self-hosting](SELF-HOSTING.md) · [Contributing](CONTRIBUTING.md)
+[Hosted service](https://mycellardoor.app) · [Live demo](https://mycellardoor.app/demo) · [Self-hosting](SELF-HOSTING.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+
+<img src="public/screenshots/desktop-cellar.png" alt="Cellar Door's visual cellar grid, with every bottle shown in its rack slot" width="820">
 
 </div>
 
 ---
 
-Most wine apps are catalogs — a list of what you own. Cellar Door models the
-**physical cellar**: walls, racks, cabinets, rows, columns, and depth. When
-the app says a bottle is in Row 10, Column 6, you can walk over and pick it
-up.
+Cellar Door started as a personal project for a hand-built home cellar, after
+none of the existing apps fit the way a cellar actually works. Most wine apps
+are catalogs — a list of what you own. Cellar Door models the **physical
+cellar**: walls, racks, cabinets, rows, columns, and depth. When the app says
+a bottle is in Row 10, Column 6, you can walk over and pick it up.
 
 On top of that it does the things you'd expect from a modern wine app —
 label scanning, ratings, drink windows, stats — plus a few you wouldn't.
@@ -34,18 +40,33 @@ label scanning, ratings, drink windows, stats — plus a few you wouldn't.
   invoice — the invoice scan reads quantities and prices
 - Automatic enrichment: region, grape, drink window, food pairings,
   estimated critic scores
+- **Cork & Fork** — tell it what you're cooking and it suggests bottles you
+  already own
 - Sommelier chat that knows your actual cellar
 - Terroir Twins, decant timing, vintage context, pour-cost planning
 
 **Tracking & insight**
+- Drink-window guidance (drink now, hold, past peak) and a ready-to-drink
+  report
 - Personal ratings and community CD Scores
 - Taste Profile — what you like and don't, by style, region, and grape
-- Stats, value tracking, drinkability reports, insurance export
+- Stats, value tracking, and a dated insurance-report PDF
 - Full history of every bottle consumed, gifted, or sold
+- Live cellar temperature and humidity from Home Assistant sensors
+
+**Your data**
+- Import from CellarTracker, Vivino, or any spreadsheet (CSV)
+- Export everything to CSV or JSON at any time, plus a public REST API
 
 **Platform**
-- Mobile-first, installable, with iOS/Android shells via Capacitor
-- CSV import/export and a public REST API
+- Mobile-first and installable, with iOS/Android shells via Capacitor
+
+## Plans
+
+The hosted service at [mycellardoor.app](https://mycellardoor.app) is free
+for unlimited bottles. The paid plans, Cellar+ and Cellar Pro, add the AI
+features and pay for the AI calls behind them. Self-hosting is free, with
+every feature unlocked.
 
 ## Tech stack
 
@@ -54,6 +75,8 @@ Prisma + Postgres · Firebase Auth · Stripe · pluggable AI providers
 (Gemini / DeepSeek / Qwen / any OpenAI-compatible endpoint)
 
 ## Try it in 30 seconds
+
+Requires Node.js 22.
 
 ```bash
 git clone https://github.com/golive-ready-llc/cellar-door.git
@@ -91,6 +114,11 @@ don't travel with it, and it's worth being upfront about them:
 
 Subscriptions to [mycellardoor.app](https://mycellardoor.app) pay for
 exactly those two things plus hosting — not for access to the source.
+
+## Security
+
+Please report vulnerabilities privately to **security@mycellardoor.app**, not
+in a public issue. See [SECURITY.md](SECURITY.md) for details.
 
 ## License
 
