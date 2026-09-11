@@ -169,7 +169,7 @@ Status: ✅ have · 🟡 partial · ❌ missing
 - New routes/screens: Discover, Activity, Taste Profile (Profile section).
 - Any Prisma migrations (reviews surfacing, activity, optional social) pushed.
 - Reused/refactored detail + scan-result UI matching Vivino's hierarchy.
-- Tests for new server actions and gating; updated `CLAUDE.md`/docs if IA
+- Tests for new server actions and gating; updated `AGENTS.md`/docs if IA
   changes.
 - This spec kept current as scope is confirmed.
 

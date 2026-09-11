@@ -13,7 +13,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Claude Code helper scripts are Node.js CommonJS files, not web app source
+    // Agent helper scripts are Node.js CommonJS files, not web app source
     ".claude/**",
     // Scripts are Node.js utilities, allowed to use require() and different idioms
     "scripts/**",
