@@ -83,7 +83,7 @@ export async function fetchAndStoreExpertRatings(
 
     // Seed the community CD-Score baseline (idempotent, first-scan-wins) and
     // cache in WineMetadata so future adds of this wine skip the AI call.
-    const { seedCommunityBaseline } = await import("./actions/community");
+    const { seedCommunityBaseline } = await import("./community-baseline-store");
     void seedCommunityBaseline({
       name: target.name,
       winery: target.winery,
