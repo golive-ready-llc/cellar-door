@@ -1,7 +1,6 @@
 "use server";
 
-import { getAdminAuth } from "@/lib/firebase-admin";
-import { isAdmin } from "@/lib/admin";
+import { requireAdmin } from "@/server/auth-guard";
 import { getAIConfig, setAIConfig } from "@/lib/ai/config";
 import type { AIConfigData, ProviderSlot } from "@/lib/ai/config";
 
@@ -34,10 +33,8 @@ export async function getAdminAIConfig(
   idToken: string
 ): Promise<{ error?: string; data?: AIConfigData }> {
   try {
-    const decoded = await getAdminAuth()!.verifyIdToken(idToken);
-    if (!decoded.email || !isAdmin(decoded.email)) {
-      return { error: "Access denied" };
-    }
+    const admin = await requireAdmin(idToken);
+    if (!admin.ok) return { error: admin.error };
     const config = await getAIConfig();
     return { data: maskConfig(config) };
   } catch (err) {
@@ -104,17 +101,14 @@ export async function updateAdminAIConfig(
   updates: Partial<AIConfigData> & { updatedBy?: string }
 ): Promise<{ error?: string; data?: AIConfigData }> {
   try {
-    const decoded = await getAdminAuth()!.verifyIdToken(idToken);
-    const email = decoded.email;
-    if (!email || !isAdmin(email)) {
-      return { error: "Access denied" };
-    }
+    const admin = await requireAdmin(idToken);
+    if (!admin.ok) return { error: admin.error };
 
     // Resolve placeholder values to existing decrypted keys before saving
     const existing = await getAIConfig();
     preserveUnchangedKeys(updates, existing);
 
-    const config = await setAIConfig({ ...updates, updatedBy: decoded.uid });
+    const config = await setAIConfig({ ...updates, updatedBy: admin.uid });
     return { data: maskConfig(config) };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to update AI config" };
@@ -157,10 +151,8 @@ export async function fetchAvailableModels(
   baseUrl?: string
 ): Promise<{ error?: string; data?: ModelInfo[] }> {
   try {
-    const decoded = await getAdminAuth()!.verifyIdToken(idToken);
-    if (!decoded.email || !isAdmin(decoded.email)) {
-      return { error: "Access denied" };
-    }
+    const admin = await requireAdmin(idToken);
+    if (!admin.ok) return { error: admin.error };
 
     const resolved = await resolveTestApiKey(apiKey, provider);
     if (resolved.error) return { error: resolved.error };
@@ -227,10 +219,8 @@ export async function testProviderConnection(
   baseUrl?: string
 ): Promise<{ error?: string; data?: { success: boolean; latency: number } }> {
   try {
-    const decoded = await getAdminAuth()!.verifyIdToken(idToken);
-    if (!decoded.email || !isAdmin(decoded.email)) {
-      return { error: "Access denied" };
-    }
+    const admin = await requireAdmin(idToken);
+    if (!admin.ok) return { error: admin.error };
 
     if (provider === "mock") return { data: { success: true, latency: 0 } };
 

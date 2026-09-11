@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { getAdminAuth } from "@/lib/firebase-admin";
+import { isAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/db";
 import {
   isSingleUserMode,
@@ -134,4 +135,32 @@ export async function resolveServerUserId(
     );
   }
   return verifiedId;
+}
+
+export type AdminAuthResult =
+  | { ok: true; email: string; uid: string }
+  | { ok: false; error: string };
+
+/**
+ * Require the caller to be the configured admin (`ADMIN_EMAIL`).
+ *
+ * The admin surfaces — dashboard, AI provider config, feedback queue, B2B
+ * leads — are server actions that receive the caller's Firebase ID token as
+ * an argument, because a client-side admin check is not a check. Verifying it
+ * here keeps one wording for a rejection and one place to audit.
+ */
+export async function requireAdmin(idToken: string): Promise<AdminAuthResult> {
+  try {
+    const auth = getAdminAuth();
+    if (!auth) {
+      return { ok: false, error: "Authentication failed" };
+    }
+    const decoded = await auth.verifyIdToken(idToken);
+    if (!decoded.email || !isAdmin(decoded.email)) {
+      return { ok: false, error: "Access denied. You are not an admin." };
+    }
+    return { ok: true, email: decoded.email, uid: decoded.uid };
+  } catch {
+    return { ok: false, error: "Authentication failed" };
+  }
 }

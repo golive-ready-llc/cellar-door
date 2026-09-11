@@ -15,7 +15,10 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/firebase-admin", () => ({ getAdminAuth: () => null }));
 vi.mock("@/lib/admin", () => ({ isAdmin: () => false }));
-vi.mock("@/server/auth-guard", () => ({ resolveServerUserId: async () => "u1" }));
+vi.mock("@/server/auth-guard", () => ({
+  resolveServerUserId: async () => "u1",
+  requireAdmin: async () => ({ ok: true as const, email: "admin@test", uid: "u1" }),
+}));
 
 beforeEach(() => {
   vi.clearAllMocks();
