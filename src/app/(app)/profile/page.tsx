@@ -92,7 +92,6 @@ export default function ProfilePage() {
     }
     const firebaseAuth = auth();
     if (firebaseAuth) await firebaseSignOut(firebaseAuth);
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full page reload resets auth and demo state
     window.location.href = "/login";
   };
 

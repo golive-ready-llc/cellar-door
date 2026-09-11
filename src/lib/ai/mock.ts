@@ -713,14 +713,4 @@ export class MockAIProvider implements AIProvider {
     }
     return "That's an interesting question! Based on your cellar, I'd recommend checking your Drink Now wines for something that matches your mood tonight.";
   }
-
-  async *chatStream(
-    systemPrompt: string,
-    messages: Array<{ role: string; content: string }>
-  ): AsyncGenerator<string> {
-    const reply = await this.chat(systemPrompt, messages);
-    for (const piece of reply.split(/(\s+)/)) {
-      if (piece) yield piece;
-    }
-  }
 }

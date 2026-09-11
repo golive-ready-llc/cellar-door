@@ -358,11 +358,6 @@ model WineMetadata {
   id             String   @id @default(cuid())
   winery         String
   name           String
-  /// Lower-cased, trimmed winery and name. This table is shared by every
-  /// user, and case-insensitive matching on winery/name can't use an index,
-  /// so lookups match on these keys instead (see src/lib/wine-metadata-key.ts).
-  wineryKey      String   @default("")
-  nameKey        String   @default("")
   vintage        Int?
   type           String   @default("")
   region         String   @default("")
@@ -384,7 +379,6 @@ model WineMetadata {
   @@unique([winery, name, vintage])
   @@index([name])
   @@index([winery])
-  @@index([wineryKey, nameKey, vintage])
 }
 
 // ============================================================
@@ -514,6 +508,7 @@ model GuestSession {
   votes     Json     @default("{}") // { wineId: voteCount }
   createdAt DateTime @default(now())
 
+  @@index([code])
   @@index([userId])
 }
 

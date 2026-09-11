@@ -87,20 +87,6 @@ export async function submitCommunityRating(
   review: string = "",
   clientUserId?: string | null
 ): Promise<CommunityScoreResult> {
-  // Validate before touching the shared community dataset: ratings are 0-5
-  // stars and every text field is bounded.
-  if (typeof rating !== "number" || !Number.isFinite(rating) || rating <= 0 || rating > 5) {
-    throw new Error("Rating must be greater than 0 and at most 5");
-  }
-  if (typeof review !== "string" || review.length > 2000) {
-    throw new Error("Review is too long (2,000 characters max)");
-  }
-  if (
-    !name?.trim() ||
-    [name, winery, type, region, country].some((v) => typeof v === "string" && v.length > 300)
-  ) {
-    throw new Error("Invalid wine details");
-  }
   if (isDev) {
     const userId = mockStore.getDevUserId();
     return mockStore.submitCommunityRating(
@@ -212,16 +198,18 @@ export async function getCommunityRatings(
     where: { communityWineId: cw.id },
     orderBy: { createdAt: "desc" },
     take: 200,
-    // Public read: select only the reviewer's chosen display name. Never return
-    // internal user ids or anything derived from an email address.
     include: {
-      user: { select: { displayName: true } },
+      user: { select: { displayName: true, email: true } },
     },
   });
 
   return rows.map((r) => ({
     id: r.id,
-    username: r.user.displayName?.trim() || "Anonymous",
+    userId: r.userId,
+    username:
+      r.user.displayName ||
+      r.user.email.split("@")[0] ||
+      "Anonymous",
     rating: r.rating,
     review: r.review,
     tastingNotes: null,

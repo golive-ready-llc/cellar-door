@@ -10,10 +10,7 @@ import {
   SINGLE_USER_DISPLAY_NAME,
 } from "@/lib/single-user";
 
-// No DATABASE_URL means local development without a database: use a fixed dev
-// identity. Never in production. A deploy that lost its DATABASE_URL must fail
-// closed (no sign-in), not hand every visitor the same identity.
-const isDev = !process.env.DATABASE_URL && process.env.NODE_ENV !== "production";
+const isDev = !process.env.DATABASE_URL || process.env.DATABASE_URL === "";
 
 /**
  * Get the authenticated user's Prisma ID by verifying the Firebase SESSION
@@ -38,14 +35,13 @@ let warnedNoPasswordGate = false;
  * a cold instance cannot race into two owner rows.
  */
 export async function ensureSingleUser(): Promise<string> {
-  if (!warnedNoPasswordGate) {
+  if (!warnedNoPasswordGate && !process.env.SITE_PASSWORD) {
     warnedNoPasswordGate = true;
     console.warn(
-      "[auth] SINGLE_USER_MODE is enabled: authentication is disabled and " +
-        "anyone who can reach this server has full access to the cellar. Keep " +
-        "it on a LAN/VPN (e.g. Tailscale) or behind reverse-proxy auth " +
-        "(Authelia, oauth2-proxy). SITE_PASSWORD is a convenience gate, not " +
-        "access control — don't rely on it alone."
+      "[auth] SINGLE_USER_MODE is enabled with no SITE_PASSWORD set. " +
+        "Authentication is disabled: anyone who can reach this server has " +
+        "full access to the cellar. This is fine on a LAN/VPN or behind your " +
+        "own reverse-proxy auth — do not expose it to the internet as-is."
     );
   }
 

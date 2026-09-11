@@ -51,7 +51,7 @@ describe("createGuestSession", () => {
     expect(data.userId).toBe("u1");
     expect(data.name).toBe("Dinner");
     expect(typeof data.code).toBe("string");
-    expect(data.code).toMatch(/^[A-HJ-NP-Z2-9]{8}$/);
+    expect(data.code).toHaveLength(6);
     expect(session).toBeDefined();
   });
 

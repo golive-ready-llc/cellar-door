@@ -239,6 +239,7 @@ export interface WineHistoryItem {
 
 export interface CommunityRating {
   id: string;
+  userId: string;
   username: string;
   rating: number;
   review: string;

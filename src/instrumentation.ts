@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 /**
- * Next.js instrumentation hook. Three jobs:
+ * Next.js instrumentation hook. Two jobs:
  *
  * 1. Load the Sentry server/edge config in the right runtime (the
  *    sentry.*.config.ts files are no-ops without a DSN, so this is safe
@@ -13,14 +13,10 @@ import * as Sentry from "@sentry/nextjs";
  *    render… digest"), so without this hook the real message exists nowhere
  *    we can see. We log it with its digest (correlates with what the user
  *    screenshots) and forward to Sentry when a DSN is configured.
- *
- * 3. Warn loudly at startup when a production server has no DATABASE_URL:
- *    sign-in and every data feature fail closed until it is configured.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("../sentry.server.config");
-    warnIfMissingDatabase();
   }
   if (process.env.NEXT_RUNTIME === "edge") {
     await import("../sentry.edge.config");
@@ -39,16 +35,3 @@ export const onRequestError: typeof Sentry.captureRequestError = async (err, req
     Sentry.captureRequestError(err, request, context);
   }
 };
-
-function warnIfMissingDatabase() {
-  if (
-    process.env.NODE_ENV === "production" &&
-    !process.env.DATABASE_URL &&
-    process.env.NEXT_PUBLIC_USE_MOCK !== "true"
-  ) {
-    console.error(
-      "[startup] DATABASE_URL is not set. Sign-in and every data feature " +
-        "will fail until it is configured."
-    );
-  }
-}

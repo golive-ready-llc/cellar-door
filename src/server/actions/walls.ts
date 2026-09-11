@@ -8,7 +8,6 @@ import type { Wall, HaConfig } from "@/types/wine";
 import type { Tier } from "@/lib/tier";
 import { resolveServerUserId } from "@/server/auth-guard";
 import { assertNotDemo } from "@/lib/demo";
-import { createSafeFetch } from "@/lib/ssrf-guard";
 
 // ============================================================
 // Wall CRUD Server Actions
@@ -232,34 +231,12 @@ export async function testHaConnection(
   haUrl: string,
   token: string
 ): Promise<{ success: boolean; error?: string }> {
-  // This makes an outbound request to a caller-chosen URL, so only signed-in
-  // Cellar Pro owners may use it. Exported "use server" functions are public
-  // endpoints; without this check it was an open SSRF probe.
   try {
-    const uid = await resolveServerUserId();
-    await requirePremium(uid);
-  } catch {
-    return {
-      success: false,
-      error: "Sign in with a Cellar Pro account to connect Home Assistant.",
-    };
-  }
-
-  try {
-    const url = haUrl.trim().replace(/\/+$/, "");
-    // Same SSRF guard as the sensor proxy: https only (unless HA_ALLOW_HTTP),
-    // no private, loopback or cloud-metadata addresses, DNS re-checked right
-    // before the request, and redirects are not followed.
-    const res = await createSafeFetch(`${url}/api/`, {
+    const url = haUrl.replace(/\/+$/, "");
+    const res = await fetch(`${url}/api/`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(5000),
     });
-    if (res.status >= 300 && res.status < 400) {
-      return {
-        success: false,
-        error: "Home Assistant redirected the request. Use its direct URL.",
-      };
-    }
     if (!res.ok) {
       if (res.status === 401) return { success: false, error: "Invalid access token" };
       return { success: false, error: `HA returned ${res.status}` };

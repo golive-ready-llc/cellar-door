@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { WineDetailDialog } from "@/components/wine/wine-detail-dialog";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
-import { fetchWines, fetchRecentHistory } from "@/lib/data";
+import { fetchWines, fetchHistory } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
 import { WINE_TYPE_COLORS, WINE_TYPE_LABELS } from "@/types/constants";
 import { isLightWineType } from "@/types/wine";
@@ -113,9 +113,6 @@ function relativeTime(ms: number, now: number): string {
 }
 
 const PAGE = 30;
-// The feed pages through recent events, so it doesn't need a lifetime of
-// history (which only grows). 300 events is ten pages of scrolling.
-const ACTIVITY_HISTORY_LIMIT = 300;
 
 export default function ActivityPage() {
   const { userId } = useAuth();
@@ -131,7 +128,7 @@ export default function ActivityPage() {
     let active = true;
     (async () => {
       try {
-        const [w, h] = await Promise.all([fetchWines(userId), fetchRecentHistory(userId, ACTIVITY_HISTORY_LIMIT)]);
+        const [w, h] = await Promise.all([fetchWines(userId), fetchHistory(userId)]);
         if (!active) return;
         setWines(w);
         setHistory(h);

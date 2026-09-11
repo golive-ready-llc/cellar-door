@@ -61,7 +61,7 @@ vi.mock("@/lib/firebase-admin", () => ({
   }),
 }));
 
-vi.mock("@/server/audit-log", () => ({
+vi.mock("@/server/actions/audit", () => ({
   logAudit: vi.fn(),
 }));
 

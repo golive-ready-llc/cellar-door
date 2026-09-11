@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { compressForStorage } from "@/lib/image-compress";
 
 interface WineLabelThumbnailProps {
   /** Image URL — can be empty string, http URL, or data URL */
@@ -63,8 +62,7 @@ export function WineLabelThumbnail({
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string;
-        // Downscale before storing: saved images come back with every list load.
-        void compressForStorage(dataUrl).then((stored) => onImageChange?.(stored));
+        onImageChange?.(dataUrl);
         setEditOpen(false);
       };
       reader.readAsDataURL(file);
@@ -79,7 +77,7 @@ export function WineLabelThumbnail({
     try {
       const url = await onAiFetch();
       if (url) {
-        onImageChange(await compressForStorage(url));
+        onImageChange(url);
       }
     } finally {
       setAiFetching(false);

@@ -3,7 +3,7 @@
 import { randomBytes, createHash } from "crypto";
 import { prisma } from "@/lib/db";
 import { getAdminAuth } from "@/lib/firebase-admin";
-import { logAudit } from "@/server/audit-log";
+import { logAudit } from "./audit";
 
 const MAX_KEYS_PER_USER = 5;
 

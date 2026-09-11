@@ -109,7 +109,6 @@ export default function SettingsPage() {
               className="w-full gap-2 text-muted-foreground"
               onClick={() => {
                 document.cookie = "demo_mode=; path=/; max-age=0";
-                // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full page reload resets auth and demo state
                 window.location.href = "/";
               }}
             >
@@ -353,7 +352,6 @@ export default function SettingsPage() {
                 const firebaseAuth = auth();
                 if (firebaseAuth) await firebaseSignOut(firebaseAuth);
               }
-              // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full page reload resets auth and demo state
               window.location.href = "/";
             }}
           >

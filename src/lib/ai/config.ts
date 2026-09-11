@@ -127,14 +127,7 @@ function configToRow(data: AIConfigData, updatedBy?: string) {
     try {
       return encrypt(v);
     } catch {
-      // Production refuses to store provider keys unencrypted.
-      if (process.env.NODE_ENV === "production") {
-        throw new Error(
-          "ENCRYPTION_KEY is not set (or not 64 hex characters), so AI provider " +
-            "keys can't be saved securely. Set it and try again."
-        );
-      }
-      // Development: ENCRYPTION_KEY missing/invalid → store as-is. Flag it once
+      // ENCRYPTION_KEY missing/invalid → store as-is (legacy mode). Flag it once
       // so this doesn't stay silent in production (where keys are read by every
       // AI request). Never log the key value itself.
       if (!warnedPlaintextStore) {

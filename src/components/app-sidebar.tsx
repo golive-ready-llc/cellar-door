@@ -105,7 +105,6 @@ export function AppSidebar() {
     }
     const firebaseAuth = auth();
     if (firebaseAuth) await firebaseSignOut(firebaseAuth);
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full page reload resets auth and demo state
     window.location.href = "/login";
   };
 
@@ -125,7 +124,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/cellar" />}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo-small.png" alt="Cellar Door" className="h-9 w-auto rounded-lg" />
+              <img src="/logo.png" alt="Cellar Door" className="h-9 w-auto rounded-lg" />
               <span className="text-xl font-bold">Cellar Door</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

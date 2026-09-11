@@ -132,7 +132,7 @@ export default function AppLayout({
             {/* Mobile: show app logo + title — links to landing page if not signed in */}
             <Link href="/" className="flex items-center gap-2 md:hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo-small.png" alt="Cellar Door" className="h-8 w-auto rounded" />
+              <img src="/logo.png" alt="Cellar Door" className="h-8 w-auto rounded" />
               <span className="text-lg font-bold whitespace-nowrap shrink-0">Cellar Door</span>
             </Link>
             <div className="flex-1" />

@@ -54,9 +54,7 @@ export class GeminiProvider implements AIProvider {
   private client: GoogleGenAI;
 
   constructor(apiKey: string) {
-    // Without a timeout a hung connection holds the request (and its AI
-    // credit reservation) until the platform kills it.
-    this.client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 90_000 } });
+    this.client = new GoogleGenAI({ apiKey });
   }
 
   /**
@@ -479,24 +477,5 @@ export class GeminiProvider implements AIProvider {
       config: { temperature: 0.7 },
     });
     return response.text ?? "I'm not sure how to respond to that.";
-  }
-
-  async *chatStream(
-    systemPrompt: string,
-    messages: Array<{ role: string; content: string }>
-  ): AsyncGenerator<string> {
-    const conversation = messages
-      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-      .join("\n");
-    const fullPrompt = `${systemPrompt}\n\nCONVERSATION:\n${conversation}\n\nRespond as the Assistant.`;
-    const stream = await this.client.models.generateContentStream({
-      model: FAST_MODEL,
-      contents: fullPrompt,
-      config: { temperature: 0.7 },
-    });
-    for await (const chunk of stream) {
-      const text = chunk.text;
-      if (text) yield text;
-    }
   }
 }

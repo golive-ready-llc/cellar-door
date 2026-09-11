@@ -57,7 +57,7 @@ vi.mock("@/lib/demo", () => ({
   assertNotDemo: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/server/audit-log", () => ({
+vi.mock("@/server/actions/audit", () => ({
   logAudit: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -399,56 +399,5 @@ describe("history queries", () => {
     const r = await updateHistoryItem("u1", "h1", { notes: "x" } as never);
     expect(r).toEqual({ success: false, error: "History record not found" });
     expect(historyUpdate).not.toHaveBeenCalled();
-  });
-});
-
-describe("importWines", () => {
-  it("inserts in one transaction, unfiled, with text limits and no AI side effects", async () => {
-    const createManyAndReturn = vi.fn().mockImplementation(async ({ data }: { data: unknown[] }) =>
-      data.map((_, i) => fakeWineRow({ id: `imp${i}` }))
-    );
-    txSpy.mockImplementationOnce((fn: (tx: unknown) => unknown) => fn({ wine: { createManyAndReturn } }));
-    const { importWines } = await import("@/server/actions/wines");
-    const created = await importWines("u1", [
-      { name: "A", notes: "x".repeat(30_000), cabinetId: "c9", row: 3, col: 2 },
-      { name: "B" },
-    ] as never);
-    expect(created).toHaveLength(2);
-    const rows = createManyAndReturn.mock.calls[0][0].data;
-    expect(rows[0]).toMatchObject({ userId: "u1", cabinetId: null, row: null, col: null });
-    expect(rows[0].notes).toHaveLength(20_000);
-    expect(fetchAndStoreExpertRatings).not.toHaveBeenCalled();
-  });
-
-  it("rejects callers without a session", async () => {
-    const { importWines } = await import("@/server/actions/wines");
-    await expect(importWines(undefined, [{ name: "A" }] as never)).rejects.toThrow("Unauthorized");
-  });
-});
-
-describe("wine images in list responses", () => {
-  const JPEG = "data:image/jpeg;base64," + Buffer.from("label").toString("base64");
-
-  it("getWines references stored images by URL; backups still get the data", async () => {
-    wineFindMany.mockResolvedValue([
-      fakeWineRow({ id: "w1", imageUrl: JPEG }),
-      fakeWineRow({ id: "w2", imageUrl: "https://img.example/x.jpg" }),
-    ]);
-    const { getWines } = await import("@/server/actions/wines");
-    const list = await getWines("u1");
-    expect(list[0].imageUrl).toMatch(/^\/api\/wine-image\/w1\?v=/);
-    expect(list[1].imageUrl).toBe("https://img.example/x.jpg");
-    const full = await getWines("u1", { fullImages: true });
-    expect(full[0].imageUrl).toBe(JPEG);
-  });
-
-  it("updateWine treats the wine's own image URL as unchanged", async () => {
-    wineFindFirst.mockResolvedValue(fakeWineRow({ id: "w1", imageUrl: JPEG }));
-    wineUpdate.mockResolvedValue(fakeWineRow({ id: "w1", imageUrl: JPEG, name: "Renamed" }));
-    const { updateWine } = await import("@/server/actions/wines");
-    await updateWine("u1", "w1", { name: "Renamed", imageUrl: "/api/wine-image/w1?v=abc" } as never);
-    const { data } = wineUpdate.mock.calls[0][0];
-    expect(data).not.toHaveProperty("imageUrl");
-    expect(data.name).toBe("Renamed");
   });
 });

@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import type { BuyListItem } from "@/types/wine";
 import { resolveServerUserId } from "@/server/auth-guard";
-import { resolveImageRef } from "@/server/wine-image-refs";
 import { assertNotDemo } from "@/lib/demo";
 
 // ============================================================
@@ -77,7 +76,7 @@ export async function addBuyListItem(
           )
         ),
         grapeVariety: data.grapeVariety ?? "",
-        imageUrl: data.imageUrl ? await resolveImageRef(uid, data.imageUrl) : "",
+        imageUrl: data.imageUrl ?? "",
         retailPrice: data.retailPrice,
         notes: data.notes ?? "",
         description: data.description ?? "",
@@ -127,7 +126,7 @@ export async function updateBuyListItem(
         ...(data.expectedDelivery !== undefined && { expectedDelivery: data.expectedDelivery ? new Date(data.expectedDelivery) : null }),
         ...(data.store !== undefined && { store: data.store }),
         ...(data.barcode !== undefined && { barcode: data.barcode }),
-        ...(data.imageUrl !== undefined && { imageUrl: await resolveImageRef(uid, data.imageUrl) }),
+        ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.foodPairings !== undefined && { foodPairings: data.foodPairings }),
         ...(data.alcohol !== undefined && { alcohol: data.alcohol }),

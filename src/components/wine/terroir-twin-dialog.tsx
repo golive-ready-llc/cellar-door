@@ -16,7 +16,7 @@ import { aiTerroirTwins } from "@/server/actions/ai";
 import { addBuyListItem } from "@/server/actions/buy-list";
 import { useTier } from "@/hooks/use-tier";
 import { UpgradePrompt } from "@/components/tier/upgrade-prompt";
-import { toast } from "@/components/ui/custom-toast";
+import { toast } from "sonner";
 
 interface TerroirTwinDialogProps {
   open: boolean;

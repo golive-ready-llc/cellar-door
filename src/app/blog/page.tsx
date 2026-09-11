@@ -29,7 +29,7 @@ export default function BlogIndex() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-small.png" alt="Cellar Door" className="h-8 w-auto rounded-lg" />
+            <img src="/logo.png" alt="Cellar Door" className="h-8 w-auto rounded-lg" />
             <span className="text-lg font-bold">Cellar Door</span>
           </Link>
           <Link

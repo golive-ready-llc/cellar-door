@@ -29,7 +29,6 @@ export function DemoBanner() {
     document.cookie = "demo_mode=; path=/; max-age=0; SameSite=Lax";
     // Full reload so the server-side auth state also resets, then land on
     // the public marketing page rather than an authenticated app route.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full page reload resets auth and demo state
     window.location.href = "/";
   };
 

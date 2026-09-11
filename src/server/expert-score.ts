@@ -94,7 +94,7 @@ export async function fetchAndStoreExpertRatings(
       aiRatings: ratings as AiRatings,
     }).catch(() => { /* best-effort baseline seeding */ });
 
-    const { saveWineMetadata } = await import("./wine-metadata-store");
+    const { saveWineMetadata } = await import("./actions/wine-metadata");
     void saveWineMetadata({
       name: target.name,
       winery: target.winery,

@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { getGuestSession, voteForWine } from "@/server/actions/guest-sessions";
 
-// Guest codes are 8 characters. 6-character codes issued before 2026-09-10
-// stay valid until their sessions expire.
-function isValidGuestCode(code: string | undefined): code is string {
-  return !!code && /^[A-Z0-9]{6}(?:[A-Z0-9]{2})?$/i.test(code);
-}
-
 // GET /api/guest/[code] — public endpoint, returns cellar data for guest session
 export async function GET(
   _request: Request,
@@ -14,7 +8,7 @@ export async function GET(
 ) {
   const { code } = await params;
 
-  if (!isValidGuestCode(code)) {
+  if (!code || code.length !== 6 || !/^[A-Z0-9]{6}$/i.test(code)) {
     return NextResponse.json({ error: "Invalid code" }, { status: 400 });
   }
 
@@ -48,9 +42,6 @@ export async function POST(
 
     if (!code || !wineId) {
       return NextResponse.json({ error: "Missing code or wineId" }, { status: 400 });
-    }
-    if (!isValidGuestCode(code)) {
-      return NextResponse.json({ error: "Invalid code" }, { status: 400 });
     }
 
     const votes = await voteForWine(code.toUpperCase(), wineId);

@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Wine } from "@/types/wine";
-import { CHAT_STREAM_ERROR } from "@/lib/ai/chat-prompt";
+import { chatWithSommelier } from "@/server/actions/chat";
 import { useCheckout } from "@/hooks/use-checkout";
 import { TIER_FEATURE_BULLETS } from "@/lib/tier";
 import { setChatPanelOpen } from "./chat-open-store";
@@ -33,7 +33,6 @@ interface CellarChatProps {
   /** Whether user has AI access (Cellar+ or higher) */
   hasAI: boolean;
   /** Prisma user ID for server-side tier enforcement */
-  /** No longer used: /api/chat identifies the caller from the session. */
   userId?: string | null;
 }
 
@@ -314,7 +313,7 @@ function ChatUpgradePanel() {
   );
 }
 
-export function CellarChat({ wines, onWineClick, hasAI }: CellarChatProps) {
+export function CellarChat({ wines, onWineClick, hasAI, userId }: CellarChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -368,49 +367,23 @@ export function CellarChat({ wines, onWineClick, hasAI }: CellarChatProps) {
           price: w.price,
           retailPrice: w.retailPrice,
         }));
-        // Stream the reply from /api/chat so it appears as it's written.
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: newMessages, wines: slimWines }),
-        });
-        if (!res.ok || !res.body) {
-          const err = (await res.json().catch(() => ({}))) as { error?: string };
+        const result = await chatWithSommelier(newMessages, slimWines, userId ?? undefined);
+
+        if (result.success) {
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: result.message },
+          ]);
+        } else {
           setMessages((prev) => [
             ...prev,
             {
               role: "assistant",
-              content: err.error
-                ? `Sorry, I had trouble: ${err.error}`
-                : "Something went wrong. Please try again.",
+              content: result.error?.startsWith("Internal")
+                ? "Something went wrong. Please try again."
+                : `Sorry, I had trouble: ${result.error}`,
             },
           ]);
-          return;
-        }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let reply = "";
-        let started = false;
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          reply += decoder.decode(value, { stream: true });
-          const shown = reply;
-          if (!started) {
-            started = true;
-            setLoading(false);
-            setMessages((prev) => [...prev, { role: "assistant", content: shown }]);
-          } else {
-            setMessages((prev) => [...prev.slice(0, -1), { role: "assistant", content: shown }]);
-          }
-        }
-        if (!started || reply === CHAT_STREAM_ERROR) {
-          const fallback = "Something went wrong. Please try again.";
-          setMessages((prev) =>
-            started
-              ? [...prev.slice(0, -1), { role: "assistant", content: fallback }]
-              : [...prev, { role: "assistant", content: fallback }]
-          );
         }
       } catch {
         setMessages((prev) => [
@@ -424,7 +397,7 @@ export function CellarChat({ wines, onWineClick, hasAI }: CellarChatProps) {
         setLoading(false);
       }
     },
-    [messages, wines, loading]
+    [messages, wines, loading, userId]
   );
 
   const handleSubmit = (e: React.FormEvent) => {

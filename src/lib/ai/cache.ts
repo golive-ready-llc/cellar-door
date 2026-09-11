@@ -1,7 +1,6 @@
 // AI enrichment cache layer
 // Wraps WineMetadata table with TTL checking and normalized key generation
 
-import { metadataKey, metadataWhere } from "@/lib/wine-metadata-key";
 import { prisma } from "@/lib/db";
 import type { AiWineEnrichmentResult } from "./types";
 import type { AiRatings } from "@/types/wine";
@@ -42,7 +41,11 @@ export async function getEnrichmentCache(
   if (!winery || !name) return null;
 
   const row = await prisma.wineMetadata.findFirst({
-    where: metadataWhere(winery, name, vintage ?? null),
+    where: {
+      winery: { equals: winery.trim(), mode: "insensitive" },
+      name: { equals: name.trim(), mode: "insensitive" },
+      vintage: vintage ?? null,
+    },
   });
 
   if (!row) return null;
@@ -110,7 +113,11 @@ export async function setEnrichmentCache(
 
   try {
     const existing = await prisma.wineMetadata.findFirst({
-      where: metadataWhere(trimmedWinery, trimmedName, v),
+      where: {
+        winery: { equals: trimmedWinery, mode: "insensitive" },
+        name: { equals: trimmedName, mode: "insensitive" },
+        vintage: v,
+      },
     });
 
     const fields = {
@@ -136,8 +143,6 @@ export async function setEnrichmentCache(
         data: {
           winery: trimmedWinery,
           name: trimmedName,
-          wineryKey: metadataKey(trimmedWinery),
-          nameKey: metadataKey(trimmedName),
           vintage: v,
           ...fields,
         },

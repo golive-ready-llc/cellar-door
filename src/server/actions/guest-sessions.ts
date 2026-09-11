@@ -1,6 +1,5 @@
 "use server";
 
-import { randomInt } from "crypto";
 import { prisma } from "@/lib/db";
 import { resolveServerUserId } from "@/server/auth-guard";
 
@@ -8,17 +7,12 @@ import { resolveServerUserId } from "@/server/auth-guard";
 // Guest Session (Sommelier Mode) Server Actions
 // ============================================================
 
-/**
- * Generate an 8-character guest code from a cryptographically secure source.
- * 32 symbols ^ 8 is about 1.1 trillion codes, so guessing a live one through
- * the public guest endpoint isn't practical. (Was 6 characters from
- * Math.random before 2026-09-10.)
- */
+/** Generate a random 6-character alphanumeric code */
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Avoid ambiguous: 0/O, 1/I
   let code = "";
-  for (let i = 0; i < 8; i++) {
-    code += chars[randomInt(chars.length)];
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
   }
   return code;
 }

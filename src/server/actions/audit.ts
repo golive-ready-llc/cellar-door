@@ -1,11 +1,32 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import { resolveServerUserId } from "@/server/auth-guard";
 
-// Audit WRITES live in src/server/audit-log.ts, not here. Every export of a
-// "use server" file is a public endpoint, and an open logAudit let anyone
-// forge audit entries for any user.
+/**
+ * Log a sensitive action to the audit trail.
+ * Designed to be called fire-and-forget: `void logAudit(...)`.
+ */
+export async function logAudit(
+  userId: string,
+  action: string,
+  target?: string,
+  metadata?: Record<string, unknown>
+) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action,
+        target: target ?? null,
+        metadata: (metadata ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+      },
+    });
+  } catch {
+    // Fire-and-forget — never block the main action
+  }
+}
 
 /**
  * Fetch recent audit logs for a user.

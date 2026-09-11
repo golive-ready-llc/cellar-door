@@ -6,7 +6,6 @@ import { isAIAvailable } from "@/lib/ai";
 import { challengePrompt } from "@/lib/ai/prompts";
 import { resolveServerUserId } from "@/server/auth-guard";
 import { isDemoRequest } from "@/lib/demo";
-import { requireFeature, reserveAiCredits } from "@/server/tier-check";
 
 /**
  * Award a badge exactly once. Relies on the Badge @@unique([userId, name])
@@ -61,48 +60,47 @@ export async function generateWeeklyChallenge(
   userId?: string
 ): Promise<ChallengeData> {
   const uid = await resolveServerUserId(userId);
-  // AI challenges are a paid feature (the UI hides the button on Free).
-  // Enforce it here too: exported server actions are public endpoints.
-  await requireFeature(uid, "aiEnabled");
-  // Cellar, recent history and past challenges, fetched in parallel.
-  const [wines, history, recentChallenges] = await Promise.all([
-    prisma.wine.findMany({
-      where: { userId: uid },
-      select: {
-        id: true,
-        name: true,
-        winery: true,
-        type: true,
-        country: true,
-        region: true,
-        vintage: true,
-        grapeVariety: true,
-        userRating: true,
-        addedAt: true,
-      },
-      orderBy: { addedAt: "desc" },
-      take: 100,
-    }),
-    prisma.wineHistory.findMany({
-      where: { userId: uid },
-      select: {
-        name: true,
-        type: true,
-        country: true,
-        region: true,
-        rating: true,
-        removedAt: true,
-      },
-      orderBy: { removedAt: "desc" },
-      take: 30,
-    }),
-    prisma.challenge.findMany({
-      where: { userId: uid },
-      select: { title: true, type: true },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
-  ]);
+  // Fetch user's cellar for personalization
+  const wines = await prisma.wine.findMany({
+    where: { userId: uid },
+    select: {
+      id: true,
+      name: true,
+      winery: true,
+      type: true,
+      country: true,
+      region: true,
+      vintage: true,
+      grapeVariety: true,
+      userRating: true,
+      addedAt: true,
+    },
+    orderBy: { addedAt: "desc" },
+    take: 100,
+  });
+
+  // Fetch recent history for context
+  const history = await prisma.wineHistory.findMany({
+    where: { userId: uid },
+    select: {
+      name: true,
+      type: true,
+      country: true,
+      region: true,
+      rating: true,
+      removedAt: true,
+    },
+    orderBy: { removedAt: "desc" },
+    take: 30,
+  });
+
+  // Fetch existing challenges to avoid repeats
+  const recentChallenges = await prisma.challenge.findMany({
+    where: { userId: uid },
+    select: { title: true, type: true },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
 
   const prompt = challengePrompt(wines, history, recentChallenges);
 
@@ -112,19 +110,10 @@ export async function generateWeeklyChallenge(
   let type = "taste";
   let criteria: Record<string, unknown> = { action: "rate", count: 3 };
 
-  // Reserve a credit before the paid call. Out of credits falls through to the
-  // deterministic fallback below (no AI cost); refunded if the AI call fails.
-  let refund: (() => Promise<void>) | null = null;
   try {
     if (!(await isAIAvailable())) throw new Error("AI not available");
-    const reservation = await reserveAiCredits(uid, "enrich_text", 1);
-    if (!reservation.ok) throw new Error(reservation.message);
-    refund = reservation.refundOnFailure;
     const { GoogleGenAI } = await import("@google/genai");
-    const client = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY!,
-      httpOptions: { timeout: 60_000 },
-    });
+    const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
     const response = await client.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
@@ -141,7 +130,6 @@ export async function generateWeeklyChallenge(
     type = parsed.type || type;
     criteria = parsed.criteria || criteria;
   } catch (err) {
-    if (refund) await refund().catch(() => {});
     console.error("[Challenges] AI generation failed, using fallback:", err);
     // Use deterministic fallback based on cellar contents
     const fallbacks = getFallbackChallenge(wines, history);
