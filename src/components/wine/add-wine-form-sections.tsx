@@ -383,6 +383,7 @@ export function LabelCaptureView({
         pendingStream={pendingStream}
         onCapture={handleCapture}
         onClose={onClose ?? onBack}
+        onManualEntry={onManualEntry}
         renderTabs={
           <CameraModeTabs
             activeMode={cameraActiveMode ?? "label"}

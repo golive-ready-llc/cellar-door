@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Upload, X, RotateCcw, SwitchCamera, Loader2 } from "lucide-react";
+import { Camera, Upload, X, RotateCcw, SwitchCamera, Loader2, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isNative, takeNativePhoto, pickNativePhoto, hapticTap } from "@/lib/capacitor";
 
@@ -25,6 +25,11 @@ interface ImageCaptureProps {
   fullScreen?: boolean;
   /** Content rendered below the camera in full-screen mode (e.g. mode tabs) */
   renderTabs?: React.ReactNode;
+  /** Escape hatch rendered inside the camera-error overlay: "Add manually
+   *  instead". A denied camera is a dead end on desktops and embedded
+   *  browsers — the manual form must be one tap away, not a small tab
+   *  below a full-screen error. */
+  onManualEntry?: () => void;
   /** Called when the X button is tapped in full-screen mode */
   onClose?: () => void;
   /** Pre-acquired camera stream (acquired inside a user gesture so the
@@ -93,6 +98,24 @@ function compressImage(
  * contain those identifiers, so matching the message alone silently missed the
  * no-camera and permission cases and always showed the generic fallback.
  */
+/** Async web-path mapping: when the Permissions API reports the site as
+ *  denied, the browser will never show a prompt — the message must point at
+ *  browser settings instead of implying a retry will ask. */
+async function webCameraErrorMessage(err: unknown): Promise<string> {
+  const mapped = cameraErrorMessage(err);
+  try {
+    const perm = await navigator.permissions?.query({
+      name: "camera" as PermissionName,
+    });
+    if (perm?.state === "denied") {
+      return "Camera is blocked for this site — no prompt will appear. Allow it via the camera icon in the address bar (or your browser's camera settings), then retry — or upload a photo or add manually instead.";
+    }
+  } catch {
+    /* Permissions API unsupported/unusual name — keep the mapped message. */
+  }
+  return mapped;
+}
+
 function cameraErrorMessage(err: unknown): string {
   const id = `${err instanceof Error ? err.name : ""} ${err instanceof Error ? err.message : String(err)}`;
   if (/NotAllowed|Permission|SecurityError/i.test(id)) {
@@ -125,6 +148,7 @@ export function ImageCapture({
   quality = DEFAULT_QUALITY,
   fullScreen = false,
   renderTabs,
+  onManualEntry,
   onClose,
   pendingStream,
 }: ImageCaptureProps) {
@@ -262,9 +286,11 @@ export function ImageCapture({
       } catch (err) {
         // On native Capacitor we don't surface an error here — the caller falls
         // back to the native intent. On web we set a clear error (mapped from
-        // the DOMException name) so the upload fallback shows.
+        // the DOMException name). When the Permissions API says the site is
+        // outright denied, no prompt will EVER appear, so say that instead
+        // of implying a retry could ask.
         if (!isNative) {
-          setCameraError(cameraErrorMessage(err));
+          setCameraError(await webCameraErrorMessage(err));
         }
         setCameraActive(false);
         return false;
@@ -364,7 +390,7 @@ export function ImageCapture({
       } catch (err) {
         if (cancelled || unmountedRef.current) return;
         if (!isNative) {
-          setCameraError(cameraErrorMessage(err));
+          setCameraError(await webCameraErrorMessage(err));
         }
         setCameraActive(false);
       } finally {
@@ -576,6 +602,16 @@ export function ImageCapture({
                 <Upload className="h-4 w-4" />
                 Upload from Gallery
               </Button>
+              {onManualEntry && (
+                <Button
+                  type="button"
+                  onClick={onManualEntry}
+                  className="gap-2 min-w-36"
+                >
+                  <PenLine className="h-4 w-4" />
+                  Add manually instead
+                </Button>
+              )}
               {onClose && (
                 <button
                   type="button"
