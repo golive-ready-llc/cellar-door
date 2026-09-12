@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, PackageOpen, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { WINE_TYPE_COLORS } from "@/types/constants";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -15,23 +14,12 @@ import { getEffectiveDisposition } from "@/lib/drink-window";
 import { useTouchDrag } from "@/hooks/use-touch-drag";
 import { useDropTarget } from "@/hooks/use-drop-target";
 import { useLongPress } from "@/hooks/use-long-press";
-
-/** Brighten a hex color for border highlights */
-function brightenColor(hex: string, amount = 0.3): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const br = Math.min(255, Math.round(r + (255 - r) * amount));
-  const bg = Math.min(255, Math.round(g + (255 - g) * amount));
-  const bb = Math.min(255, Math.round(b + (255 - b) * amount));
-  return `#${br.toString(16).padStart(2, "0")}${bg.toString(16).padStart(2, "0")}${bb.toString(16).padStart(2, "0")}`;
-}
-
-const DISPOSITION_COLORS: Record<string, string> = {
-  D: "#2e7d32",
-  H: "#1565c0",
-  P: "#c62828",
-};
+import {
+  brightenColor,
+  DISPOSITION_COLORS,
+  getWineColor,
+  getDispositionLabel,
+} from "./cabinet-grid-utils";
 
 interface UnfiledWinesProps {
   wines: Wine[];
@@ -168,18 +156,10 @@ function UnfiledBottle({
   onClick: () => void;
   onLongPress?: () => void;
 }) {
-  const bgColor =
-    WINE_TYPE_COLORS[wine.type as keyof typeof WINE_TYPE_COLORS] || "#666";
+  const bgColor = getWineColor(wine.type);
   const borderColor = brightenColor(bgColor);
   const effectiveDisposition = getEffectiveDisposition(wine);
-  const dispositionLabel =
-    effectiveDisposition === "D"
-      ? "D"
-      : effectiveDisposition === "H"
-        ? "H"
-        : effectiveDisposition === "P"
-          ? "P"
-          : "";
+  const dispositionLabel = getDispositionLabel(effectiveDisposition);
   const dispositionBg = DISPOSITION_COLORS[effectiveDisposition] || "transparent";
   const showDisposition = !!dispositionLabel;
 
