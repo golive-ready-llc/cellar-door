@@ -6,10 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
-import { fetchWines, fetchHistory } from "@/lib/data";
+import { fetchTasteProfileEntries } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
 import { WINE_TYPE_LABELS } from "@/types/constants";
-import type { Wine, WineHistoryItem } from "@/types/wine";
 
 // Vivino's Taste Profile: "What you've tried / like / dislike" by wine style,
 // region, and grape. Pure aggregation over rated wines + history — no AI, so
@@ -143,8 +142,9 @@ function Section({
 
 export default function TasteProfilePage() {
   const { userId } = useAuth();
-  const [wines, setWines] = useState<Wine[]>([]);
-  const [history, setHistory] = useState<WineHistoryItem[]>([]);
+  const [rows, setRows] = useState<
+    import("@/server/actions/wines").TasteProfileEntryRow[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [dim, setDim] = useState<Dimension>("style");
 
@@ -152,10 +152,13 @@ export default function TasteProfilePage() {
     let active = true;
     (async () => {
       try {
-        const [w, h] = await Promise.all([fetchWines(userId), fetchHistory(userId)]);
+        // Slim entries only: this page aggregates labels + ratings and must
+        // not pull the ~10 MB of base64 label images that full wines+history
+        // carried for a long-lived account (that fetch failed on mobile and
+        // rendered the page empty).
+        const entries = await fetchTasteProfileEntries(userId);
         if (!active) return;
-        setWines(w);
-        setHistory(h);
+        setRows(entries);
       } finally {
         if (active) setLoading(false);
       }
@@ -165,25 +168,9 @@ export default function TasteProfilePage() {
     };
   }, [userId]);
 
-  // Flatten owned wines + history into rating-bearing entries for the chosen
-  // dimension. History uses consumeRating (given at removal) then rating.
+  // Flatten cellar + history rows into rating-bearing entries for the chosen
+  // dimension. History rows arrive with consumeRating already preferred.
   const entries = useMemo<Entry[]>(() => {
-    const rows: { type: string; region: string; country: string; grapeVariety: string; rating: number | null }[] = [
-      ...wines.map((w) => ({
-        type: w.type,
-        region: w.region ?? "",
-        country: w.country ?? "",
-        grapeVariety: w.grapeVariety ?? "",
-        rating: w.userRating ?? null,
-      })),
-      ...history.map((h) => ({
-        type: h.type,
-        region: h.region ?? "",
-        country: h.country ?? "",
-        grapeVariety: h.grapeVariety ?? "",
-        rating: (h.consumeRating ?? h.rating) ?? null,
-      })),
-    ];
     const out: Entry[] = [];
     for (const r of rows) {
       for (const label of labelFor(dim, r)) {
@@ -191,7 +178,7 @@ export default function TasteProfilePage() {
       }
     }
     return out;
-  }, [wines, history, dim]);
+  }, [rows, dim]);
 
   const { liked, disliked, tried, max, totalRated } = useMemo(() => {
     const buckets = aggregate(entries);

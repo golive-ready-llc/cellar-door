@@ -323,6 +323,43 @@ export async function fetchHistory(userId?: string | null): Promise<WineHistoryI
   });
 }
 
+/** Slim rating entries for the taste-profile page — never full rows (the
+ *  full-row fetch moved ~10 MB of base64 images and failed on mobile). */
+export async function fetchTasteProfileEntries(
+  userId?: string | null
+): Promise<import("@/server/actions/wines").TasteProfileEntryRow[]> {
+  const uid = resolveUserId(userId);
+  if (isMockMode()) {
+    const store = await loadMockStore();
+    const [wines, history] = await Promise.all([
+      store.getWines(uid),
+      store.getHistory(uid),
+    ]);
+    return [
+      ...wines.map((w) => ({
+        id: w.id,
+        source: "cellar" as const,
+        type: w.type,
+        region: w.region ?? "",
+        country: w.country ?? "",
+        grapeVariety: w.grapeVariety ?? "",
+        rating: w.userRating ?? null,
+      })),
+      ...history.map((h) => ({
+        id: h.id,
+        source: "history" as const,
+        type: h.type,
+        region: h.region ?? "",
+        country: h.country ?? "",
+        grapeVariety: h.grapeVariety ?? "",
+        rating: (h.consumeRating ?? h.rating) ?? null,
+      })),
+    ];
+  }
+  const { getTasteProfileEntries } = await import("@/server/actions/wines");
+  return getTasteProfileEntries(uid);
+}
+
 /** Only the most recent history events (activity feed), not a lifetime of history. */
 export async function fetchRecentHistory(
   userId: string | null | undefined,

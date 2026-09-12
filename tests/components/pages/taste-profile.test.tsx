@@ -6,8 +6,29 @@ const winesMock = vi.fn<() => Promise<Partial<Wine>[]>>(async () => []);
 const historyMock = vi.fn<() => Promise<Partial<WineHistoryItem>[]>>(async () => []);
 
 vi.mock("@/lib/data", () => ({
-  fetchWines: (...args: unknown[]) => winesMock(...(args as [])),
-  fetchHistory: (...args: unknown[]) => historyMock(...(args as [])),
+  // The page reads slim rating entries now; the fixtures below stay shaped as
+  // wines/history rows and are converted here exactly the way the server
+  // action does (consumeRating preferred, nulls for unrated).
+  fetchTasteProfileEntries: async () => [
+    ...(await winesMock()).map((w) => ({
+      id: w.id ?? "",
+      source: "cellar" as const,
+      type: w.type ?? "red",
+      region: w.region ?? "",
+      country: w.country ?? "",
+      grapeVariety: w.grapeVariety ?? "",
+      rating: w.userRating ?? null,
+    })),
+    ...(await historyMock()).map((h) => ({
+      id: h.id ?? "",
+      source: "history" as const,
+      type: h.type ?? "red",
+      region: h.region ?? "",
+      country: h.country ?? "",
+      grapeVariety: h.grapeVariety ?? "",
+      rating: (h.consumeRating ?? h.rating) ?? null,
+    })),
+  ],
 }));
 vi.mock("@/components/auth-provider", () => ({
   useAuth: () => ({ userId: "u1", user: null, tier: "PRO" }),

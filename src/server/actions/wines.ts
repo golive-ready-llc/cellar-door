@@ -755,6 +755,78 @@ export async function getHistory(
   }));
 }
 
+/** Entry shape for the taste-profile aggregation: just the bucket labels and
+ *  the user's own rating. */
+export interface TasteProfileEntryRow {
+  id: string;
+  source: "cellar" | "history";
+  type: string;
+  region: string;
+  country: string;
+  grapeVariety: string;
+  rating: number | null;
+}
+
+/**
+ * Slim read for the taste-profile page. It used to fetch full wines + full
+ * history, and for a long-lived account that carried ~10 MB of base64 label
+ * images over two server-action responses — failing on mobile and leaving
+ * the page empty (2026-09-12). Six scalar fields per row is ~100 KB for a
+ * 1000-row history.
+ */
+export async function getTasteProfileEntries(
+  userId?: string
+): Promise<TasteProfileEntryRow[]> {
+  const uid = await resolveServerUserId(userId);
+  const [wines, history] = await Promise.all([
+    prisma.wine.findMany({
+      where: { userId: uid },
+      select: {
+        id: true,
+        type: true,
+        region: true,
+        country: true,
+        grapeVariety: true,
+        userRating: true,
+      },
+    }),
+    prisma.wineHistory.findMany({
+      where: { userId: uid },
+      select: {
+        id: true,
+        type: true,
+        region: true,
+        country: true,
+        grapeVariety: true,
+        rating: true,
+        consumeRating: true,
+      },
+    }),
+  ]);
+  return [
+    ...wines.map((w) => ({
+      id: w.id,
+      source: "cellar" as const,
+      type: w.type,
+      region: w.region ?? "",
+      country: w.country ?? "",
+      grapeVariety: w.grapeVariety ?? "",
+      rating: w.userRating ?? null,
+    })),
+    ...history.map((h) => ({
+      id: h.id,
+      source: "history" as const,
+      type: h.type,
+      region: h.region ?? "",
+      country: h.country ?? "",
+      grapeVariety: h.grapeVariety ?? "",
+      // Consume-time rating reflects the final verdict; fall back to the
+      // rating captured when the row was written.
+      rating: (h.consumeRating ?? h.rating) ?? null,
+    })),
+  ];
+}
+
 export async function deleteHistoryItem(userId: string, id: string): Promise<void> {
   const uid = await resolveServerUserId(userId);
   await prisma.wineHistory.deleteMany({
