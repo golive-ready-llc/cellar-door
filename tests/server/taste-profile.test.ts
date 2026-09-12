@@ -267,3 +267,53 @@ describe("generateTasteProfile", () => {
     expect(generateContentSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("generateTasteProfile — Gemini 504 resilience (2026-09-12 production fix)", () => {
+  const GEMINI_504 = JSON.stringify({
+    error: { code: 504, message: "The request timed out. Please try again.", status: "DEADLINE_EXCEEDED" },
+  });
+  const goodResponse = { text: JSON.stringify({ all: fullSlice, red: fullSlice, white: null }) };
+
+  it("disables Gemini thinking — deterministic scoring must not pay the thinking deadline", async () => {
+    wineFindMany.mockResolvedValueOnce(makeWines(5));
+    generateContentSpy.mockResolvedValueOnce(goodResponse);
+    const { generateTasteProfile } = await import("@/server/actions/taste-profile");
+    await generateTasteProfile("u1");
+    const cfg = generateContentSpy.mock.calls[0][0].config;
+    expect(cfg.thinkingConfig).toEqual({ thinkingBudget: 0 });
+  });
+
+  it("retries once on a 504 DEADLINE_EXCEEDED and succeeds on the second attempt", async () => {
+    wineFindMany.mockResolvedValueOnce(makeWines(5));
+    generateContentSpy
+      .mockRejectedValueOnce(new Error(GEMINI_504))
+      .mockResolvedValueOnce(goodResponse);
+    const { generateTasteProfile } = await import("@/server/actions/taste-profile");
+    const result = await generateTasteProfile("u1");
+    expect(result.success).toBe(true);
+    expect(generateContentSpy).toHaveBeenCalledTimes(2);
+    expect(refundOnFailureSpy).not.toHaveBeenCalled();
+  });
+
+  it("gives the friendly error (and refunds) after a second consecutive 504", async () => {
+    wineFindMany.mockResolvedValueOnce(makeWines(5));
+    generateContentSpy
+      .mockRejectedValueOnce(new Error(GEMINI_504))
+      .mockRejectedValueOnce(new Error(GEMINI_504));
+    const { generateTasteProfile } = await import("@/server/actions/taste-profile");
+    const result = await generateTasteProfile("u1");
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/try again/i);
+    expect(generateContentSpy).toHaveBeenCalledTimes(2);
+    expect(refundOnFailureSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT retry a 400 (bad request is not transient)", async () => {
+    wineFindMany.mockResolvedValueOnce(makeWines(5));
+    generateContentSpy.mockRejectedValueOnce(new Error('{"error":{"code":400,"message":"Bad"}}'));
+    const { generateTasteProfile } = await import("@/server/actions/taste-profile");
+    const result = await generateTasteProfile("u1");
+    expect(result.success).toBe(false);
+    expect(generateContentSpy).toHaveBeenCalledTimes(1);
+  });
+});

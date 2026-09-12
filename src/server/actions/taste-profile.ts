@@ -304,14 +304,29 @@ export async function generateTasteProfile(
     }
 
     const client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 60_000 } });
-    const response = await client.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.2,
-      },
-    });
+    // gemini-2.5-flash "thinks" by default. This prompt is deterministic
+    // scoring, and thinking is what pushed the three-slice JSON response past
+    // Gemini's server deadline — production logged 504 DEADLINE_EXCEEDED on
+    // 2026-09-12. Budget 0 skips thinking entirely.
+    const call = () =>
+      client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.2,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+    let response;
+    try {
+      response = await call();
+    } catch (err) {
+      // One retry: these 504s are Gemini load, not something in the request.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!/504|DEADLINE_EXCEEDED|timed out/i.test(msg)) throw err;
+      response = await call();
+    }
 
     const text = response.text ?? "";
     const bundle = parseBundle(text);
