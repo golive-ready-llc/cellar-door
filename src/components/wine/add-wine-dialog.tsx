@@ -237,8 +237,23 @@ export function AddWineDialog({
   };
   const closeDialog = () => { form.resetForm(); form.setOpen(false); setCameraMode("label"); };
 
+  // The label-capture view renders a full-screen camera inside this dialog.
+  // Edge-to-edge dialog chrome (no card, no close X — the camera overlay has
+  // its own) keeps the camera UI inside the Base UI popup, where screen
+  // readers can reach it; portaling it to <body> got it aria-hidden by the
+  // modal's "hide others" pass.
+  const isCameraView = form.view === "label-capture";
+
   const dialogContent = (
-    <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85vh] overflow-y-auto">
+    <DialogContent
+      fullscreen={isCameraView}
+      showCloseButton={!isCameraView}
+      className={
+        isCameraView
+          ? undefined
+          : "w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85vh] overflow-y-auto"
+      }
+    >
       {form.view === "pick" && (
         <MethodPicker
           hasAI={hasAI}

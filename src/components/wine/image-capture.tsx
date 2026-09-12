@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { Camera, Upload, X, RotateCcw, SwitchCamera, Loader2, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isNative, takeNativePhoto, pickNativePhoto, hapticTap } from "@/lib/capacitor";
@@ -527,6 +526,11 @@ export function ImageCapture({
   }, [handleClear, startCamera]);
 
   // ─── Full-screen overlay render (Vivino-style) ────────────
+  // Rendered INLINE (no body portal): a Base UI modal marks every direct
+  // <body> child outside its own popup aria-hidden + inert, which used to
+  // hide this entire overlay from screen readers. The host dialog renders
+  // edge-to-edge for camera views (no centering transform), so fixed
+  // inset-0 still covers the viewport from inside the popup.
   if (fullScreen) {
     const hiddenEls = (
       <>
@@ -537,17 +541,16 @@ export function ImageCapture({
 
     // Brief loading state after capture — parent will unmount us once imageBase64 propagates
     if (preview) {
-      return createPortal(
+      return (
         <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
           {hiddenEls}
           <Loader2 className="h-10 w-10 animate-spin text-white" />
-        </div>,
-        document.body
+        </div>
       );
     }
 
-    return createPortal(
-      <div className="fixed inset-0 z-[200] bg-black flex flex-col">
+    return (
+      <div data-camera-overlay className="fixed inset-0 z-[200] bg-black flex flex-col">
         {hiddenEls}
 
         {/* Top bar — pt accounts for the device status-bar safe area on
@@ -696,8 +699,7 @@ export function ImageCapture({
             {renderTabs}
           </div>
         )}
-      </div>,
-      document.body
+      </div>
     );
   }
 

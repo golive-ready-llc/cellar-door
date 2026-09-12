@@ -43,9 +43,16 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  fullscreen = false,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
+  /** Edge-to-edge variant for camera-style views. Swaps out the centered
+   *  card positioning (incl. its -translate-* centering transform) — a
+   *  transformed ancestor would become the containing block for any fixed
+   *  descendant, which is why full-screen camera overlays used to portal
+   *  to <body> and got aria-hidden by Base UI's modal "hide others" pass. */
+  fullscreen?: boolean
 }) {
   return (
     <DialogPortal>
@@ -53,12 +60,15 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          // flex-col instead of grid — `grid` with implicit auto columns lets
-          // children expand to min-content, so long wine names / titles
-          // overflowed the right edge on mobile (Cork & Fork, Sommelier,
-          // Wine Tasting all hit this). flex-col keeps children at container
-          // width and wraps long text correctly.
-          "fixed top-1/2 left-1/2 z-50 flex flex-col w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-background p-4 text-sm ring-1 ring-foreground/10 duration-100 outline-none overflow-x-hidden sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 [&>*]:min-w-0",
+          fullscreen
+            ? // No translate → no containing-block surprises for fixed children.
+              "fixed inset-0 z-50 flex flex-col w-screen h-screen max-w-none max-h-none gap-0 overflow-hidden bg-black text-sm outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 [&>*]:min-w-0"
+            : // flex-col instead of grid — `grid` with implicit auto columns lets
+              // children expand to min-content, so long wine names / titles
+              // overflowed the right edge on mobile (Cork & Fork, Sommelier,
+              // Wine Tasting all hit this). flex-col keeps children at container
+              // width and wraps long text correctly.
+              "fixed top-1/2 left-1/2 z-50 flex flex-col w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-background p-4 text-sm ring-1 ring-foreground/10 duration-100 outline-none overflow-x-hidden sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 [&>*]:min-w-0",
           className
         )}
         {...props}
