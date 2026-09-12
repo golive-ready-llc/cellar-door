@@ -123,6 +123,14 @@ export const DISPOSITION_COLORS: Record<string, string> = {
   P: "#ef4444", // red
 };
 
+/** Picker options for setting a wine's disposition, including the unset choice */
+export const DISPOSITION_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Not set" },
+  { value: "D", label: "Drink Now" },
+  { value: "H", label: "Hold" },
+  { value: "P", label: "Past Peak" },
+];
+
 // Default cabinet configuration for new users
 export const DEFAULT_CABINETS = [
   {

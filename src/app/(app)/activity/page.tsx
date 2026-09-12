@@ -10,13 +10,13 @@ import {
   AlertTriangle,
   CircleOff,
   HelpCircle,
-  Star,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WineDetailDialog } from "@/components/wine/wine-detail-dialog";
 import { PageHeader } from "@/components/ui/page-header";
+import { StarRating } from "@/components/ui/star-rating";
 import { cn } from "@/lib/utils";
 import { fetchWines, fetchRecentHistory } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
@@ -287,10 +287,7 @@ export default function ActivityPage() {
                         {WINE_TYPE_LABELS[e.type as keyof typeof WINE_TYPE_LABELS] || e.type}
                       </Badge>
                       {e.rating != null && e.rating > 0 && (
-                        <span className="inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums">
-                          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                          {e.rating.toFixed(1)}
-                        </span>
+                        <StarRating value={e.rating} compact size={12} />
                       )}
                       <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
                         {relativeTime(e.at, now)}
