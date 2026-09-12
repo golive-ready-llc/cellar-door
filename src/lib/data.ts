@@ -68,11 +68,6 @@ function resolveUserId(userId?: string | null): string {
   throw new Error("userId is required in production — pass it from useAuth()");
 }
 
-/** @deprecated Use resolveUserId with the authenticated userId instead */
-export function getUserId(): string {
-  return DEV_USER_ID;
-}
-
 // ============================================================
 // Read cache — makes view switching fast.
 //

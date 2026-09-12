@@ -15,7 +15,6 @@ import { CellarChatWrapper } from "@/components/chat/cellar-chat-wrapper";
 import { AdSlot } from "@/components/tier/ad-slot";
 import { BottomNav } from "@/components/bottom-nav";
 import { TierSwitcher } from "@/components/tier/tier-switcher";
-import { QueryProvider } from "@/components/query-provider";
 import { AddWineProvider } from "@/components/add-wine-context";
 import { WineDataProvider } from "@/contexts/wine-data-context";
 import { NotificationsBootstrap } from "@/components/notifications-bootstrap";
@@ -106,7 +105,6 @@ export default function AppLayout({
   }
 
   return (
-    <QueryProvider>
     <WineDataProvider>
     <NotificationsBootstrap />
     <AddWineProvider>
@@ -165,6 +163,5 @@ export default function AppLayout({
       </SearchProvider>
     </AddWineProvider>
     </WineDataProvider>
-    </QueryProvider>
   );
 }
