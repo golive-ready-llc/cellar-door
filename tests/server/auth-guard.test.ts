@@ -181,7 +181,11 @@ describe("requireAdmin", () => {
 
   it("admits the ADMIN_EMAIL account, whatever its case", async () => {
     vi.stubEnv("ADMIN_EMAIL", "admin@example.com");
-    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-1", email: "Admin@Example.com" });
+    verifyIdTokenSpy.mockResolvedValue({
+      uid: "fb-1",
+      email: "Admin@Example.com",
+      email_verified: true,
+    });
     const { requireAdmin } = await import("@/server/auth-guard");
     expect(await requireAdmin("token")).toEqual({
       ok: true,
@@ -190,9 +194,31 @@ describe("requireAdmin", () => {
     });
   });
 
+  it("rejects the ADMIN_EMAIL account when its email is not verified", async () => {
+    vi.stubEnv("ADMIN_EMAIL", "admin@example.com");
+    verifyIdTokenSpy.mockResolvedValue({
+      uid: "fb-1",
+      email: "admin@example.com",
+      email_verified: false,
+    });
+    const { requireAdmin } = await import("@/server/auth-guard");
+    expect((await requireAdmin("token")).ok).toBe(false);
+  });
+
+  it("rejects the ADMIN_EMAIL account when the token carries no verified claim", async () => {
+    vi.stubEnv("ADMIN_EMAIL", "admin@example.com");
+    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-1", email: "admin@example.com" });
+    const { requireAdmin } = await import("@/server/auth-guard");
+    expect((await requireAdmin("token")).ok).toBe(false);
+  });
+
   it("rejects a signed-in user who is not the admin", async () => {
     vi.stubEnv("ADMIN_EMAIL", "admin@example.com");
-    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-2", email: "someone@else.com" });
+    verifyIdTokenSpy.mockResolvedValue({
+      uid: "fb-2",
+      email: "someone@else.com",
+      email_verified: true,
+    });
     const { requireAdmin } = await import("@/server/auth-guard");
     expect(await requireAdmin("token")).toEqual({
       ok: false,
@@ -210,7 +236,11 @@ describe("requireAdmin", () => {
 
   it("fails closed when ADMIN_EMAIL is unset — nobody is an admin", async () => {
     vi.stubEnv("ADMIN_EMAIL", "");
-    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-1", email: "admin@example.com" });
+    verifyIdTokenSpy.mockResolvedValue({
+      uid: "fb-1",
+      email: "admin@example.com",
+      email_verified: true,
+    });
     const { requireAdmin } = await import("@/server/auth-guard");
     const result = await requireAdmin("token");
     expect(result.ok).toBe(false);

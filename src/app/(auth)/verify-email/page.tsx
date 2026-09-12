@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Wine, Mail, RefreshCw, CheckCircle2 } from "lucide-react";
 import { auth, sendEmailVerification, firebaseSignOut } from "@/lib/firebase";
+import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,6 +16,7 @@ import {
 
 export default function VerifyEmailPage() {
   const router = useRouter();
+  const { refreshTier } = useAuth();
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -35,6 +37,19 @@ export default function VerifyEmailPage() {
       router.push("/cellar");
     }
   }, [router]);
+
+  // The server mints the __session cookie only for a verified email, and a
+  // just-verified account still holds a cached ID token that says otherwise.
+  // Refresh that token, then re-run profile init: it establishes the cookie
+  // and gives this tab the userId + tier the app reads from context.
+  const enterCellar = useCallback(async () => {
+    const firebaseAuth = auth();
+    const currentUser = firebaseAuth?.currentUser;
+    if (!currentUser) return;
+    await currentUser.getIdToken(true);
+    await refreshTier();
+    router.push("/cellar");
+  }, [refreshTier, router]);
 
   const handleResend = useCallback(async () => {
     setResending(true);
@@ -76,7 +91,7 @@ export default function VerifyEmailPage() {
       await firebaseAuth.currentUser.reload();
 
       if (firebaseAuth.currentUser.emailVerified) {
-        router.push("/cellar");
+        await enterCellar();
       } else {
         setError("Email not verified yet. Please check your inbox and click the verification link.");
       }
@@ -85,7 +100,7 @@ export default function VerifyEmailPage() {
     } finally {
       setChecking(false);
     }
-  }, [router]);
+  }, [enterCellar]);
 
   const handleSignOut = useCallback(async () => {
     try {
