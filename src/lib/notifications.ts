@@ -255,9 +255,11 @@ export async function scheduleDecantTimer(
           title: "Decant timer done",
           body: `${name} is ready to pour!`,
           // Default channel → plays the default notification sound (the alarm).
+          // Deliberately NOT ongoing/autoCancel:false: this usually fires while
+          // the app is backgrounded or closed, so nothing would ever clear it —
+          // it would sit in the shade, un-swipeable, until the user reopened
+          // that wine's decant dialog.
           schedule: { at: fireAt, allowWhileIdle: true },
-          ongoing: true,
-          autoCancel: false,
           extra: { kind: "decant-done" },
         },
       ],

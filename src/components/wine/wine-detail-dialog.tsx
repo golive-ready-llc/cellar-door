@@ -77,7 +77,7 @@ interface WineDetailDialogProps {
    * to insert into). */
   onAddBottle?: () => void;
   /** Override the default Show-in-Cellar behavior. The default (from
-   * WineDataContext) navigates to /cellar?wineId=… so every page gets
+   * WineDataContext) navigates to /cellar?wine=… so every page gets
    * this for free. Cellar passes a custom impl to avoid the round-trip. */
   onShowInCellar?: () => void;
   /** Callback to duplicate the wine (for buying in cases). Page-specific.
