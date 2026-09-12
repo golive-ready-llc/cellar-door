@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /**
- * Tests for the notifications module. Two things to pin down:
+ * Tests for the notifications module. Three things to pin down:
  *
  *   1. hashWineId behaves like a stable hash — same input → same output,
  *      different inputs rarely collide. The function isn't exported, but
@@ -12,6 +12,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
  *      Capacitor plugin when isNative is false. We assert this by
  *      mocking @/lib/capacitor with isNative:false and confirming the
  *      plugin module is never dynamically imported.
+ *
+ *   3. The decant timer's two notifications keep their intended flags:
+ *      the countdown is pinned, the completion alarm is not.
  */
 
 // ─── Mocks ──────────────────────────────────────────────────────────
@@ -195,5 +198,44 @@ describe("notifications — hashWineId stability/distinctness (via cancel id)", 
     }
     // Allow up to 5% collisions (expected near 0 for 100 random ids in a 30-bit space).
     expect(ids.size).toBeGreaterThanOrEqual(95);
+  });
+});
+
+describe("notifications — decant timer (native)", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    pluginImportCount = 0;
+    checkPermissionsMock.mockReset();
+    checkPermissionsMock.mockResolvedValue({ display: "granted" });
+    scheduleMock.mockReset();
+    scheduleMock.mockResolvedValue(undefined);
+    cancelMock.mockReset();
+    cancelMock.mockResolvedValue(undefined);
+  });
+
+  async function loadNative() {
+    vi.doMock("@/lib/capacitor", () => ({ isNative: true }));
+    const mod = await import("@/lib/notifications");
+    return mod;
+  }
+
+  it("pins the in-progress notification but leaves the completion alarm dismissible", async () => {
+    const mod = await loadNative();
+    await mod.scheduleDecantTimer("Barolo", new Date(Date.now() + 3_600_000));
+
+    const { notifications } = scheduleMock.mock.calls.at(-1)?.[0] as {
+      notifications: Record<string, unknown>[];
+    };
+    const progress = notifications.find((n) => n.id === mod.DECANT_PROGRESS_ID)!;
+    const done = notifications.find((n) => n.id === mod.DECANT_DONE_ID)!;
+
+    // The countdown notification is meant to stay in the shade.
+    expect(progress.ongoing).toBe(true);
+    expect(progress.autoCancel).toBe(false);
+
+    // The alarm usually fires while the app is backgrounded or closed, and
+    // nothing cancels it then — so it must not be pinned to the shade.
+    expect(done.ongoing).toBeUndefined();
+    expect(done.autoCancel).toBeUndefined();
   });
 });

@@ -444,6 +444,11 @@ export default function HistoryPage() {
       {/* Detail Dialog */}
       {selectedItem && (
         <HistoryDetailDialog
+          // Per-item key: the dialog holds the community score and the edit
+          // form in its own state, and closing it does not unmount it — the
+          // next item opened would otherwise show (and save) the previous
+          // item's values.
+          key={selectedItem.id}
           item={selectedItem}
           open={detailOpen}
           onOpenChange={setDetailOpen}

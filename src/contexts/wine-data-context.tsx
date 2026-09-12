@@ -43,7 +43,7 @@ interface WineDataContextValue {
     walls?: Wall[];
     allTags?: string[];
   }) => void;
-  /** Cross-page navigate-and-highlight. Pushes /cellar?wineId=X — the
+  /** Cross-page navigate-and-highlight. Pushes /cellar?wine=<id> — the
    * cellar page reads the param and scrolls to the slot. */
   showInCellar: (wine: Wine) => void;
 }
@@ -74,10 +74,10 @@ export function WineDataProvider({ children }: { children: React.ReactNode }) {
 
   const showInCellar = useCallback(
     (wine: Wine) => {
-      // The cellar page reads ?wineId= and handles scrolling/highlight.
-      // Keep navigation simple — don't depend on the cellar page being
-      // mounted right now.
-      router.push(`/cellar?wineId=${encodeURIComponent(wine.id)}`);
+      // `?wine=` is what use-cellar-data reads (same param the search palette
+      // links with). Keep navigation simple — don't depend on the cellar page
+      // being mounted right now.
+      router.push(`/cellar?wine=${encodeURIComponent(wine.id)}`);
     },
     [router]
   );

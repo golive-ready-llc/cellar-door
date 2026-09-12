@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Wine as WineIcon,
   Star,
@@ -56,15 +56,17 @@ export function ConsumeWineDialog({
   const [rateDialogOpen, setRateDialogOpen] = useState(false);
   const [notes, setNotes] = useState("");
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (nextOpen) {
-      setReason("");
-      setRating(null);
-      setRateDialogOpen(false);
-      setNotes("");
-    }
-    onOpenChange(nextOpen);
-  };
+  // The pages that mount this dialog drive `open` themselves, so the Dialog
+  // fires no onOpenChange of its own for an open — reset here instead, or a
+  // cancelled removal pre-fills the next wine's dialog with the previous
+  // wine's reason, rating and notes.
+  useEffect(() => {
+    if (!open) return;
+    setReason("");
+    setRating(null);
+    setRateDialogOpen(false);
+    setNotes("");
+  }, [open, wine.id]);
 
   const handleConfirm = async () => {
     if (!reason) return;
@@ -81,7 +83,7 @@ export function ConsumeWineDialog({
     WINE_TYPE_COLORS[wine.type as keyof typeof WINE_TYPE_COLORS] || "#666";
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

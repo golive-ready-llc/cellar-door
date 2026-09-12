@@ -405,6 +405,10 @@ export default function BuyListPage() {
       {/* Detail Dialog */}
       {selectedItem && (
         <BuyListDetailDialog
+          // Per-item key: the dialog caches the community score in its own
+          // state and closing it does not unmount it, so without this the
+          // next item opened would show the previous item's score.
+          key={selectedItem.id}
           item={selectedItem}
           open={detailOpen}
           onOpenChange={setDetailOpen}

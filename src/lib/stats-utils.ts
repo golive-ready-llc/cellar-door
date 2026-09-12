@@ -176,7 +176,11 @@ export function computePriceData(wines: Wine[]): PriceDataItem[] {
     { label: "$500+", min: 500, max: Infinity, count: 0 },
   ];
   for (const w of wines) {
-    const price = w.price ?? 0;
+    // A wine with no recorded price is not a $0 wine (CSV import maps a $0
+    // price to null on purpose). Bucketing it as "$0-25" invented a bar and
+    // hid the chart's "Add prices to see distribution" empty state.
+    if (w.price == null) continue;
+    const price = w.price;
     for (const b of buckets) {
       if (price >= b.min && price < b.max) {
         b.count++;
