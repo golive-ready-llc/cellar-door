@@ -17,19 +17,17 @@ import { requireCanAddWine } from "@/server/tier-check";
 import { communityWineKey } from "@/lib/cd-score";
 import { findWineMetadata } from "./wine-metadata";
 import { fetchAndStoreExpertRatings } from "@/server/expert-score";
+import {
+  sameWineWhere,
+  sharedFieldPatch,
+  propagateSharedFields,
+} from "@/server/wine-shared";
+import { wineHistoryData } from "@/server/wine-history-store";
 
 /** Bottle formats accepted by add/update. Kept in sync with types/wine BOTTLE_SIZE_ORDER
  *  (not imported — "use server" modules should not pull client-shared constants they
  *  only need for validation). */
 const VALID_BOTTLE_SIZES = ["half", "standard", "magnum", "large"];
-
-/** Fields that describe the wine itself (not bottle-specific like location). Propagated to
- *  duplicate bottles (same name+winery+vintage) so that edits to one bottle apply to all. */
-const SHARED_FIELDS = [
-  "userRating", "imageUrl", "description", "foodPairings", "alcohol",
-  "disposition", "drinkWindow", "drinkBy", "retailPrice", "grapeVariety",
-  "region", "country", "type", "barcode", "sparkling",
-] as const;
 
 // ============================================================
 // Wine CRUD Server Actions
@@ -127,17 +125,9 @@ export async function addWine(input: AddWineInput): Promise<Wine | DuplicateWine
   await requireCanAddWine(uid);
 
   // Duplicate detection: warn if same name+(winery)+vintage already exists.
-  // Gate on name only — winery defaults to "" and is optional, so requiring it
-  // truthy here silently skipped the check for winery-less wines (e.g. two
-  // "Pinot Noir" with no producer). Match the empty winery explicitly.
   if (input.name && !input.skipDuplicateCheck) {
     const dupe = await prisma.wine.findFirst({
-      where: {
-        userId: uid,
-        name: { equals: input.name, mode: "insensitive" },
-        winery: { equals: input.winery ?? "", mode: "insensitive" },
-        vintage: input.vintage ?? null,
-      },
+      where: sameWineWhere(uid, input),
       select: { id: true, name: true, addedAt: true },
     });
     if (dupe) {
@@ -449,53 +439,9 @@ export async function updateWine(
     data: updateData as Prisma.WineUpdateInput,
   });
 
-  // Propagate shared wine metadata to duplicates (same name+winery+vintage, same user)
-  // Fields that describe the wine itself (not bottle-specific like location, notes, purchaseDate)
-
-  // Skip propagation entirely if only bottle-specific fields changed (location, notes, etc.)
-  const hasSharedChanges = SHARED_FIELDS.some((field) => data[field] !== undefined) ||
-    (data as Record<string, unknown>).aiRatings !== undefined ||
-    (data as Record<string, unknown>).tastingNotes !== undefined ||
-    (data as Record<string, unknown>).aiEnrichedAt !== undefined;
-
-  if (hasSharedChanges && existing.name && existing.winery) {
-    const sharedUpdates: Record<string, unknown> = {};
-    for (const field of SHARED_FIELDS) {
-      if (data[field] !== undefined) {
-        sharedUpdates[field] = field === "type" && data.type ? data.type.toLowerCase() : data[field];
-      }
-    }
-    // Also propagate JSON fields
-    if ((data as Record<string, unknown>).aiRatings !== undefined) {
-      sharedUpdates.aiRatings = (data as Record<string, unknown>).aiRatings ?? null;
-    }
-    if ((data as Record<string, unknown>).tastingNotes !== undefined) {
-      sharedUpdates.tastingNotes = (data as Record<string, unknown>).tastingNotes || null;
-    }
-    // Propagate the enrichment timestamp so duplicates also get marked as
-    // enriched (they share the same AI result, so logically they've all been
-    // "enriched" together).
-    if ((data as Record<string, unknown>).aiEnrichedAt !== undefined) {
-      const v = (data as Record<string, unknown>).aiEnrichedAt;
-      if (v === null) sharedUpdates.aiEnrichedAt = null;
-      else if (v instanceof Date) sharedUpdates.aiEnrichedAt = v;
-      else if (typeof v === "string") sharedUpdates.aiEnrichedAt = new Date(v);
-    }
-
-    if (Object.keys(sharedUpdates).length > 0) {
-      // Fire-and-forget: update all duplicates (same name+winery+vintage, different ID)
-      void prisma.wine.updateMany({
-        where: {
-          userId: uid,
-          id: { not: wineId },
-          name: { equals: existing.name, mode: "insensitive" },
-          winery: { equals: existing.winery, mode: "insensitive" },
-          vintage: existing.vintage,
-        },
-        data: sharedUpdates,
-      }).catch(() => { /* best-effort propagation */ });
-    }
-  }
+  // Propagate wine-level metadata to the user's other bottles of the same wine.
+  // A patch is empty when only bottle-specific fields changed (location, notes).
+  propagateSharedFields(uid, existing, sharedFieldPatch(data as Record<string, unknown>));
 
   // If aiRatings was just set/updated (e.g. AI enrichment filled them in
   // after the bottle was added manually), seed the community baseline.
@@ -577,31 +523,7 @@ export async function removeWine(
     // Move to history then delete in a transaction
     await prisma.$transaction([
       prisma.wineHistory.create({
-        data: {
-          userId: uid,
-          originalId: wine.id,
-          name: wine.name,
-          winery: wine.winery,
-          vintage: wine.vintage,
-          type: wine.type,
-          region: wine.region,
-          country: wine.country,
-          grapeVariety: wine.grapeVariety,
-          rating: wine.userRating,
-          consumeRating: consumeRating ?? null,
-          consumeNotes: consumeNotes ?? "",
-          price: wine.price,
-          retailPrice: wine.retailPrice,
-          imageUrl: wine.imageUrl,
-          description: wine.description,
-          foodPairings: wine.foodPairings,
-          alcohol: wine.alcohol,
-          disposition: wine.disposition,
-          drinkWindow: wine.drinkWindow,
-          aiRatings: wine.aiRatings ?? undefined,
-          addedAt: wine.addedAt,
-          reason,
-        },
+        data: wineHistoryData(uid, wine, { reason, consumeRating, consumeNotes }),
       }),
       prisma.wine.delete({
         where: { id: wineId },
@@ -613,12 +535,7 @@ export async function removeWine(
     // "I rated/enriched this wine" to stick across bottles, not just the one
     // they drank. Fills only empty fields so we never clobber user edits.
     if (wine.name && wine.winery) {
-      const dupeWhere = {
-        userId: uid,
-        name: { equals: wine.name, mode: "insensitive" as const },
-        winery: { equals: wine.winery, mode: "insensitive" as const },
-        vintage: wine.vintage,
-      };
+      const dupeWhere = sameWineWhere(uid, wine);
       const propagations: Promise<unknown>[] = [];
       // Consume-time rating fills empty userRating on duplicates
       if (consumeRating != null) {
@@ -898,31 +815,7 @@ export async function bulkRemoveWines(
   await prisma.$transaction([
     // Create history entries for all wines
     prisma.wineHistory.createMany({
-      data: wines.map((wine) => ({
-        userId: uid,
-        originalId: wine.id,
-        name: wine.name,
-        winery: wine.winery,
-        vintage: wine.vintage,
-        type: wine.type,
-        region: wine.region,
-        country: wine.country,
-        grapeVariety: wine.grapeVariety,
-        rating: wine.userRating,
-        consumeRating: null,
-        consumeNotes: "",
-        price: wine.price,
-        retailPrice: wine.retailPrice,
-        imageUrl: wine.imageUrl,
-        description: wine.description,
-        foodPairings: wine.foodPairings,
-        alcohol: wine.alcohol,
-        disposition: wine.disposition,
-        drinkWindow: wine.drinkWindow,
-        aiRatings: wine.aiRatings ?? undefined,
-        addedAt: wine.addedAt,
-        reason,
-      })),
+      data: wines.map((wine) => wineHistoryData(uid, wine, { reason })),
     }),
     // Delete all wines in one query
     prisma.wine.deleteMany({
