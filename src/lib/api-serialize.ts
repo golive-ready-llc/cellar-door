@@ -20,6 +20,7 @@ interface WineRecord {
   type: string;
   sparkling?: boolean | null;
   grapeVariety: string;
+  barcode: string;
   userRating: number | null;
   imageUrl: string;
   price: number | null;
@@ -62,6 +63,7 @@ export function serializeWine(wine: WineRecord) {
     type: wine.type,
     sparkling: wine.sparkling ?? isSparklingType(wine.type ?? ""),
     grapeVariety: wine.grapeVariety,
+    barcode: wine.barcode,
     userRating: wine.userRating,
     imageUrl: wine.imageUrl,
     price: wine.price,

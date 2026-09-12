@@ -10,6 +10,8 @@ const { authMock, prismaMock } = vi.hoisted(() => ({
       count: vi.fn(),
       create: vi.fn(),
       findFirst: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
     },
     cabinet: { findFirst: vi.fn() },
@@ -24,7 +26,7 @@ vi.mock("@/lib/api-auth", async () => {
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 import { GET, POST } from "@/app/api/v1/wines/route";
-import { DELETE } from "@/app/api/v1/wines/[id]/route";
+import { GET as GET_WINE, PUT, DELETE } from "@/app/api/v1/wines/[id]/route";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function req(url: string, init?: any): NextRequest {
@@ -43,6 +45,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   prismaMock.wine.findMany.mockResolvedValue([]);
   prismaMock.wine.count.mockResolvedValue(0);
+  prismaMock.wine.updateMany.mockResolvedValue({ count: 0 });
   prismaMock.$transaction.mockImplementation((arr: unknown) => Promise.resolve(arr));
 });
 
@@ -117,6 +120,110 @@ describe("/api/v1/wines POST", () => {
       })
     );
     expect(res.status).toBe(400);
+  });
+});
+
+describe("/api/v1/wines/[id] GET", () => {
+  it("returns the wine including barcode (fields are read-writable, not write-only)", async () => {
+    authMock.mockResolvedValue(okUser);
+    prismaMock.wine.findFirst.mockResolvedValue({
+      id: "w1",
+      name: "Estate",
+      winery: "Kanon",
+      vintage: null,
+      type: "red",
+      barcode: "0123456789",
+      addedAt: new Date(),
+    });
+    const res = await GET_WINE(req("http://localhost/api/v1/wines/w1"), {
+      params: Promise.resolve({ id: "w1" }),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.barcode).toBe("0123456789");
+  });
+});
+
+describe("/api/v1/wines/[id] PUT", () => {
+  it("404 when wine not owned (returns 404 'not found')", async () => {
+    authMock.mockResolvedValue(okUser);
+    prismaMock.wine.findFirst.mockResolvedValue(null);
+    const res = await PUT(
+      req("http://localhost/api/v1/wines/w_other", {
+        method: "PUT",
+        body: JSON.stringify({ name: "X" }),
+      }),
+      { params: Promise.resolve({ id: "w_other" }) }
+    );
+    expect(res.status).toBe(404);
+    expect(prismaMock.wine.update).not.toHaveBeenCalled();
+  });
+
+  it("writes AI enrichment fields to the addressed bottle and propagates the same values to duplicates", async () => {
+    authMock.mockResolvedValue(okUser);
+    prismaMock.wine.findFirst.mockResolvedValue({
+      id: "w1",
+      userId: "user_1",
+      name: "Estate",
+      winery: "Kanon",
+      vintage: 2019,
+    });
+    prismaMock.wine.update.mockResolvedValue({ id: "w1" });
+    const res = await PUT(
+      req("http://localhost/api/v1/wines/w1", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aiRatings: { rating_ws: 90 },
+          tastingNotes: "silky",
+          aiEnrichedAt: "2026-09-12T00:00:00.000Z",
+        }),
+      }),
+      { params: Promise.resolve({ id: "w1" }) }
+    );
+    expect(res.status).toBe(200);
+    const coerced = {
+      aiRatings: { rating_ws: 90 },
+      tastingNotes: "silky",
+      aiEnrichedAt: new Date("2026-09-12T00:00:00.000Z"),
+    };
+    expect(prismaMock.wine.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "w1" },
+        data: expect.objectContaining(coerced),
+      })
+    );
+    expect(prismaMock.wine.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: "user_1", id: { not: "w1" } }),
+        data: expect.objectContaining(coerced),
+      })
+    );
+  });
+
+  it("clears AI fields on the addressed bottle when the body sends nulls", async () => {
+    authMock.mockResolvedValue(okUser);
+    prismaMock.wine.findFirst.mockResolvedValue({
+      id: "w1",
+      userId: "user_1",
+      name: "Estate",
+      winery: "Kanon",
+      vintage: 2019,
+    });
+    prismaMock.wine.update.mockResolvedValue({ id: "w1" });
+    const res = await PUT(
+      req("http://localhost/api/v1/wines/w1", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aiRatings: null, tastingNotes: null }),
+      }),
+      { params: Promise.resolve({ id: "w1" }) }
+    );
+    expect(res.status).toBe(200);
+    expect(prismaMock.wine.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ aiRatings: null, tastingNotes: null }),
+      })
+    );
   });
 });
 
