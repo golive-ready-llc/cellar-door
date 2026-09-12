@@ -333,6 +333,16 @@ export async function getUserProfile(
 
   try {
     const decoded = await getAdminAuth()!.verifyIdToken(idToken);
+    // Email verification for email/password signups is enforced in the client
+    // (login + (app)/layout) — and a client check is not a check, because this
+    // action is reachable on its own. Refuse the session for an unverified
+    // claim: the __session cookie it mints is what every server action trusts.
+    if (decoded.email_verified !== true) {
+      console.warn(
+        `[auth] refused session for unverified email (uid ${decoded.uid})`
+      );
+      return null;
+    }
     const user = await prisma.user.findUnique({
       where: { firebaseUid: decoded.uid },
       select: { id: true, tier: true },

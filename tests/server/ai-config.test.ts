@@ -5,7 +5,9 @@ process.env.DATABASE_URL = "postgresql://stub";
 // Admin auth always passes — these tests exercise the key-resolution logic.
 vi.mock("@/lib/firebase-admin", () => ({
   getAdminAuth: () => ({
-    verifyIdToken: vi.fn().mockResolvedValue({ email: "admin@test", uid: "u1" }),
+    verifyIdToken: vi
+      .fn()
+      .mockResolvedValue({ email: "admin@test", email_verified: true, uid: "u1" }),
   }),
 }));
 vi.mock("@/lib/admin", () => ({ isAdmin: () => true }));

@@ -11,6 +11,8 @@ const cabinetCreate = vi.fn();
 const txSpy = vi.fn();
 
 const verifyIdTokenSpy = vi.fn();
+const createSessionCookieSpy = vi.fn();
+const cookieSetSpy = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -23,7 +25,14 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/firebase-admin", () => ({
   adminAuth: { verifyIdToken: verifyIdTokenSpy },
-  getAdminAuth: () => ({ verifyIdToken: verifyIdTokenSpy }),
+  getAdminAuth: () => ({
+    verifyIdToken: verifyIdTokenSpy,
+    createSessionCookie: createSessionCookieSpy,
+  }),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: () => Promise.resolve({ set: cookieSetSpy, get: vi.fn() }),
 }));
 
 vi.mock("@/lib/stripe", () => ({
@@ -145,15 +154,40 @@ describe("getCurrentUser", () => {
 });
 
 describe("getUserProfile", () => {
-  it("returns id+tier when user exists", async () => {
-    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-1" });
+  it("returns id+tier and mints the __session cookie when the email is verified", async () => {
+    verifyIdTokenSpy.mockResolvedValue({
+      uid: "fb-1",
+      email: "u@example.com",
+      email_verified: true,
+    });
+    createSessionCookieSpy.mockResolvedValue("session-cookie");
     userFindUnique.mockResolvedValue({ id: "p1", tier: "PRO" });
     const { getUserProfile } = await import("@/server/actions/auth");
     expect(await getUserProfile("idtoken")).toEqual({ id: "p1", tier: "PRO" });
+    expect(createSessionCookieSpy).toHaveBeenCalledOnce();
+    expect(cookieSetSpy).toHaveBeenCalledOnce();
+  });
+
+  it("refuses an unverified email — no profile, no session cookie", async () => {
+    verifyIdTokenSpy.mockResolvedValue({
+      uid: "fb-9",
+      email: "unverified@example.com",
+      email_verified: false,
+    });
+    createSessionCookieSpy.mockResolvedValue("session-cookie");
+    userFindUnique.mockResolvedValue({ id: "p9", tier: "PRO" });
+    const { getUserProfile } = await import("@/server/actions/auth");
+    expect(await getUserProfile("idtoken")).toBeNull();
+    expect(createSessionCookieSpy).not.toHaveBeenCalled();
+    expect(cookieSetSpy).not.toHaveBeenCalled();
   });
 
   it("returns null when user not in Prisma", async () => {
-    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-1" });
+    verifyIdTokenSpy.mockResolvedValue({
+      uid: "fb-1",
+      email: "u@example.com",
+      email_verified: true,
+    });
     userFindUnique.mockResolvedValue(null);
     const { getUserProfile } = await import("@/server/actions/auth");
     expect(await getUserProfile("idtoken")).toBeNull();

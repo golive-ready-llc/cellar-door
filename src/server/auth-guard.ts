@@ -156,7 +156,16 @@ export async function requireAdmin(idToken: string): Promise<AdminAuthResult> {
       return { ok: false, error: "Authentication failed" };
     }
     const decoded = await auth.verifyIdToken(idToken);
-    if (!decoded.email || !isAdmin(decoded.email)) {
+    // `email_verified` must be present and true, not merely matching: Firebase
+    // hands out a usable ID token to an email/password account before the
+    // address is confirmed, so an unverified claim cannot prove control of
+    // ADMIN_EMAIL — it would let anyone who guesses an unregistered admin
+    // address claim the admin surfaces (all users' PII, AI provider keys).
+    if (
+      !decoded.email ||
+      decoded.email_verified !== true ||
+      !isAdmin(decoded.email)
+    ) {
       return { ok: false, error: "Access denied. You are not an admin." };
     }
     return { ok: true, email: decoded.email, uid: decoded.uid };
