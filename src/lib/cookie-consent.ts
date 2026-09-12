@@ -24,6 +24,8 @@ const OPEN_EVENT = "cd:cookie-settings-open";
 
 let cached: ConsentValue = null;
 let hydrated = false;
+/** True while the banner was forcibly reopened via "Cookie settings". */
+let bannerForced = false;
 const listeners = new Set<() => void>();
 
 function read(): ConsentValue {
@@ -73,14 +75,16 @@ export function setCookieConsent(value: Exclude<ConsentValue, null>): void {
   }
   cached = value;
   hydrated = true;
+  bannerForced = false;
   listeners.forEach((l) => l());
 }
 
 /** Reopen the consent banner (e.g. from a footer "Cookie settings" link). */
 export function openCookieSettings(): void {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(OPEN_EVENT));
-  }
+  if (typeof window === "undefined") return;
+  bannerForced = true;
+  listeners.forEach((l) => l());
+  window.dispatchEvent(new Event(OPEN_EVENT));
 }
 
 /** Subscribe to "reopen settings" requests. Returns an unsubscribe fn. */
@@ -93,4 +97,25 @@ export function onOpenCookieSettings(cb: () => void): () => void {
 /** React hook: the current consent value, reactive to changes. */
 export function useCookieConsent(): ConsentValue {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+
+function getBannerSnapshot(): boolean {
+  ensureHydrated();
+  return cached === null || bannerForced;
+}
+
+function getBannerServerSnapshot(): boolean {
+  // Undecided on the server — the banner may legitimately show, so layout
+  // consumers (the desktop Add-Wine FAB) hydrate in the lifted position and
+  // settle down post-hydration for decided visitors instead of flashing up.
+  return true;
+}
+
+/**
+ * React hook: is the consent banner currently on screen? True while consent
+ * is undecided (first visit) or the banner was reopened via "Cookie
+ * settings". Lets bottom-strip UI (the Add-Wine FAB) lift clear of it.
+ */
+export function useConsentBannerVisible(): boolean {
+  return useSyncExternalStore(subscribe, getBannerSnapshot, getBannerServerSnapshot);
 }

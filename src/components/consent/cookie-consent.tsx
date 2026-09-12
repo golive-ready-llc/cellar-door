@@ -44,10 +44,14 @@ export function CookieConsent() {
     <div
       role="dialog"
       aria-label="Cookie consent"
-      className="fixed inset-x-0 bottom-0 z-[100] p-3 sm:p-4"
+      // pointer-events-none on the wrapper: it spans the full viewport width,
+      // and without this it invisibly swallows clicks on anything sharing the
+      // bottom strip (the desktop Add-Wine FAB) even where the card doesn't
+      // reach. The card re-enables pointer events for its own area.
+      className="fixed inset-x-0 bottom-0 z-[100] p-3 sm:p-4 pointer-events-none"
       style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="mx-auto max-w-3xl rounded-xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur supports-backdrop-filter:bg-card/80 sm:p-5">
+      <div className="pointer-events-auto mx-auto max-w-3xl rounded-xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur supports-backdrop-filter:bg-card/80 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 sm:flex">

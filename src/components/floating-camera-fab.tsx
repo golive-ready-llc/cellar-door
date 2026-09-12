@@ -4,6 +4,8 @@ import { useSyncExternalStore } from "react";
 import { Camera } from "lucide-react";
 import { useAddWine } from "@/components/add-wine-context";
 import { subscribeChatPanelOpen, getChatPanelOpen } from "@/components/chat/chat-open-store";
+import { useConsentBannerVisible } from "@/lib/cookie-consent";
+import { cn } from "@/lib/utils";
 
 /**
  * Always-visible floating camera button. Owns the prime bottom-right slot
@@ -27,6 +29,13 @@ export function FloatingCameraFab() {
     () => false
   );
 
+  // While the cookie-consent banner is up (first visit with undecided
+  // consent, or reopened via the footer "Cookie settings" link) it occupies
+  // the bottom strip — its centered card reaches the bottom-right corner on
+  // narrower desktop widths and the FAB becomes unreachable under it. Lift
+  // the FAB clear until consent is (re)decided.
+  const bannerUp = useConsentBannerVisible();
+
   if (!ready || !_onAdd || chatOpen) return null;
 
   return (
@@ -48,7 +57,13 @@ export function FloatingCameraFab() {
       // (bottles, dialogs). The red Add button now lives in the bottom nav
       // where Settings used to be. Desktop (md+) has no bottom nav, so the
       // floating button stays there.
-      className="hidden md:flex fixed bottom-6 right-6 z-50 w-16 h-16 rounded-2xl flex-col items-center justify-center gap-0.5 bg-red-600 text-white hover:bg-red-700 hover:scale-105 active:scale-95 transition-all duration-200 shadow-lg"
+      // While the consent banner is up, sit above its card (max card height
+      // ~190px + wrapper padding + gap ≈ 13.5rem) instead of under it. The
+      // existing transition-all animates the settle-back once decided.
+      className={cn(
+        "hidden md:flex fixed right-6 z-50 w-16 h-16 rounded-2xl flex-col items-center justify-center gap-0.5 bg-red-600 text-white hover:bg-red-700 hover:scale-105 active:scale-95 transition-all duration-200 shadow-lg",
+        bannerUp ? "bottom-[13.5rem]" : "bottom-6"
+      )}
       aria-label="Add wine"
       title="Add wine"
     >
