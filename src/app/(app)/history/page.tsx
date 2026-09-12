@@ -43,6 +43,17 @@ import type { WineHistoryItem } from "@/types/wine";
 
 const PAGE_SIZE = 50;
 
+// Constructing an Intl formatter per row per render costs ~50µs; a cached
+// .format() call is ~1µs, and every list re-render formats all visible rows.
+const REMOVED_DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+const REMOVED_TIME_FMT = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+});
+
 const REASON_META: Record<
   string,
   { label: string; icon: typeof WineIcon; color: string }
@@ -359,8 +370,8 @@ export default function HistoryPage() {
             const reasonMeta = REASON_META[item.reason] || REASON_META.other;
             const ReasonIcon = reasonMeta.icon;
             const removedDate = new Date(item.removedAt);
-            const dateStr = removedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-            const timeStr = removedDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+            const dateStr = REMOVED_DATE_FMT.format(removedDate);
+            const timeStr = REMOVED_TIME_FMT.format(removedDate);
             return (
               <WineListItem
                 key={item.id}
