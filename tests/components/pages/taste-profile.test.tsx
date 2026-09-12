@@ -106,3 +106,26 @@ describe("TasteProfilePage aggregation", () => {
     expect(screen.getAllByText("4.8").length).toBeGreaterThan(0);
   });
 });
+
+describe("TasteProfilePage relative likes threshold (2026-09-12 fix)", () => {
+  it("shows above-personal-average styles for a rater who never gives 4★+", async () => {
+    // The owner's real distribution: everything rated in the 3.5-4 band.
+    // An absolute 4.0 cutoff showed "rate more styles 4★+" after 700+
+    // rated bottles. Likes must be relative to the rater's own average.
+    winesMock.mockResolvedValueOnce([
+      wine({ type: "red", userRating: 3.9 }),
+      wine({ type: "red", userRating: 3.9 }),
+      wine({ type: "white", userRating: 3.5 }),
+      wine({ type: "white", userRating: 3.5 }),
+    ]);
+    historyMock.mockResolvedValueOnce([]);
+    render(<TasteProfilePage />);
+    expect(await screen.findByText("What you like")).toBeInTheDocument();
+    // Personal mean = 3.7 → Red (3.9) is a like; White (3.5) is not.
+    // Red must appear TWICE: once in "What you like" and once in
+    // "Most explored". Under the old absolute 4.0 cutoff it appeared only
+    // in Most explored and the likes card showed its empty hint.
+    expect(screen.getAllByText("Red").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("3.9").length).toBeGreaterThan(0);
+  });
+});

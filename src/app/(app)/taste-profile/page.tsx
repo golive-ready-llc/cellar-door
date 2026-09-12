@@ -29,8 +29,7 @@ interface Bucket {
   avg: number | null;
 }
 
-const LIKE_THRESHOLD = 4.0;
-const DISLIKE_THRESHOLD = 2.5;
+const DISLIKE_THRESHOLD = 2.5; // absolute: a 2.5★ average is a dislike at any generosity
 /** A bucket needs this many rated bottles before we trust its average. */
 const MIN_RATED_FOR_PREF = 2;
 
@@ -185,8 +184,19 @@ export default function TasteProfilePage() {
     const totalRated = buckets.reduce((s, b) => s + b.rated, 0);
     const max = buckets.reduce((m, b) => Math.max(m, b.count), 0);
     const rateable = buckets.filter((b) => b.rated >= MIN_RATED_FOR_PREF && b.avg != null);
+    // "Like" is relative to the owner's own generosity: a rater whose whole
+    // cellar averages 3.8★ never crosses an absolute 4.0 cutoff and saw
+    // "rate more 4★+" after 700+ rated bottles (2026-09-12). Above the
+    // owner's personal average (floored at 3.0 so rounding noise near a
+    // low mean can't crown a mediocre style) counts as a like.
+    const ratedEntries = entries.filter((e) => e.rating != null && e.rating > 0);
+    const personalMean =
+      ratedEntries.length > 0
+        ? ratedEntries.reduce((s, e) => s + (e.rating as number), 0) / ratedEntries.length
+        : 0;
+    const likeCutoff = Math.max(3.0, personalMean);
     const liked = rateable
-      .filter((b) => (b.avg as number) >= LIKE_THRESHOLD)
+      .filter((b) => (b.avg as number) >= likeCutoff)
       .sort((a, b) => (b.avg as number) - (a.avg as number) || b.count - a.count)
       .slice(0, 6);
     const disliked = rateable
@@ -259,7 +269,7 @@ export default function TasteProfilePage() {
             accent="text-green-500"
             buckets={liked}
             max={max}
-            empty={`Rate more ${dimLabel}s 4★+ to see your favorites.`}
+            empty={`Rate more ${dimLabel}s to see your favorites.`}
           />
           <Section
             title="Not your thing"
