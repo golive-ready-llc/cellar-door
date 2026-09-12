@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { getAIProvider, isAIAvailable } from "@/lib/ai";
 import { aiRatingsToBaseline } from "@/lib/cd-score";
 import { requireFeature, reserveAiCredits, TierError } from "@/server/tier-check";
+import { sameWineWhere } from "@/server/wine-shared";
 import type { AiRatings, WineType } from "@/types/wine";
 
 export interface ExpertRatingsTarget {
@@ -69,15 +70,9 @@ export async function fetchAndStoreExpertRatings(
     // future retry via manual enrichment.
     if (aiRatingsToBaseline(ratings) === null) return;
 
-    // Store on every bottle of this wine the user owns — same identity match
-    // the duplicate-propagation path in updateWine uses.
+    // Store on every bottle of this wine the user owns.
     await prisma.wine.updateMany({
-      where: {
-        userId: target.userId,
-        name: { equals: target.name, mode: "insensitive" },
-        winery: { equals: target.winery, mode: "insensitive" },
-        vintage: target.vintage,
-      },
+      where: sameWineWhere(target.userId, target),
       data: { aiRatings: ratings as object },
     });
 
