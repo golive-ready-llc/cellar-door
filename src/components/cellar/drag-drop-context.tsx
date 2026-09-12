@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
@@ -25,7 +26,6 @@ export type { DragType, DragPayload, DropTargetInfo } from "./drag-drop-types";
 interface DragDropContextValue {
   isDragging: boolean;
   dragPayload: import("./drag-drop-types").DragPayload | null;
-  dragPosition: { x: number; y: number } | null;
   activeDropTargetId: string | null;
 
   startDrag: (
@@ -51,121 +51,141 @@ export function useDragDrop() {
 // ── Provider ────────────────────────────────────────────────────
 
 export function DragDropProvider({ children }: { children: ReactNode }) {
-  const state = useDragState();
-  const targets = useDropTargets();
-  const scroll = useScrollSuppression();
+  const {
+    isDragging,
+    dragPayload,
+    dragPosition,
+    activeDropTargetId,
+    setDragPayload,
+    setDragPosition,
+    setIsDragging,
+    setActiveTarget,
+    getPayload,
+    getPosition,
+    getActiveTarget,
+    resetState,
+  } = useDragState();
+  const { register, unregister, getTargets, getTarget } = useDropTargets();
+  const { suppress, restore } = useScrollSuppression();
 
   // Track whether scroll has been suppressed for the current drag
   const scrollSuppressedRef = useRef(false);
 
   const autoScroll = useAutoScroll({
-    getPayload: state.getPayload,
-    getPosition: state.getPosition,
-    getActiveTarget: state.getActiveTarget,
-    setActiveTarget: state.setActiveTarget,
-    getDropTargets: targets.getTargets,
+    getPayload,
+    getPosition,
+    getActiveTarget,
+    setActiveTarget,
+    getDropTargets: getTargets,
     computeSpeed: computeEdgeScrollSpeed,
   });
+  const { setSpeed: autoScrollSetSpeed, stop: autoScrollStop } = autoScroll;
 
   const startDrag = useCallback(
     (payload: import("./drag-drop-types").DragPayload, position: { x: number; y: number }) => {
-      state.setDragPayload(payload);
-      state.setDragPosition(position);
-      state.setIsDragging(true);
+      setDragPayload(payload);
+      setDragPosition(position);
+      setIsDragging(true);
       scrollSuppressedRef.current = false;
       // Defer scroll suppression to first updateDragPosition call.
       // Changing touch-action mid-gesture can cause pointercancel on mobile.
     },
-    [state]
+    [setDragPayload, setDragPosition, setIsDragging]
   );
 
   const updateDragPosition = useCallback(
     (position: { x: number; y: number }) => {
       // Suppress scroll on first move -- safe because the gesture has already started
       if (!scrollSuppressedRef.current) {
-        scroll.suppress();
+        suppress();
         scrollSuppressedRef.current = true;
       }
-      state.setDragPosition(position);
+      setDragPosition(position);
 
       // Find drop target under pointer
-      const payload = state.getPayload();
+      const payload = getPayload();
       if (payload) {
         const targetId = findDropTargetAtPoint(
-          targets.getTargets(),
+          getTargets(),
           position.x,
           position.y,
           payload
         );
-        if (targetId !== state.getActiveTarget()) {
-          state.setActiveTarget(targetId);
+        if (targetId !== getActiveTarget()) {
+          setActiveTarget(targetId);
         }
       }
 
       // Auto-scroll near viewport edges
-      autoScroll.setSpeed(computeEdgeScrollSpeed(position.y));
+      autoScrollSetSpeed(computeEdgeScrollSpeed(position.y));
     },
-    [state, targets, scroll, autoScroll]
+    [suppress, setDragPosition, getPayload, getTargets, getActiveTarget, setActiveTarget, autoScrollSetSpeed]
   );
 
   const cleanupDrag = useCallback(() => {
     if (scrollSuppressedRef.current) {
-      autoScroll.stop();
-      scroll.restore();
+      autoScrollStop();
+      restore();
       scrollSuppressedRef.current = false;
     }
-  }, [autoScroll, scroll]);
+  }, [autoScrollStop, restore]);
 
   const endDrag = useCallback(() => {
-    const targetId = state.getActiveTarget();
-    const payload = state.getPayload();
-    const position = state.getPosition();
+    const targetId = getActiveTarget();
+    const payload = getPayload();
+    const position = getPosition();
 
     if (targetId && payload && position) {
-      const target = targets.getTarget(targetId);
+      const target = getTarget(targetId);
       if (target && target.accepts.includes(payload.type)) {
         target.onDrop(payload.data, position);
       }
     }
 
-    state.resetState();
+    resetState();
     cleanupDrag();
-  }, [state, targets, cleanupDrag]);
+  }, [getActiveTarget, getPayload, getPosition, getTarget, resetState, cleanupDrag]);
 
   const cancelDrag = useCallback(() => {
-    state.resetState();
+    resetState();
     cleanupDrag();
-  }, [state, cleanupDrag]);
+  }, [resetState, cleanupDrag]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      autoScroll.stop();
-      scroll.restore();
+      autoScrollStop();
+      restore();
     };
-  }, [autoScroll, scroll]);
+  }, [autoScrollStop, restore]);
+
+  // Every wine slot and drop zone consumes this context, and the provider
+  // re-renders on every pointermove — the memo keeps the value (deliberately
+  // without dragPosition, which no consumer reads) identical unless a drag
+  // starts, ends, or highlights a different target.
+  const contextValue = useMemo(
+    () => ({
+      isDragging,
+      dragPayload,
+      activeDropTargetId,
+      startDrag,
+      updateDragPosition,
+      endDrag,
+      cancelDrag,
+      registerDropTarget: register,
+      unregisterDropTarget: unregister,
+    }),
+    [isDragging, dragPayload, activeDropTargetId, startDrag, updateDragPosition, endDrag, cancelDrag, register, unregister]
+  );
 
   return (
-    <DragDropContext.Provider
-      value={{
-        isDragging: state.isDragging,
-        dragPayload: state.dragPayload,
-        dragPosition: state.dragPosition,
-        activeDropTargetId: state.activeDropTargetId,
-        startDrag,
-        updateDragPosition,
-        endDrag,
-        cancelDrag,
-        registerDropTarget: targets.register,
-        unregisterDropTarget: targets.unregister,
-      }}
-    >
+    <DragDropContext.Provider value={contextValue}>
       {children}
-      {state.isDragging && state.dragPosition && state.dragPayload && (
+      {isDragging && dragPosition && dragPayload && (
         <DragGhost
-          payload={state.dragPayload}
-          position={state.dragPosition}
-          activeTargetId={state.activeDropTargetId}
+          payload={dragPayload}
+          position={dragPosition}
+          activeTargetId={activeDropTargetId}
         />
       )}
     </DragDropContext.Provider>
@@ -188,6 +208,7 @@ function DragGhost({
 
   return createPortal(
     <div
+      data-drag-ghost=""
       style={{
         position: "fixed",
         left: position.x,
