@@ -27,6 +27,7 @@ import {
   WINE_TYPES,
   WINE_TYPE_LABELS,
   WINE_TYPE_COLORS,
+  DISPOSITION_OPTIONS,
 } from "@/types/constants";
 import { isLightWineType, type Wine, type Cabinet } from "@/types/wine";
 import { TagSelector } from "@/components/wine/tag-selector";
@@ -39,13 +40,6 @@ interface EditWineDialogProps {
   onSave: (wineId: string, data: Partial<Wine>) => Promise<void>;
   allTags?: string[];
 }
-
-const DISPOSITIONS = [
-  { value: "", label: "Not set" },
-  { value: "D", label: "Drink Now" },
-  { value: "H", label: "Hold" },
-  { value: "P", label: "Past Peak" },
-];
 
 export function EditWineDialog({
   wine,
@@ -357,12 +351,12 @@ export function EditWineDialog({
                 <Select value={disposition} onValueChange={(v) => setDisposition(v ?? "")}>
                   <SelectTrigger>
                     <SelectValue>
-                      {DISPOSITIONS.find((d) => d.value === disposition)
+                      {DISPOSITION_OPTIONS.find((d) => d.value === disposition)
                         ?.label ?? "Not set"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {DISPOSITIONS.map((d) => (
+                    {DISPOSITION_OPTIONS.map((d) => (
                       <SelectItem key={d.value} value={d.value}>
                         {d.label}
                       </SelectItem>

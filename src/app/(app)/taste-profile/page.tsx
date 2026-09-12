@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Sparkles, ThumbsUp, ThumbsDown, Compass, Star, Wine as WineIcon } from "lucide-react";
+import { Sparkles, ThumbsUp, ThumbsDown, Compass, Wine as WineIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { StarRating } from "@/components/ui/star-rating";
 import { cn } from "@/lib/utils";
 import { fetchTasteProfileEntries } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
@@ -72,15 +73,6 @@ function aggregate(entries: Entry[]): Bucket[] {
   }));
 }
 
-function StarAvg({ value }: { value: number }) {
-  return (
-    <span className="inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums">
-      <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-      {value.toFixed(1)}
-    </span>
-  );
-}
-
 function PrefRow({ bucket, max }: { bucket: Bucket; max: number }) {
   const pct = max > 0 ? Math.round((bucket.count / max) * 100) : 0;
   return (
@@ -89,7 +81,7 @@ function PrefRow({ bucket, max }: { bucket: Bucket; max: number }) {
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium truncate">{bucket.label}</span>
           <span className="shrink-0 flex items-center gap-2">
-            {bucket.avg != null && <StarAvg value={bucket.avg} />}
+            {bucket.avg != null && <StarRating value={bucket.avg} compact size={12} />}
             <span className="text-[11px] text-muted-foreground tabular-nums">
               {bucket.count} {bucket.count === 1 ? "bottle" : "bottles"}
             </span>

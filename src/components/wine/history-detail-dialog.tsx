@@ -32,7 +32,8 @@ import { cn } from "@/lib/utils";
 import { WineDetailBody } from "@/components/wine/wine-detail-body";
 import { StarRating } from "@/components/ui/star-rating";
 import { DialRateDialog } from "@/components/wine/dial-rate-dialog";
-import { WINE_TYPE_LABELS, WINE_TYPE_COLORS } from "@/types/constants";
+import { WINE_TYPE_LABELS, WINE_TYPE_COLORS, DISPOSITION_LABELS } from "@/types/constants";
+import { DISPOSITION_COLORS } from "@/components/cellar/cabinet-grid-utils";
 import type { WineHistoryItem, WineType } from "@/types/wine";
 import { toast } from "@/components/ui/custom-toast";
 import { useTier } from "@/hooks/use-tier";
@@ -48,9 +49,6 @@ const REASON_META: Record<
   spoiled: { label: "Spoiled", icon: CircleOff, color: "#EF4444" },
   other: { label: "Other", icon: HelpCircle, color: "#6B7280" },
 };
-
-const DISPOSITION_LABELS: Record<string, string> = { D: "Drink Now", H: "Hold", P: "Past Peak" };
-const DISPOSITION_COLORS: Record<string, string> = { D: "#2e7d32", H: "#1565c0", P: "#c62828" };
 
 const WINE_TYPES = ["red", "white", "rosé", "sparkling", "dessert", "fortified", "orange", "green"] as const;
 const REASONS = ["drank", "gifted", "sold", "broken", "spoiled", "other"] as const;
