@@ -77,6 +77,18 @@ export async function PUT(
       }
     }
 
+    // AI enrichment fields: coerced once here so the addressed bottle and its
+    // duplicates always receive the same values.
+    const aiUpdates: Record<string, unknown> = {};
+    if (body.aiRatings !== undefined) aiUpdates.aiRatings = body.aiRatings ?? null;
+    if (body.tastingNotes !== undefined) aiUpdates.tastingNotes = body.tastingNotes || null;
+    if (body.aiEnrichedAt !== undefined) {
+      const v = body.aiEnrichedAt;
+      if (v === null) aiUpdates.aiEnrichedAt = null;
+      else if (typeof v === "string") aiUpdates.aiEnrichedAt = new Date(v);
+      else if (v instanceof Date) aiUpdates.aiEnrichedAt = v;
+    }
+
     const wine = await prisma.wine.update({
       where: { id },
       data: {
@@ -117,6 +129,7 @@ export async function PUT(
         ...(body.disposition !== undefined && { disposition: body.disposition as string }),
         ...(body.drinkWindow !== undefined && { drinkWindow: body.drinkWindow as string }),
         ...(body.tags !== undefined && { tags: body.tags as string[] }),
+        ...aiUpdates,
       } as import("@/generated/prisma/client").Prisma.WineUpdateInput,
     });
 
@@ -133,30 +146,23 @@ export async function PUT(
           sharedUpdates[field] = field === "type" && body.type ? (body.type as string).toLowerCase() : body[field];
         }
       }
-      if (body.aiRatings !== undefined) sharedUpdates.aiRatings = body.aiRatings ?? null;
-      if (body.tastingNotes !== undefined) sharedUpdates.tastingNotes = body.tastingNotes || null;
-      if (body.aiEnrichedAt !== undefined) {
-        const v = body.aiEnrichedAt;
-        if (v === null) sharedUpdates.aiEnrichedAt = null;
-        else if (typeof v === "string") sharedUpdates.aiEnrichedAt = new Date(v as string);
-        else if (v instanceof Date) sharedUpdates.aiEnrichedAt = v;
-      }
+      Object.assign(sharedUpdates, aiUpdates);
 
-        if (Object.keys(sharedUpdates).length > 0) {
-          void prisma.wine.updateMany({
-            where: {
-              userId: user.id,
-              id: { not: id },
-              name: { equals: existing.name, mode: "insensitive" },
-              winery: { equals: existing.winery, mode: "insensitive" },
-              vintage: existing.vintage,
-            },
-            data: sharedUpdates,
-          }).catch(() => { /* best-effort */ });
-        }
+      if (Object.keys(sharedUpdates).length > 0) {
+        void prisma.wine.updateMany({
+          where: {
+            userId: user.id,
+            id: { not: id },
+            name: { equals: existing.name, mode: "insensitive" },
+            winery: { equals: existing.winery, mode: "insensitive" },
+            vintage: existing.vintage,
+          },
+          data: sharedUpdates,
+        }).catch(() => { /* best-effort */ });
       }
+    }
 
-      return apiSuccess(serializeWine(wine));
+    return apiSuccess(serializeWine(wine));
   } catch (err) {
     console.error("[API v1/wines PUT]", err);
     return apiError("Failed to update wine.", 500);
