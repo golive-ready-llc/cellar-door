@@ -33,14 +33,15 @@ export function computeCoreStats(wines: Wine[], history: WineHistoryItem[]): Cor
       : 0;
 
   const vintageWines = wines.filter((w) => w.vintage !== null);
-  const oldestVintage = vintageWines.reduce(
-    (min, w) => (w.vintage !== null && w.vintage < min ? w.vintage : min),
-    Infinity
-  );
-  const newestVintage = vintageWines.reduce(
-    (max, w) => (w.vintage !== null && w.vintage > max ? w.vintage : max),
-    0
-  );
+  // Math.min(...[]) / Math.max(...[]) are ±Infinity, not the Infinity/0
+  // sentinels the null-checks below key on — keep the empty-cellar case
+  // producing null (an empty cellar would otherwise render "-Infinity").
+  const oldestVintage = vintageWines.length
+    ? Math.min(...vintageWines.map((w) => w.vintage ?? Infinity))
+    : Infinity;
+  const newestVintage = vintageWines.length
+    ? Math.max(...vintageWines.map((w) => w.vintage ?? 0))
+    : 0;
 
   return {
     totalBottles,

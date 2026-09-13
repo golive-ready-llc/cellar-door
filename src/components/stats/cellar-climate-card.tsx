@@ -20,10 +20,6 @@ import {
 
 type Period = "24h" | "7d" | "30d";
 
-interface CellarClimateCardProps {
-  walls: Wall[];
-}
-
 const PERIODS: { value: Period; label: string }[] = [
   { value: "24h", label: "24h" },
   { value: "7d", label: "7d" },
@@ -50,7 +46,7 @@ function formatTime(ts: string, period: Period): string {
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-export function CellarClimateCard({ walls }: CellarClimateCardProps) {
+export function CellarClimateCard({ walls }: { walls: Wall[] }) {
   const { can } = useTier();
   const { getIdToken } = useAuth();
 

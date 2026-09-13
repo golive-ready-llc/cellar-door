@@ -8,11 +8,7 @@ import { computeShareData } from "@/lib/stats-utils";
 import { InsuranceReportButton } from "@/components/stats/insurance-report";
 import type { Wine } from "@/types/wine";
 
-interface StatsHeaderProps {
-  wines: Wine[];
-}
-
-export function StatsHeader({ wines }: StatsHeaderProps) {
+export function StatsHeader({ wines }: { wines: Wine[] }) {
   const handleShare = async () => {
     const data = computeShareData(wines);
     const canvas = generateStatsCard(data);

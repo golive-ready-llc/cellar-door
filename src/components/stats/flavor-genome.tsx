@@ -26,12 +26,6 @@ const EMPTY_SLICE_LABEL: Record<TasteProfileTypeFilter, string> = {
   white: "Add at least 3 whites to see this slice.",
 };
 
-// ─── Types ────────────────────────────────────────────────────
-
-interface FlavorGenomeProps {
-  wineCount: number;
-}
-
 const AXES = [
   { key: "body", label: "Body", low: "Light", high: "Full" },
   { key: "tannin", label: "Tannin", low: "Low", high: "High" },
@@ -294,7 +288,7 @@ function generateGenomeCard(data: TasteProfileResult): HTMLCanvasElement {
 
 // ─── Main Component ───────────────────────────────────────────
 
-export function FlavorGenome({ wineCount }: FlavorGenomeProps) {
+export function FlavorGenome({ wineCount }: { wineCount: number }) {
   const { hasAI: tierHasAI, userId } = useTier();
   const { aiUserEnabled } = useAiToggle();
   const hasAI = tierHasAI && aiUserEnabled;
@@ -310,7 +304,6 @@ export function FlavorGenome({ wineCount }: FlavorGenomeProps) {
   // Track whether we've issued the initial fetch — prevents the auto-mount
   // effect from racing the manual "Analyze" button.
   const fetchedOnceRef = useRef(false);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   const handleGenerate = useCallback(
     async (force = false) => {
@@ -387,7 +380,7 @@ export function FlavorGenome({ wineCount }: FlavorGenomeProps) {
   }
 
   return (
-    <Card ref={cardRef}>
+    <Card>
       <CardContent className="pt-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">

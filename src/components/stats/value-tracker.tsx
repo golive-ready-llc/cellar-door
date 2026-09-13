@@ -8,10 +8,6 @@ import type { Wine } from "@/types/wine";
 
 // ─── Types ──────────────────────────────────────────────────
 
-interface ValueTrackerProps {
-  wines: Wine[];
-}
-
 interface ValuePoint {
   label: string;
   cost: number;
@@ -218,7 +214,7 @@ const TYPE_COLORS: Record<string, string> = {
   fortified: "#4f46e5",
 };
 
-export function ValueTracker({ wines }: ValueTrackerProps) {
+export function ValueTracker({ wines }: { wines: Wine[] }) {
   const { formatPrice } = useCurrency();
 
   const stats = useMemo(() => {
