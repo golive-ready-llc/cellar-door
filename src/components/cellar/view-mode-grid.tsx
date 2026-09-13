@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { memo, useMemo, useCallback } from "react";
 import {
   Wine as WineIcon,
   Plus,
@@ -126,7 +126,11 @@ function CabinetGridWrapper({
   );
 }
 
-export function ViewModeGrid({
+// Memoized: the cellar page re-renders on every search keystroke and highlight
+// flash, and this grid is hundreds of slots deep. With stable handler props and
+// an unchanged wines array (see the page's useDeferredValue filter), skipped
+// renders here are what keep typing and taps responsive on a full wall.
+export const ViewModeGrid = memo(function ViewModeGrid({
   wallCabinets,
   walls,
   cabinets,
@@ -251,4 +255,4 @@ export function ViewModeGrid({
       </CardContent>
     </Card>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useCallback, useState } from "react";
+import { useEffect, useMemo, useCallback, useState, useDeferredValue } from "react";
 import { UtensilsCrossed, Wine, GlassWater, Search, ArrowDownUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { editWine } from "@/lib/data";
@@ -165,15 +165,21 @@ function CellarPageInner() {
   );
 
   // --- Search/filter ---
+  // The filter runs on a deferred value so a keystroke doesn't re-render the
+  // whole cellar grid at input priority: the search box updates instantly and
+  // the grid catches up at low priority, skipping intermediate filters when
+  // typing fast. ViewModeGrid is memoized, so while the deferred value is
+  // unchanged those keystroke renders skip the grid entirely.
+  const deferredSearch = useDeferredValue(searchQuery);
   const filteredWines = useMemo(() => {
-    if (!searchQuery.trim()) return data.displayWines;
-    const q = searchQuery.toLowerCase();
+    if (!deferredSearch.trim()) return data.displayWines;
+    const q = deferredSearch.toLowerCase();
     return data.displayWines.filter(
       (w) =>
         w.name?.toLowerCase().includes(q) ||
         w.winery?.toLowerCase().includes(q)
     );
-  }, [searchQuery, data.displayWines]);
+  }, [deferredSearch, data.displayWines]);
 
   // --- Onboarding wizard ---
   // First-run setup shows only for a loaded, empty account that hasn't
@@ -246,6 +252,16 @@ function CellarPageInner() {
       else await handleUnfileWine(wineId);
     },
     [handleWineMove, handleUnfileWine]
+  );
+
+  // Stable handlers for ViewModeGrid: it is memoized, and a fresh closure per
+  // render would defeat that and re-render the whole grid on every keystroke.
+  const handleSlotClick = useCallback(
+    (cabinetId: string, row: number, col: number) => {
+      dialogs.setPendingSlot({ cabinetId, row, col });
+      dialogs.setAddWineOpen(true);
+    },
+    [dialogs.setPendingSlot, dialogs.setAddWineOpen]
   );
 
   // --- Loading state ---
@@ -404,20 +420,11 @@ function CellarPageInner() {
           allTags={data.allTags}
           onWineClick={actions.handleWineClick}
           onWineLongPress={mode.handleWineLongPress}
-          onWineDrop={(wineId, cabinetId, row, col) =>
-            mode.handleWineMoveInMode(wineId, cabinetId, row, col)
-          }
-          onSlotClick={(cabinetId, row, col) => {
-            dialogs.setPendingSlot({ cabinetId, row, col });
-            dialogs.setAddWineOpen(true);
-          }}
-          onDepthSlotClick={(cabinetId, row, col, winesAtPos, depth, sectionName) =>
-            dialogs.handleDepthSlotClick(cabinetId, row, col, winesAtPos, depth, sectionName)
-          }
-          onBulkZoneClick={(cabinetId, rowIndex, storageRow, sectionName) =>
-            dialogs.handleBulkZoneClick(cabinetId, rowIndex, storageRow, sectionName)
-          }
-          onEnterEditMode={() => mode.handleEnterEditMode()}
+          onWineDrop={mode.handleWineMoveInMode}
+          onSlotClick={handleSlotClick}
+          onDepthSlotClick={dialogs.handleDepthSlotClick}
+          onBulkZoneClick={dialogs.handleBulkZoneClick}
+          onEnterEditMode={mode.handleEnterEditMode}
           onWallChanges={actions.handleWallChanges}
           onWallsChanged={data.loadData}
           onAddWine={actions.handleAddWine}
