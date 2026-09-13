@@ -346,6 +346,16 @@ export default function SettingsPage() {
             onClick={async () => {
               clearDemoCookie();
               if (!devMode) {
+                // Clear the server session cookie first, as the sidebar and
+                // profile sign-outs do. Without it a valid server session
+                // lingered for up to 14 days after "Sign out" here, which
+                // matters on shared devices.
+                try {
+                  const { clearSession } = await import("@/server/actions/auth");
+                  await clearSession();
+                } catch {
+                  /* best effort */
+                }
                 const firebaseAuth = auth();
                 if (firebaseAuth) await firebaseSignOut(firebaseAuth);
               }

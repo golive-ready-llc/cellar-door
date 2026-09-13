@@ -26,17 +26,25 @@ const SESSION_COOKIE = "__session";
 /**
  * True when the current request is a demo-mode visitor.
  *
- * A request that carries a session cookie is never a demo request. The demo
- * cookie outlives a /demo visit by an hour, and trusting it alone put signed-in
- * owners into demo mode: every write was refused as read-only and chat gave
- * canned demo replies. Demo mode only restricts, so skipping it grants
- * nothing; every action still verifies the session itself.
+ * A demo cookie next to a *valid* session is a signed-in user with a cookie
+ * left over from a /demo visit, so it is not a demo request. Trusting the demo
+ * cookie alone put signed-in owners into demo mode: every write was refused as
+ * read-only and chat gave canned demo replies.
+ *
+ * Only a session that verifies counts. A session cookie that doesn't (expired,
+ * or left behind by a sign-out that didn't clear it) stays a demo request;
+ * treating its mere presence as signed-in turned demo visitors' AI calls into
+ * "Unauthorized" errors instead of demo results.
  */
 export async function isDemoRequest(): Promise<boolean> {
   try {
     const store = await cookies();
-    if (store.get(SESSION_COOKIE)?.value) return false;
-    return store.get(DEMO_COOKIE)?.value === "true";
+    if (store.get(DEMO_COOKIE)?.value !== "true") return false;
+    if (!store.get(SESSION_COOKIE)?.value) return true;
+    // Loaded lazily: auth-guard pulls in Firebase Admin and Prisma, which
+    // demo-only callers never need.
+    const { getAuthenticatedUserId } = await import("@/server/auth-guard");
+    return !(await getAuthenticatedUserId());
   } catch {
     // cookies() isn't available in every context (e.g. static rendering)
     return false;
