@@ -33,6 +33,13 @@ describe("StarRating (compact mode)", () => {
     // Exactly one star icon in compact mode (svg)
     expect(container.querySelectorAll("svg").length).toBe(1);
   });
+
+  it("defaults the value to text-xs and scales it with valueSize", () => {
+    const { rerender } = render(<StarRating value={4.8} compact />);
+    expect(screen.getByText("4.8").className).toContain("text-xs");
+    rerender(<StarRating value={4.8} compact valueSize="sm" />);
+    expect(screen.getByText("4.8").className).toContain("text-sm");
+  });
 });
 
 describe("RatingDistribution", () => {

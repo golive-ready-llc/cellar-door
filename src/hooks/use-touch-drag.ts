@@ -50,7 +50,7 @@ export function useTouchDrag({
   onDragEnd,
   onTap,
 }: UseTouchDragOptions): UseTouchDragReturn {
-  const { startDrag, updateDragPosition, endDrag, isDragging: contextIsDragging } =
+  const { startDrag, updateDragPosition, endDrag, cancelDrag, isDragging: contextIsDragging } =
     useDragDrop();
 
   const [localDragging, setLocalDragging] = useState(false);
@@ -142,14 +142,22 @@ export function useTouchDrag({
 
   const handleWindowPointerCancel = useCallback(
     () => {
-      // Browser took over the gesture (e.g. for scrolling) — clean up without firing onTap
+      const s = stateRef.current;
+      if (s?.isActiveDrag) {
+        // The browser took the gesture mid-drag — end it as a cancel, not a
+        // drop. Skipping this leaves the context stuck in isDragging, and
+        // every later pointerdown bails at the contextIsDragging guard.
+        cancelDrag();
+        setLocalDragging(false);
+        onDragEnd?.();
+      }
       cleanup();
       window.removeEventListener("pointermove", handleWindowPointerMove);
       window.removeEventListener("pointerup", handleWindowPointerUp);
       window.removeEventListener("pointercancel", handleWindowPointerCancel);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cleanup]
+    [cleanup, cancelDrag, onDragEnd]
   );
 
   const handleWindowPointerUp = useCallback(

@@ -10,6 +10,8 @@ interface StarRatingProps {
   showValue?: boolean;
   /** Compact: a single filled star + the value (for dense list rows). */
   compact?: boolean;
+  /** Text size of the numeric value — "sm" for larger list rows */
+  valueSize?: "xs" | "sm";
   className?: string;
 }
 
@@ -18,13 +20,14 @@ interface StarRatingProps {
  * fractional fill; compact mode renders one filled star + the value (for dense
  * rows). One component so every ratings display looks identical.
  */
-export function StarRating({ value, size = 14, showValue = false, compact = false, className }: StarRatingProps) {
+export function StarRating({ value, size = 14, showValue = false, compact = false, valueSize = "xs", className }: StarRatingProps) {
   const clamped = Math.max(0, Math.min(5, value));
+  const valueClass = valueSize === "sm" ? "text-sm" : "text-xs";
   if (compact) {
     return (
       <span className={cn("inline-flex items-center gap-0.5", className)} aria-label={`${clamped.toFixed(1)} out of 5`}>
         <Star className="text-yellow-500 fill-yellow-500" style={{ width: `${size}px`, height: `${size}px` }} />
-        <span className="text-xs font-semibold tabular-nums">{clamped.toFixed(1)}</span>
+        <span className={cn(valueClass, "font-semibold tabular-nums")}>{clamped.toFixed(1)}</span>
       </span>
     );
   }
@@ -56,7 +59,7 @@ export function StarRating({ value, size = 14, showValue = false, compact = fals
         </span>
       </span>
       {showValue && (
-        <span className="text-xs font-semibold tabular-nums">{clamped.toFixed(1)}</span>
+        <span className={cn(valueClass, "font-semibold tabular-nums")}>{clamped.toFixed(1)}</span>
       )}
     </span>
   );
