@@ -89,9 +89,3 @@ export function serializeWine(wine: WineRecord) {
     updatedAt: toISODate(wine.updatedAt) ?? "",
   };
 }
-
-export const SHARED_WINE_FIELDS = [
-  "userRating", "imageUrl", "description", "foodPairings", "alcohol",
-  "disposition", "drinkWindow", "drinkBy", "retailPrice", "grapeVariety",
-  "region", "country", "type", "barcode", "sparkling",
-] as const;
