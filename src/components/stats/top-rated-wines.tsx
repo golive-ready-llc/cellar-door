@@ -1,8 +1,9 @@
 "use client";
 
-import { Wine as WineIcon, Star } from "lucide-react";
+import { Wine as WineIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { StarRating } from "@/components/ui/star-rating";
 import { WINE_TYPE_COLORS } from "@/types/constants";
 import { isLightWineType, type Wine } from "@/types/wine";
 
@@ -54,12 +55,7 @@ export function TopRatedWines({ topRated, onWineClick }: TopRatedWinesProps) {
                   {wine.vintage ? ` \u00B7 ${wine.vintage}` : ""}
                 </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                <span className="text-sm font-semibold">
-                  {wine.userRating?.toFixed(1)}
-                </span>
-              </div>
+              <StarRating value={wine.userRating ?? 0} compact size={16} valueSize="sm" className="gap-1 shrink-0" />
             </div>
           ))}
         </div>

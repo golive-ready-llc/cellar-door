@@ -1,7 +1,8 @@
 "use client";
 
-import { Wine as WineIcon, Star, X } from "lucide-react";
+import { Wine as WineIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { StarRating } from "@/components/ui/star-rating";
 import { WINE_TYPE_COLORS } from "@/types/constants";
 import { isLightWineType, type Wine } from "@/types/wine";
 
@@ -83,12 +84,7 @@ export function FilteredWineSheet({
                 </p>
               </div>
               {wine.userRating != null && (
-                <div className="flex items-center gap-1 shrink-0">
-                  <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
-                  <span className="text-xs font-semibold">
-                    {wine.userRating.toFixed(1)}
-                  </span>
-                </div>
+                <StarRating value={wine.userRating} compact className="gap-1 shrink-0" />
               )}
             </div>
           ))}

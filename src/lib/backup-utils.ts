@@ -1,6 +1,7 @@
 // Shared CSV/backup utilities for Cellar Door
 
 import type { Wine, Wall, Cabinet, WineHistoryItem, BuyListItem } from "@/types/wine";
+import { DISPOSITION_LABELS } from "@/types/constants";
 
 // ============================================================
 // Backup types
@@ -54,12 +55,6 @@ export function escapeCSV(value: string): string {
   }
   return value;
 }
-
-const DISPOSITION_LABELS: Record<string, string> = {
-  D: "Drink",
-  H: "Hold",
-  P: "Past Peak",
-};
 
 export function winesToCSV(
   wines: Wine[],
