@@ -13,6 +13,7 @@ const txSpy = vi.fn();
 const verifyIdTokenSpy = vi.fn();
 const createSessionCookieSpy = vi.fn();
 const cookieSetSpy = vi.fn();
+const cookieDeleteSpy = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -32,7 +33,7 @@ vi.mock("@/lib/firebase-admin", () => ({
 }));
 
 vi.mock("next/headers", () => ({
-  cookies: () => Promise.resolve({ set: cookieSetSpy, get: vi.fn() }),
+  cookies: () => Promise.resolve({ set: cookieSetSpy, get: vi.fn(), delete: cookieDeleteSpy }),
 }));
 
 vi.mock("@/lib/stripe", () => ({
@@ -197,5 +198,20 @@ describe("getUserProfile", () => {
     verifyIdTokenSpy.mockRejectedValue(new Error("nope"));
     const { getUserProfile } = await import("@/server/actions/auth");
     expect(await getUserProfile("bad")).toBeNull();
+  });
+});
+
+describe("getUserProfile and leftover demo cookies", () => {
+  // A /demo visit leaves demo cookies behind. Minting a real session must
+  // clear them, or the signed-in owner keeps getting demo-mode behaviour.
+  it("clears both demo cookies when it mints the session", async () => {
+    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-1", email: "u@example.com", email_verified: true });
+    userFindUnique.mockResolvedValue({ id: "u-1", tier: "PREMIUM" });
+    createSessionCookieSpy.mockResolvedValue("session-cookie");
+    const { getUserProfile } = await import("@/server/actions/auth");
+    await getUserProfile("id-token");
+    expect(cookieSetSpy).toHaveBeenCalled();
+    expect(cookieDeleteSpy).toHaveBeenCalledWith("demo_mode");
+    expect(cookieDeleteSpy).toHaveBeenCalledWith("demo_session");
   });
 });

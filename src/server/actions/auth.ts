@@ -7,6 +7,7 @@ import { stripe } from "@/lib/stripe";
 import { DEFAULT_CABINETS } from "@/types/constants";
 import { mockStore } from "@/lib/mock-store";
 import { logAudit } from "@/server/audit-log";
+import { clearDemoCookies } from "@/lib/demo";
 
 // No DATABASE_URL means local development without a database: use a fixed dev
 // identity. Never in production. A deploy that lost its DATABASE_URL must fail
@@ -43,6 +44,9 @@ async function establishSessionCookie(idToken: string): Promise<void> {
       maxAge: Math.floor(SESSION_MAX_AGE_MS / 1000),
       path: "/",
     });
+    // A real session replaces any earlier /demo visit. Clear the demo cookies
+    // so a signed-in owner isn't served demo mode on top of their own account.
+    clearDemoCookies(cookieStore);
   } catch (err) {
     console.error(
       "[auth] failed to establish __session cookie:",

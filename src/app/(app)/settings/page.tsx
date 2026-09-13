@@ -12,6 +12,7 @@ import { auth, firebaseSignOut } from "@/lib/firebase";
 import { useCurrency, CURRENCIES } from "@/hooks/use-currency";
 import { useAiToggle } from "@/hooks/use-ai-toggle";
 import { useAuth } from "@/components/auth-provider";
+import { clearDemoCookie } from "@/lib/demo-state";
 import { toast } from "@/components/ui/custom-toast";
 
 import {
@@ -37,7 +38,10 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { currencyCode, setCurrency } = useCurrency();
   const { aiUserEnabled, setAiUserEnabled } = useAiToggle();
-  const { refreshTier, devMode } = useAuth();
+  // Demo mode comes from the auth provider, not the `demo_mode` cookie: a
+  // cookie left over from a /demo visit used to show a signed-in owner the
+  // demo-only Settings page.
+  const { refreshTier, devMode, demoMode: isDemo } = useAuth();
   const { isPaid, userId, displayName: tierName } = useTier();
   const searchParams = useSearchParams();
 
@@ -46,14 +50,6 @@ export default function SettingsPage() {
   const [mounted, setMounted] = useState(false);
   const [credits, setCredits] = useState<{ used: number; limit: number; remaining: number; extraCredits?: number } | null>(null);
   const [usageExpanded, setUsageExpanded] = useState(false);
-
-  // Check if demo mode — show limited settings with sign out.
-  // Read once and cache (document.cookie is technically impure but rarely
-  // changes mid-session for this flag; reading via state keeps render pure).
-  const [isDemo, setIsDemo] = useState(false);
-  useEffect(() => {
-    setIsDemo(typeof document !== "undefined" && document.cookie.includes("demo_mode=true"));
-  }, []);
 
   useEffect(() => setMounted(true), []);
 
@@ -108,7 +104,7 @@ export default function SettingsPage() {
               variant="outline"
               className="w-full gap-2 text-muted-foreground"
               onClick={() => {
-                document.cookie = "demo_mode=; path=/; max-age=0";
+                clearDemoCookie();
                 // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full page reload resets auth and demo state
                 window.location.href = "/";
               }}
@@ -348,7 +344,7 @@ export default function SettingsPage() {
             variant="outline"
             className="w-full gap-2 text-muted-foreground"
             onClick={async () => {
-              document.cookie = "demo_mode=; path=/; max-age=0";
+              clearDemoCookie();
               if (!devMode) {
                 const firebaseAuth = auth();
                 if (firebaseAuth) await firebaseSignOut(firebaseAuth);

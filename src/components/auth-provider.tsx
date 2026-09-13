@@ -15,6 +15,12 @@ import {
   type FirebaseUser,
 } from "@/lib/firebase";
 import type { Tier } from "@/lib/tier";
+import {
+  clearDemoCookie,
+  hasDemoCookie,
+  isDemoModeActive,
+  setDemoModeActive,
+} from "@/lib/demo-state";
 
 const DEBUG_AUTH = process.env.NEXT_PUBLIC_DEBUG_AUTH === "true";
 const authLog = (...args: unknown[]) => {
@@ -44,6 +50,12 @@ interface AuthContextType {
   loading: boolean;
   /** True when Firebase is not configured (dev mode) */
   devMode: boolean;
+  /**
+   * True while the app shows the read-only /demo sample cellar. The single
+   * source of truth for demo mode: the banner, Settings, and the data layer
+   * follow it rather than reading the `demo_mode` cookie themselves.
+   */
+  demoMode: boolean;
   /** The Firebase ID token for API calls */
   getIdToken: () => Promise<string | null>;
   /** Current user's subscription tier */
@@ -60,17 +72,12 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   devMode: false,
+  demoMode: false,
   getIdToken: async () => null,
   tier: DEFAULT_TIER,
   userId: null,
   refreshTier: async () => {},
 });
-
-/** Check if demo_mode cookie is set (client-side) */
-function isDemoMode(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.cookie.split(";").some((c) => c.trim().startsWith("demo_mode=true"));
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize from Firebase's synchronous currentUser. After
@@ -135,21 +142,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // Check for demo mode cookie
-    if (isDemoMode()) {
+    // A /demo visit leaves a `demo_mode` cookie that opens a read-only sample
+    // cellar. Enter demo mode right away so a visitor isn't bounced to /login,
+    // but keep listening for a real sign-in below: a real session always wins
+    // over the cookie. This used to return early, so an owner who had opened
+    // /demo and then signed in stayed in demo mode over their own account.
+    // Someone already signed in never enters demo mode at all.
+    let signedInAlready = false;
+    try {
+      signedInAlready = isFirebaseConfigured && !!auth()?.currentUser;
+    } catch {
+      signedInAlready = false;
+    }
+    const demoRequested = hasDemoCookie() && !signedInAlready;
+    if (signedInAlready && hasDemoCookie()) clearDemoCookie();
+    if (demoRequested) {
+      setDemoModeActive(true);
       setDemoMode(true);
       setUserId("demo-user-001");
       setTier("PREMIUM");
       setLoading(false);
-      return;
     }
 
     // If Firebase is not configured, skip auth and go straight to "loaded" state
     if (!isFirebaseConfigured) {
-      // Dev mode defaults
-      setUserId("dev-user-001");
-      setTier(DEFAULT_TIER);
-      setLoading(false);
+      if (!demoRequested) {
+        // Dev mode defaults
+        setUserId("dev-user-001");
+        setTier(DEFAULT_TIER);
+        setLoading(false);
+      }
       return;
     }
 
@@ -198,6 +220,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
 
       if (firebaseUser) {
+        // A real sign-in wins over a leftover demo cookie. Leave demo mode
+        // before loading the profile, and drop the demo user id so no page
+        // fetches demo data while the real profile resolves.
+        if (isDemoModeActive() || hasDemoCookie()) {
+          clearDemoCookie();
+          setDemoModeActive(false);
+          setDemoMode(false);
+          setUserId(null);
+        }
         // Fetch tier from server after auth. Retry up to 3 times with
         // small backoff — verifyIdToken in syncUser already succeeded
         // for this token, but a cold Firebase Admin SDK on a different
@@ -231,6 +262,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setTier(DEFAULT_TIER);
           setUserId(null);
         }
+      } else if (isDemoModeActive()) {
+        // A demo visitor without an account: stay in demo mode.
       } else {
         // Signed out — use default tier (allows password-gated sites to still access features)
         setTier(DEFAULT_TIER);
@@ -271,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         devMode,
+        demoMode,
         getIdToken,
         refreshTier,
         tier,

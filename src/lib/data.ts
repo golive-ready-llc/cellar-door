@@ -5,6 +5,7 @@
 import type { Wine, Wall, Cabinet, WineHistoryItem, BuyListItem, NewWineInput } from "@/types/wine";
 import { DuplicateWineError } from "./errors";
 import type { AddWineInput } from "@/server/actions/wines";
+import { isDemoModeActive } from "./demo-state";
 
 // The demo/dev data set is ~70 KB. Load it only when mock or demo mode is
 // actually in use, so it stays out of every signed-in user's bundle.
@@ -27,36 +28,30 @@ const DEMO_USER_ID = "demo-user-001";
  * this is purely to surface a clean UX message.
  */
 function assertNotDemoClient(action: string) {
-  if (isDemoCookie()) {
+  if (isDemoModeActive()) {
     throw new Error(
       `Demo mode is read-only. Sign up to ${action} with your own account.`
     );
   }
 }
 
-/** True when the current request carries the demo_mode cookie (client-side). */
-function isDemoCookie(): boolean {
-  return (
-    typeof document !== "undefined" &&
-    document.cookie.split(";").some((c) => c.trim().startsWith("demo_mode=true"))
-  );
-}
-
 /**
  * Check if we should use the in-memory mock store instead of Prisma.
  * True for:
  *   - local dev (NEXT_PUBLIC_USE_MOCK), and
- *   - demo-mode visitors (demo_mode cookie). The auth provider forces the
- *     demo user id here, and (await loadMockStore()).normalizeUserId maps it onto the
- *     seeded sample cellar — so /demo lands in a populated cellar instead
- *     of the empty first-run setup.
+ *   - demo-mode visitors. The auth provider forces the demo user id here, and
+ *     the mock store's normalizeUserId maps it onto the seeded sample cellar,
+ *     so /demo lands in a populated cellar instead of the empty first-run setup.
  * Reads only: every mutation is blocked upstream by assertNotDemoClient, so
- * a demo visitor can browse the seeded data but never write it. A real
- * authenticated user never has this cookie (the auth provider treats the
- * cookie as demo mode before any Firebase user), so their data is unaffected.
+ * a demo visitor can browse the seeded data but never write it.
+ *
+ * Demo mode comes from the auth provider's decision, not the `demo_mode`
+ * cookie. A cookie left over from a /demo visit used to switch a signed-in
+ * owner onto the demo store, where their account has no wines, which also
+ * opened the first-run "Name Your Cellar" wizard over their real cellar.
  */
 function isMockMode(): boolean {
-  return isDev || isDemoCookie();
+  return isDev || isDemoModeActive();
 }
 
 /** Resolve user ID — in dev/demo mode use fixed IDs; in production require real userId */

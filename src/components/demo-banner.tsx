@@ -1,32 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Eye, X } from "lucide-react";
+import { useAuth } from "@/components/auth-provider";
+import { clearDemoCookie, setDemoModeActive } from "@/lib/demo-state";
 
 /**
- * Client-side banner shown at the very top of any authenticated page when
- * the `demo_mode=true` cookie is set. Provides a one-click exit that
- * clears the cookie and returns the visitor to the landing page.
+ * Banner shown at the very top of any authenticated page while the app is in
+ * demo mode. Provides a one-click exit that clears the demo cookie and returns
+ * the visitor to the landing page.
  *
- * Intentionally rendered as plain HTML with no Tailwind theme variables
- * (hard-coded amber) so it always stands out, even on partially-broken
- * demo states.
+ * Follows the AuthProvider's demo state, not the `demo_mode` cookie: a cookie
+ * left over from an earlier /demo visit used to show this banner over a
+ * signed-in owner's real cellar.
+ *
+ * Intentionally rendered with hard-coded amber (no Tailwind theme variables)
+ * so it always stands out, even on partially-broken demo states.
  */
 export function DemoBanner() {
-  const [isDemo, setIsDemo] = useState(false);
+  const { demoMode } = useAuth();
 
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const hasCookie = document.cookie
-      .split(";")
-      .some((c) => c.trim().startsWith("demo_mode=true"));
-    setIsDemo(hasCookie);
-  }, []);
-
-  if (!isDemo) return null;
+  if (!demoMode) return null;
 
   const exitDemo = () => {
-    document.cookie = "demo_mode=; path=/; max-age=0; SameSite=Lax";
+    clearDemoCookie();
+    setDemoModeActive(false);
     // Full reload so the server-side auth state also resets, then land on
     // the public marketing page rather than an authenticated app route.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full page reload resets auth and demo state
