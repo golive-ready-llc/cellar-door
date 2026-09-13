@@ -92,6 +92,7 @@ export async function restoreBackup(
           cols: c.cols ?? 8,
           depth: c.depth ?? 1,
           storageRows: (c.storageRows ?? []) as unknown as Prisma.InputJsonValue,
+          rowSizes: (c.rowSizes ?? []) as unknown as Prisma.InputJsonValue,
           sortOrder: c.sortOrder ?? 0,
         })),
         skipDuplicates: true,
@@ -113,6 +114,7 @@ export async function restoreBackup(
             vintage: wine.vintage ?? null,
             type: wine.type ?? "red",
             sparkling: wine.sparkling ?? false,
+            bottleSize: wine.bottleSize ?? "standard",
             grapeVariety: wine.grapeVariety ?? "",
             userRating: wine.userRating ?? null,
             imageUrl: wine.imageUrl ?? "",
@@ -137,6 +139,7 @@ export async function restoreBackup(
             aiRatings: (wine.aiRatings ?? undefined) as
               | Prisma.InputJsonValue
               | undefined,
+            aiEnrichedAt: wine.aiEnrichedAt ? new Date(wine.aiEnrichedAt) : null,
             addedAt: wine.addedAt ? new Date(wine.addedAt) : new Date(),
           },
         });

@@ -305,10 +305,9 @@ export class GeminiProvider implements AIProvider {
 
           if (!ogMatch) continue;
 
-          let imageUrl = ogMatch[1];
-          if (imageUrl.startsWith("//")) imageUrl = "https:" + imageUrl;
-
-
+          // og:image is often root-relative; resolve it against the page URL
+          // the SSRF guard already vetted. Absolute URLs pass through unchanged.
+          const imageUrl = new URL(ogMatch[1], pageUrl).toString();
           const dataUrl = await this.downloadImageAsDataUrl(imageUrl, pageUrl);
           if (dataUrl) {
             return { imageUrl: dataUrl, source: "google" };
