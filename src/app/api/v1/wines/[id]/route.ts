@@ -6,7 +6,8 @@ import {
   apiError,
   corsHeaders,
 } from "@/lib/api-auth";
-import { serializeWine, SHARED_WINE_FIELDS } from "@/lib/api-serialize";
+import { serializeWine } from "@/lib/api-serialize";
+import { propagateSharedFields, sharedFieldPatch } from "@/server/wine-shared";
 
 /** Handle CORS preflight */
 export async function OPTIONS() {
@@ -133,34 +134,9 @@ export async function PUT(
       } as import("@/generated/prisma/client").Prisma.WineUpdateInput,
     });
 
-    // Propagate shared wine-level metadata to duplicates (same name+winery+vintage).
-    // Mirrors server action updateWine SHARED_FIELDS propagation.
-    // Skip entirely if no shared fields are being changed (e.g. only location/notes updated).
-    const hasSharedChanges = SHARED_WINE_FIELDS.some((f) => body[f] !== undefined) ||
-      body.aiRatings !== undefined || body.tastingNotes !== undefined || body.aiEnrichedAt !== undefined;
-
-    if (hasSharedChanges && existing.name && existing.winery) {
-      const sharedUpdates: Record<string, unknown> = {};
-      for (const field of SHARED_WINE_FIELDS) {
-        if (body[field] !== undefined) {
-          sharedUpdates[field] = field === "type" && body.type ? (body.type as string).toLowerCase() : body[field];
-        }
-      }
-      Object.assign(sharedUpdates, aiUpdates);
-
-      if (Object.keys(sharedUpdates).length > 0) {
-        void prisma.wine.updateMany({
-          where: {
-            userId: user.id,
-            id: { not: id },
-            name: { equals: existing.name, mode: "insensitive" },
-            winery: { equals: existing.winery, mode: "insensitive" },
-            vintage: existing.vintage,
-          },
-          data: sharedUpdates,
-        }).catch(() => { /* best-effort */ });
-      }
-    }
+    // Copy shared wine-level metadata onto the user's other bottles of the
+    // same wine, exactly as the updateWine server action does.
+    propagateSharedFields(user.id, existing, sharedFieldPatch(body));
 
     return apiSuccess(serializeWine(wine));
   } catch (err) {
