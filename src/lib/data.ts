@@ -474,6 +474,64 @@ export async function updateProfile(
 }
 
 // ============================================================
+// Cellar settings (first-run setup flag + cellar name)
+// ============================================================
+
+export interface CellarSettingsData {
+  onboarded: boolean;
+  cellarName: string;
+}
+
+/**
+ * Local dev without a database keeps cellar settings in the browser. A key of
+ * its own, so the one-time copy of the old localStorage values up to the
+ * account (in useCellarData) can never read or delete these.
+ */
+const DEV_CELLAR_SETTINGS_KEY = "cellar-door-dev-cellar-settings";
+
+function readDevCellarSettings(): CellarSettingsData {
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(DEV_CELLAR_SETTINGS_KEY) : null;
+    const parsed = raw ? (JSON.parse(raw) as Partial<CellarSettingsData>) : {};
+    return { onboarded: parsed.onboarded === true, cellarName: parsed.cellarName ?? "" };
+  } catch {
+    return { onboarded: false, cellarName: "" };
+  }
+}
+
+/**
+ * Whether first-run setup is done, and the cellar's name. Stored on the
+ * account so neither depends on the browser. Demo visitors browse a sample
+ * cellar, so they never see first-run setup.
+ */
+export async function fetchCellarSettings(userId?: string | null): Promise<CellarSettingsData> {
+  const uid = resolveUserId(userId);
+  if (isDemoModeActive()) return { onboarded: true, cellarName: "" };
+  if (isDev) return readDevCellarSettings();
+  const { getCellarSettings } = await import("@/server/actions/cellar-settings");
+  return getCellarSettings(uid);
+}
+
+export async function saveCellarSettings(
+  data: { onboarded?: boolean; cellarName?: string },
+  userId?: string | null
+): Promise<CellarSettingsData> {
+  assertNotDemoClient("change your cellar settings");
+  const uid = resolveUserId(userId);
+  if (isDev) {
+    const current = readDevCellarSettings();
+    const next: CellarSettingsData = {
+      onboarded: data.onboarded === true ? true : current.onboarded,
+      cellarName: typeof data.cellarName === "string" ? data.cellarName.trim() : current.cellarName,
+    };
+    localStorage.setItem(DEV_CELLAR_SETTINGS_KEY, JSON.stringify(next));
+    return next;
+  }
+  const { saveCellarSettings: serverSaveCellarSettings } = await import("@/server/actions/cellar-settings");
+  return serverSaveCellarSettings(data, uid);
+}
+
+// ============================================================
 // Backup / Export
 // ============================================================
 

@@ -6,6 +6,8 @@ import {
   fetchWines,
   fetchCabinets,
   fetchWalls,
+  fetchCellarSettings,
+  saveCellarSettings,
 } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
 import {
@@ -16,7 +18,11 @@ import {
 } from "@/lib/cellar-utils";
 import type { Wine, Wall, Cabinet, WineType } from "@/types/wine";
 
-const CELLAR_NAME_KEY = "cellar-door-cellar-name";
+// Where older versions kept the cellar name and the first-run setup flag, in
+// this browser only. Both now live on the account; values found here are
+// copied up once and then removed.
+const LEGACY_CELLAR_NAME_KEY = "cellar-door-cellar-name";
+const LEGACY_ONBOARDED_KEY = "cellar-door-onboarded";
 
 // Module-level: capture deep-link wine ID before React renders (survives Strict Mode)
 let __pendingDeepLinkWineId: string | null = null;
@@ -44,11 +50,12 @@ export function useCellarData() {
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { user, devMode, userId } = useAuth();
+  const { user, devMode, demoMode, userId } = useAuth();
   const searchParams = useSearchParams();
   const wineIdFromUrl = searchParams.get("wine");
 
-  // Cellar name: stored in localStorage
+  // Cellar name and first-run setup flag: stored on the account, so they
+  // follow the owner to every device instead of living in one browser.
   const defaultName = useMemo(() => {
     const displayName = user?.displayName || (devMode ? "Dev User" : "");
     const firstName = displayName.split(" ")[0];
@@ -56,28 +63,75 @@ export function useCellarData() {
   }, [user, devMode]);
 
   const [cellarName, setCellarName] = useState<string>("");
+  // null until the account's setting has loaded, so setup never flashes.
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [editingName, setEditingName] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(CELLAR_NAME_KEY);
-    setCellarName(stored || "");
-  }, []);
+    if (!userId && !devMode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        let settings = await fetchCellarSettings(userId);
+        // Copy values an older version saved in this browser up to the
+        // account, once, so nobody loses a name they had already set.
+        const legacyName = localStorage.getItem(LEGACY_CELLAR_NAME_KEY) || "";
+        const legacyOnboarded = localStorage.getItem(LEGACY_ONBOARDED_KEY) === "true";
+        const copyName = !settings.cellarName && legacyName ? legacyName : "";
+        const copyOnboarded = !settings.onboarded && legacyOnboarded;
+        if (!demoMode && (copyName || copyOnboarded)) {
+          settings = await saveCellarSettings(
+            {
+              ...(copyOnboarded ? { onboarded: true } : {}),
+              ...(copyName ? { cellarName: copyName } : {}),
+            },
+            userId
+          );
+          localStorage.removeItem(LEGACY_CELLAR_NAME_KEY);
+          localStorage.removeItem(LEGACY_ONBOARDED_KEY);
+        }
+        if (cancelled) return;
+        setCellarName(settings.cellarName);
+        setOnboarded(settings.onboarded);
+      } catch {
+        // The name is cosmetic: keep the default, and don't push first-run
+        // setup on someone whose settings merely failed to load.
+        if (!cancelled) setOnboarded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, devMode, demoMode]);
 
   const displayName = cellarName || defaultName;
 
   const handleNameSave = useCallback(
     (newName: string) => {
       const trimmed = newName.trim();
-      if (trimmed && trimmed !== defaultName) {
-        localStorage.setItem(CELLAR_NAME_KEY, trimmed);
-        setCellarName(trimmed);
-      } else {
-        localStorage.removeItem(CELLAR_NAME_KEY);
-        setCellarName("");
-      }
+      const next = trimmed && trimmed !== defaultName ? trimmed : "";
+      setCellarName(next);
       setEditingName(false);
+      void saveCellarSettings({ cellarName: next }, userId).catch(() => {
+        // Keep the new name on screen; the next rename saves again.
+      });
     },
-    [defaultName]
+    [defaultName, userId]
+  );
+
+  // Record first-run setup as done on the account, with the name chosen in
+  // the wizard (empty keeps the default name).
+  const completeOnboarding = useCallback(
+    async (chosenName: string) => {
+      const name = chosenName.trim();
+      setOnboarded(true);
+      if (name) setCellarName(name);
+      await saveCellarSettings(
+        { onboarded: true, ...(name ? { cellarName: name } : {}) },
+        userId
+      );
+    },
+    [userId]
   );
 
   const loadData = useCallback(async () => {
@@ -296,11 +350,13 @@ export function useCellarData() {
     selectedLocation,
     setSelectedLocation,
 
-    // Cellar name
+    // Cellar name and first-run setup
     displayName,
     editingName,
     setEditingName,
     handleNameSave,
+    onboarded,
+    completeOnboarding,
 
     // Data loading
     loadData,

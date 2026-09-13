@@ -37,6 +37,13 @@ model User {
   /** Extra AI credits purchased as one-off top-ups. Consumed after the
    * monthly tier allowance is exhausted. Never resets (carry-over). */
   extraCredits     Int       @default(0)
+  /** When first-run setup ("Name Your Cellar") was finished or skipped. Null
+   * until then. Lives on the account so setup doesn't reappear on every new
+   * device or browser; it used to be a localStorage flag. */
+  onboardedAt      DateTime?
+  /** The cellar's display name. Empty means the default ("<First name>'s
+   * Cellar"). Moved from browser localStorage so it follows the owner. */
+  cellarName       String    @default("")
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

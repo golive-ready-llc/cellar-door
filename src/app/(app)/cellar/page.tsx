@@ -29,7 +29,8 @@ import { EditModeView } from "@/components/cellar/edit-mode-view";
 import { ViewModeGrid } from "@/components/cellar/view-mode-grid";
 import { CellarDialogs } from "@/components/cellar/cellar-dialogs";
 import { FloatingModeIndicator } from "@/components/cellar/floating-mode-indicator";
-import { OnboardingWizard, isOnboarded } from "@/components/onboarding/onboarding-wizard";
+import { OnboardingWizard, shouldShowOnboarding } from "@/components/onboarding/onboarding-wizard";
+import { useAuth } from "@/components/auth-provider";
 import { PeakingBanner } from "@/components/cellar/peaking-banner";
 import { SortAssistant } from "@/components/cellar/sort-assistant";
 import { AppLoading } from "@/components/app-loading";
@@ -175,12 +176,30 @@ function CellarPageInner() {
   }, [searchQuery, data.displayWines]);
 
   // --- Onboarding wizard ---
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  useEffect(() => {
-    if (!data.loading && data.wines.length === 0 && !isOnboarded()) {
-      setShowOnboarding(true);
-    }
-  }, [data.loading, data.wines.length]);
+  // First-run setup shows only for a loaded, empty account that hasn't
+  // finished setup on any device (the flag lives on the account), and never
+  // in demo mode. Derived, not stored, so it can't get stuck open or closed.
+  const { demoMode } = useAuth();
+  const [onboardingClosed, setOnboardingClosed] = useState(false);
+  const [onboardingFinishing, setOnboardingFinishing] = useState(false);
+  const showOnboarding =
+    !onboardingClosed &&
+    (onboardingFinishing ||
+      shouldShowOnboarding({
+        loading: data.loading,
+        onboarded: data.onboarded,
+        wineCount: data.wines.length,
+        demoMode,
+      }));
+  const { completeOnboarding } = data;
+  const handleOnboardingFinish = useCallback(
+    (cellarName: string) => {
+      // Keep the wizard up for its closing animation while the account saves.
+      setOnboardingFinishing(true);
+      void completeOnboarding(cellarName).catch(() => {});
+    },
+    [completeOnboarding]
+  );
 
   const { setAddWineOpen } = dialogs;
   const handleOnboardingAddWine = useCallback(
@@ -543,7 +562,8 @@ function CellarPageInner() {
       {showOnboarding && (
         <OnboardingWizard
           onAddWine={handleOnboardingAddWine}
-          onComplete={() => setShowOnboarding(false)}
+          onFinish={handleOnboardingFinish}
+          onComplete={() => setOnboardingClosed(true)}
         />
       )}
     </PullToRefresh>

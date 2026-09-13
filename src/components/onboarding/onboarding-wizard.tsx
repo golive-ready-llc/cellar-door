@@ -17,15 +17,39 @@ import { cn } from "@/lib/utils";
 
 // ─── Constants ──────────────────────────────────────────────
 
-const ONBOARDED_KEY = "cellar-door-onboarded";
-
 type AddMethod = "scan" | "search" | "manual";
 
 interface OnboardingWizardProps {
   /** Called when user picks an add-wine method in step 2 */
   onAddWine?: (method: AddMethod) => void;
-  /** Called when onboarding is complete or skipped */
+  /**
+   * Called with the chosen cellar name ("" if none) the moment setup is
+   * finished or skipped. The caller saves it, and the setup flag, on the
+   * account. The wizard itself stores nothing: it used to write both to
+   * localStorage, so it reappeared on every new device.
+   */
+  onFinish?: (cellarName: string) => void;
+  /** Called after the closing animation */
   onComplete?: () => void;
+}
+
+/**
+ * Whether first-run setup should show: only for a loaded, empty account that
+ * hasn't finished setup on any device, and never in demo mode. `onboarded` is
+ * null until the account's setting has loaded.
+ */
+export function shouldShowOnboarding({
+  loading,
+  onboarded,
+  wineCount,
+  demoMode,
+}: {
+  loading: boolean;
+  onboarded: boolean | null;
+  wineCount: number;
+  demoMode: boolean;
+}): boolean {
+  return !loading && onboarded === false && wineCount === 0 && !demoMode;
 }
 
 // ─── Confetti particles ─────────────────────────────────────
@@ -111,7 +135,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 
 // ─── Main wizard ────────────────────────────────────────────
 
-export function OnboardingWizard({ onAddWine, onComplete }: OnboardingWizardProps) {
+export function OnboardingWizard({ onAddWine, onFinish, onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState(0);
   const [cellarName, setCellarName] = useState("");
   const [visible, setVisible] = useState(false);
@@ -123,35 +147,25 @@ export function OnboardingWizard({ onAddWine, onComplete }: OnboardingWizardProp
     return () => clearTimeout(t);
   }, []);
 
-  const finish = useCallback(() => {
-    localStorage.setItem(ONBOARDED_KEY, "true");
-    if (cellarName.trim()) {
-      localStorage.setItem("cellar-door-cellar-name", cellarName.trim());
-    }
-    setExiting(true);
-    setTimeout(() => {
-      onComplete?.();
-    }, 300);
-  }, [cellarName, onComplete]);
+  // Report the result right away, then fade out before closing.
+  const close = useCallback(
+    (afterClose?: () => void) => {
+      onFinish?.(cellarName.trim());
+      setExiting(true);
+      setTimeout(() => {
+        onComplete?.();
+        afterClose?.();
+      }, 300);
+    },
+    [cellarName, onFinish, onComplete]
+  );
 
-  const skip = useCallback(() => {
-    localStorage.setItem(ONBOARDED_KEY, "true");
-    setExiting(true);
-    setTimeout(() => {
-      onComplete?.();
-    }, 300);
-  }, [onComplete]);
+  const finish = useCallback(() => close(), [close]);
+
+  const skip = useCallback(() => close(), [close]);
 
   const handleMethodSelect = (method: AddMethod) => {
-    localStorage.setItem(ONBOARDED_KEY, "true");
-    if (cellarName.trim()) {
-      localStorage.setItem("cellar-door-cellar-name", cellarName.trim());
-    }
-    setExiting(true);
-    setTimeout(() => {
-      onComplete?.();
-      onAddWine?.(method);
-    }, 300);
+    close(() => onAddWine?.(method));
   };
 
   return (
@@ -348,11 +362,4 @@ function MethodCard({
       </CardContent>
     </Card>
   );
-}
-
-// ─── Helper to check if onboarding is complete ──────────────
-
-export function isOnboarded(): boolean {
-  if (typeof window === "undefined") return true;
-  return localStorage.getItem(ONBOARDED_KEY) === "true";
 }
