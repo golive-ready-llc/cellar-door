@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { fetchWines, fetchHistory, fetchWalls, fetchCabinets, editWine } from "@/lib/data";
+import { fetchWines, fetchHistory, fetchWalls, fetchCabinets } from "@/lib/data";
+import { editWineAndSync } from "@/lib/wine-collection";
 import { useAuth } from "@/components/auth-provider";
 import {
   computeCoreStats,
@@ -35,11 +36,15 @@ export function useStatsData() {
 
   const handleEditWine = useCallback(
     async (wineId: string, updates: Partial<Wine>) => {
-      const updated = await editWine(wineId, updates, userId);
+      const updated = await editWineAndSync(wineId, updates, {
+        userId,
+        setWines,
+        setSelectedWine,
+      });
       if (updated) {
-        setWines((prev) => prev.map((w) => (w.id === wineId ? { ...w, ...updated } : w)));
-        setSelectedWine((prev) => (prev?.id === wineId ? { ...prev, ...updated } : prev));
-        setFilteredWines((prev) => prev.map((w) => (w.id === wineId ? { ...w, ...updated } : w)));
+        setFilteredWines((prev) =>
+          prev.map((w) => (w.id === wineId ? { ...w, ...updated } : w))
+        );
       }
     },
     [userId]

@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { toast } from "@/components/ui/custom-toast";
-import { fetchWines, fetchCabinets, createWine, editWine, deleteWine, bulkCreateWines, bulkDeleteWines } from "@/lib/data";
+import { fetchWines, fetchCabinets, bulkDeleteWines } from "@/lib/data";
+import {
+  addWineAndPrepend,
+  consumeWineAndSync,
+  duplicateWinesAndPrepend,
+  editWineAndSync,
+  editWinesInBatches,
+} from "@/lib/wine-collection";
 import { useAddWine } from "@/components/add-wine-context";
 import { useAuth } from "@/components/auth-provider";
 import type { Wine, Cabinet, WineType, NewWineInput } from "@/types/wine";
@@ -100,8 +106,7 @@ export function useInventoryData() {
 
   const handleAddWine = useCallback(
     async (data: NewWineInput) => {
-      const newWine = await createWine(data, userId);
-      setWines((prev) => [newWine, ...prev]);
+      await addWineAndPrepend(data, { userId, setWines });
     },
     [userId]
   );
@@ -114,30 +119,19 @@ export function useInventoryData() {
 
   const handleEditWine = useCallback(
     async (wineId: string, data: Partial<Wine>) => {
-      const updated = await editWine(wineId, data, userId);
-      if (updated) {
-        setWines((prev) =>
-          prev.map((w) => (w.id === wineId ? { ...w, ...updated } : w))
-        );
-        setSelectedWine((prev) =>
-          prev?.id === wineId ? { ...prev, ...updated } : prev
-        );
-      }
+      await editWineAndSync(wineId, data, { userId, setWines, setSelectedWine });
     },
     [userId]
   );
 
   const handleConsumeWine = useCallback(
     async (wineId: string, reason: string, rating?: number | null, notes?: string) => {
-      try {
-        await deleteWine(wineId, reason, rating, notes, userId);
-        setWines((prev) => prev.filter((w) => w.id !== wineId));
-        setSelectedWine(null);
-        setDetailOpen(false);
-        toast.success("Wine moved to history");
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to remove wine");
-      }
+      await consumeWineAndSync(wineId, reason, rating, notes, {
+        userId,
+        setWines,
+        setSelectedWine,
+        setDetailOpen,
+      });
     },
     [userId]
   );
@@ -182,12 +176,11 @@ export function useInventoryData() {
 
   const handleBatchMove = useCallback(
     async (wineIds: string[], cabinetId: string | null) => {
-      for (let i = 0; i < wineIds.length; i += 5) {
-        const chunk = wineIds.slice(i, i + 5);
-        await Promise.all(
-          chunk.map((id) => editWine(id, { cabinetId, row: null, col: null }, userId))
-        );
-      }
+      await editWinesInBatches(
+        wineIds,
+        () => ({ cabinetId, row: null, col: null }),
+        userId
+      );
       await loadData();
     },
     [userId, loadData]
@@ -204,19 +197,16 @@ export function useInventoryData() {
 
   const handleBatchTag = useCallback(
     async (wineIds: string[], tags: string[]) => {
-      for (let i = 0; i < wineIds.length; i += 5) {
-        const chunk = wineIds.slice(i, i + 5);
-        await Promise.all(
-          chunk.map(async (id) => {
-            const wine = wines.find((w) => w.id === id);
-            if (wine) {
-              const existingTags = wine.tags ?? [];
-              const merged = [...new Set([...existingTags, ...tags])];
-              await editWine(id, { tags: merged }, userId);
-            }
-          })
-        );
-      }
+      await editWinesInBatches(
+        wineIds,
+        (id) => {
+          const wine = wines.find((w) => w.id === id);
+          if (!wine) return null;
+          const existingTags = wine.tags ?? [];
+          return { tags: [...new Set([...existingTags, ...tags])] };
+        },
+        userId
+      );
       await loadData();
     },
     [wines, userId, loadData]
@@ -224,12 +214,7 @@ export function useInventoryData() {
 
   const handleBatchType = useCallback(
     async (wineIds: string[], type: WineType) => {
-      for (let i = 0; i < wineIds.length; i += 5) {
-        const chunk = wineIds.slice(i, i + 5);
-        await Promise.all(
-          chunk.map((id) => editWine(id, { type }, userId))
-        );
-      }
+      await editWinesInBatches(wineIds, () => ({ type }), userId);
       await loadData();
     },
     [userId, loadData]
@@ -243,16 +228,7 @@ export function useInventoryData() {
   const handleDuplicate = useCallback(
     async (count: number = 1) => {
       if (!selectedWine) return;
-      const safeCount = Math.max(1, Math.min(99, Math.floor(count)));
-      const { id: _id, addedAt: _addedAt, updatedAt: _updatedAt, userId: _u, cabinetId: _c, row: _r, col: _col, depth: _d, zone: _z, ...wineData } = selectedWine;
-      // Duplicating IS creating a duplicate — never block it on the dup check.
-      const payload = { ...wineData, cabinetId: null, row: null, col: null, depth: 0, zone: "", skipDuplicateCheck: true } as NewWineInput;
-      // One batched insert instead of up to 99 sequential creates.
-      const created = await bulkCreateWines(
-        Array.from({ length: safeCount }, () => ({ ...payload })),
-        userId
-      );
-      setWines((prev) => [...created, ...prev]);
+      await duplicateWinesAndPrepend(selectedWine, count, { userId, setWines });
     },
     [selectedWine, userId]
   );

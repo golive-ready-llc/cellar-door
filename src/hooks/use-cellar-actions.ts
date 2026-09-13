@@ -3,12 +3,10 @@
 import { useCallback } from "react";
 import { toast } from "@/components/ui/custom-toast";
 import {
+  editWine,
   fetchWines,
   fetchCabinets,
   fetchWalls,
-  createWine,
-  editWine,
-  deleteWine,
   bulkDeleteWines,
   createCabinet,
   editCabinet,
@@ -17,6 +15,13 @@ import {
   editWall,
   removeWall,
 } from "@/lib/data";
+import {
+  addWineAndPrepend,
+  buildDuplicateWineInput,
+  consumeWineAndSync,
+  duplicateWinesAndPrepend,
+  editWineAndSync,
+} from "@/lib/wine-collection";
 import { type SectionChanges } from "@/components/cellar/section-settings-dialog";
 import { type WallChanges } from "@/components/cellar/wall-settings-dialog";
 import type { Wine, Cabinet, NewWineInput } from "@/types/wine";
@@ -68,8 +73,7 @@ export function useCellarActions({
             col: pendingSlot.col,
           }
         : data;
-      const newWine = await createWine(wineData, userId);
-      setWines((prev) => [newWine, ...prev]);
+      const newWine = await addWineAndPrepend(wineData, { userId, setWines });
       setPendingSlot(null);
       // Flash the slot it landed in. Only when it actually got a location —
       // duplicates / receipt adds go to the unfiled pile (no slot to flash).
@@ -105,15 +109,7 @@ export function useCellarActions({
 
   const handleEditWine = useCallback(
     async (wineId: string, data: Partial<Wine>) => {
-      const updated = await editWine(wineId, data, userId);
-      if (updated) {
-        setWines((prev) =>
-          prev.map((w) => (w.id === wineId ? { ...w, ...updated } : w))
-        );
-        setSelectedWine((prev) =>
-          prev?.id === wineId ? { ...prev, ...updated } : prev
-        );
-      }
+      await editWineAndSync(wineId, data, { userId, setWines, setSelectedWine });
     },
     [userId, setWines, setSelectedWine]
   );
@@ -125,70 +121,35 @@ export function useCellarActions({
       rating?: number | null,
       notes?: string
     ) => {
-      try {
-        await deleteWine(wineId, reason, rating, notes, userId);
-        setWines((prev) => prev.filter((w) => w.id !== wineId));
-        setSelectedWine(null);
-        setDetailOpen(false);
-        toast.success("Wine moved to history");
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Failed to remove wine"
-        );
-      }
+      await consumeWineAndSync(wineId, reason, rating, notes, {
+        userId,
+        setWines,
+        setSelectedWine,
+        setDetailOpen,
+      });
     },
     [userId, setWines, setSelectedWine, setDetailOpen]
   );
 
   const handleAddBottle = useCallback(async () => {
     if (!selectedWine) return;
-    const {
-      id: _id,
-      addedAt: _addedAt,
-      updatedAt: _updatedAt,
-      userId: _u,
-      ...wineData
-    } = selectedWine;
-    // Adding another bottle of an existing wine is a duplicate BY INTENT.
-    await handleAddWine({ ...wineData, skipDuplicateCheck: true } as NewWineInput);
+    await handleAddWine(buildDuplicateWineInput(selectedWine, { unfile: false }));
   }, [selectedWine, handleAddWine]);
 
   const handleDuplicateWine = useCallback(
     async (count: number = 1) => {
       if (!selectedWine) return;
-      const safeCount = Math.max(1, Math.min(99, Math.floor(count)));
-      const {
-        id: _id,
-        addedAt: _addedAt,
-        updatedAt: _updatedAt,
-        userId: _u,
-        cabinetId: _c,
-        row: _r,
-        col: _col,
-        depth: _d,
-        zone: _z,
-        ...wineData
-      } = selectedWine;
-      const payload = {
-        ...wineData,
-        cabinetId: null,
-        row: null,
-        col: null,
-        depth: 0,
-        zone: "",
-        // Duplicating IS creating a duplicate — never block it on the check.
-        skipDuplicateCheck: true,
-      } as NewWineInput;
-      await Promise.all(
-        Array.from({ length: safeCount }, () => handleAddWine(payload))
-      );
+      const created = await duplicateWinesAndPrepend(selectedWine, count, {
+        userId,
+        setWines,
+      });
       toast.success(
-        safeCount === 1
+        created.length === 1
           ? "Wine duplicated — check unfiled wines"
-          : `${safeCount} bottles duplicated — check unfiled wines`
+          : `${created.length} bottles duplicated — check unfiled wines`
       );
     },
-    [selectedWine, handleAddWine]
+    [selectedWine, userId, setWines]
   );
 
   const handleSectionChanges = useCallback(
@@ -248,7 +209,7 @@ export function useCellarActions({
       targetCol: number
     ) => {
       if (targetCabinetId.startsWith("__new_")) return;
-      await editWine(
+      await editWineAndSync(
         wineId,
         {
           cabinetId: targetCabinetId,
@@ -256,20 +217,7 @@ export function useCellarActions({
           col: targetCol,
           depth: 0,
         },
-        userId
-      );
-      setWines((prev) =>
-        prev.map((w) =>
-          w.id === wineId
-            ? {
-                ...w,
-                cabinetId: targetCabinetId,
-                row: targetRow,
-                col: targetCol,
-                depth: 0,
-              }
-            : w
-        )
+        { userId, setWines }
       );
       // Flash the destination slot so the move is easy to follow.
       highlightWine?.(wineId);
@@ -279,17 +227,10 @@ export function useCellarActions({
 
   const handleUnfileWine = useCallback(
     async (wineId: string) => {
-      await editWine(
+      await editWineAndSync(
         wineId,
         { cabinetId: null, row: null, col: null },
-        userId
-      );
-      setWines((prev) =>
-        prev.map((w) =>
-          w.id === wineId
-            ? { ...w, cabinetId: null, row: null, col: null }
-            : w
-        )
+        { userId, setWines }
       );
     },
     [userId, setWines]
