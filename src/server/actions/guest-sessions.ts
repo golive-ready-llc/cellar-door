@@ -3,9 +3,16 @@
 import { randomInt } from "crypto";
 import { prisma } from "@/lib/db";
 import { resolveServerUserId } from "@/server/auth-guard";
+import { assertNotDemo, isDemoRequest } from "@/lib/demo";
 
 // ============================================================
 // Guest Session (Sommelier Mode) Server Actions
+//
+// The host actions below need a signed-in account. Demo visitors can open
+// Sommelier Mode too (the demo runs on the top plan), and these actions used
+// to throw "Unauthorized" for them, a 500 in production. In demo mode the
+// reads now return nothing and the writes refuse with a readable message.
+// The public guest actions (getGuestSession, voteForWine) are unaffected.
 // ============================================================
 
 /**
@@ -28,6 +35,7 @@ export async function createGuestSession(
   name: string,
   hoursValid: number
 ) {
+  await assertNotDemo("host a tasting");
   try {
     const uid = await resolveServerUserId(userId);
     const expiresAt = new Date(Date.now() + hoursValid * 60 * 60 * 1000);
@@ -161,6 +169,7 @@ export async function voteForWine(code: string, wineId: string) {
 }
 
 export async function getSessionVotes(userId: string, sessionId: string) {
+  if (await isDemoRequest()) return null;
   try {
     const uid = await resolveServerUserId(userId);
     const session = await prisma.guestSession.findFirst({
@@ -175,6 +184,7 @@ export async function getSessionVotes(userId: string, sessionId: string) {
 }
 
 export async function getUserGuestSessions(userId?: string) {
+  if (await isDemoRequest()) return [];
   try {
     const uid = await resolveServerUserId(userId);
     return await prisma.guestSession.findMany({
@@ -187,6 +197,7 @@ export async function getUserGuestSessions(userId?: string) {
 }
 
 export async function deleteGuestSession(userId: string, sessionId: string) {
+  await assertNotDemo("manage tastings");
   try {
     const uid = await resolveServerUserId(userId);
     return await prisma.guestSession.deleteMany({

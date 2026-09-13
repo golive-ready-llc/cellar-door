@@ -54,7 +54,11 @@ export function SommelierModeDialog({
   open,
   onOpenChange,
 }: SommelierModeDialogProps) {
-  const { userId } = useAuth();
+  // Hosting a tasting needs an account. Demo visitors can still open this
+  // dialog, so it skips the server entirely in demo mode: those calls used to
+  // throw "Unauthorized" (a 500), and production hides server error messages,
+  // so a demo visitor only ever saw "Failed to create session".
+  const { userId, demoMode } = useAuth();
   const [sessions, setSessions] = useState<GuestSessionItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -65,7 +69,7 @@ export function SommelierModeDialog({
 
   // Load existing sessions
   const loadSessions = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || demoMode) return;
     setLoading(true);
     try {
       const data = await getUserGuestSessions(userId);
@@ -81,7 +85,7 @@ export function SommelierModeDialog({
       // ignore
     }
     setLoading(false);
-  }, [userId, selectedSession]);
+  }, [userId, demoMode, selectedSession]);
 
   useEffect(() => {
     if (open) {
@@ -91,7 +95,7 @@ export function SommelierModeDialog({
 
   // Poll votes for selected session
   useEffect(() => {
-    if (!selectedSession || !userId) return;
+    if (!selectedSession || !userId || demoMode) return;
     const fetchVotes = async () => {
       const v = await getSessionVotes(userId, selectedSession.id);
       if (v) setVotes(v);
@@ -99,10 +103,10 @@ export function SommelierModeDialog({
     fetchVotes();
     const interval = setInterval(fetchVotes, 5000);
     return () => clearInterval(interval);
-  }, [selectedSession, userId]);
+  }, [selectedSession, userId, demoMode]);
 
   const handleCreate = async () => {
-    if (!userId || !name.trim()) return;
+    if (!userId || !name.trim() || demoMode) return;
     setCreating(true);
     try {
       const session = await createGuestSession(userId, name.trim(), duration);
@@ -188,12 +192,17 @@ export function SommelierModeDialog({
               </div>
               <Button
                 onClick={handleCreate}
-                disabled={creating || !name.trim()}
+                disabled={creating || !name.trim() || demoMode}
                 className="w-full"
               >
                 {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Create Guest Session
               </Button>
+              {demoMode && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Hosting a tasting needs an account. Sign up to invite your guests.
+                </p>
+              )}
             </div>
           )}
 

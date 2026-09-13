@@ -141,3 +141,52 @@ describe("deleteGuestSession", () => {
     });
   });
 });
+
+// Demo visitors can open Sommelier Mode (the demo runs on the top plan). The
+// host actions used to throw "Unauthorized" for them, a 500 in production.
+// vi.mock is hoisted, so this switch applies to the whole file; it stays off
+// for every test above.
+const demo = vi.hoisted(() => ({ active: false }));
+vi.mock("@/lib/demo", () => ({
+  isDemoRequest: () => Promise.resolve(demo.active),
+  assertNotDemo: async (action = "do this") => {
+    if (demo.active) {
+      throw new Error(`Demo mode is read-only. Sign up to ${action} with your own account.`);
+    }
+  },
+}));
+
+describe("host actions in demo mode", () => {
+  beforeEach(() => {
+    demo.active = true;
+  });
+
+  it("returns no sessions instead of throwing Unauthorized", async () => {
+    const { getUserGuestSessions } = await import("@/server/actions/guest-sessions");
+    await expect(getUserGuestSessions("demo-user-001")).resolves.toEqual([]);
+    expect(resolveServerUserId).not.toHaveBeenCalled();
+    expect(guestSessionFindMany).not.toHaveBeenCalled();
+    demo.active = false;
+  });
+
+  it("returns no votes", async () => {
+    const { getSessionVotes } = await import("@/server/actions/guest-sessions");
+    await expect(getSessionVotes("demo-user-001", "gs1")).resolves.toBeNull();
+    expect(guestSessionFindFirst).not.toHaveBeenCalled();
+    demo.active = false;
+  });
+
+  it("refuses to create a session with a readable message", async () => {
+    const { createGuestSession } = await import("@/server/actions/guest-sessions");
+    await expect(createGuestSession("demo-user-001", "Dinner", 4)).rejects.toThrow("Demo mode is read-only");
+    expect(guestSessionCreate).not.toHaveBeenCalled();
+    demo.active = false;
+  });
+
+  it("refuses to delete a session", async () => {
+    const { deleteGuestSession } = await import("@/server/actions/guest-sessions");
+    await expect(deleteGuestSession("demo-user-001", "gs1")).rejects.toThrow("Demo mode is read-only");
+    expect(guestSessionDeleteMany).not.toHaveBeenCalled();
+    demo.active = false;
+  });
+});
