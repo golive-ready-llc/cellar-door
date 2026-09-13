@@ -6,11 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useTier } from "@/hooks/use-tier";
 import { UpgradePrompt } from "@/components/tier/upgrade-prompt";
 
-interface InsuranceReportButtonProps {
-  wineCount: number;
-}
-
-export function InsuranceReportButton({ wineCount }: InsuranceReportButtonProps) {
+export function InsuranceReportButton({ wineCount }: { wineCount: number }) {
   const { tier } = useTier();
   const isPremium = tier === "PREMIUM";
   const [loading, setLoading] = useState(false);

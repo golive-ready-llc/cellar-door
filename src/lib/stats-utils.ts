@@ -33,14 +33,8 @@ export function computeCoreStats(wines: Wine[], history: WineHistoryItem[]): Cor
       : 0;
 
   const vintageWines = wines.filter((w) => w.vintage !== null);
-  const oldestVintage = vintageWines.reduce(
-    (min, w) => (w.vintage !== null && w.vintage < min ? w.vintage : min),
-    Infinity
-  );
-  const newestVintage = vintageWines.reduce(
-    (max, w) => (w.vintage !== null && w.vintage > max ? w.vintage : max),
-    0
-  );
+  const oldestVintage = Math.min(...vintageWines.map((w) => w.vintage ?? Infinity));
+  const newestVintage = Math.max(...vintageWines.map((w) => w.vintage ?? 0));
 
   return {
     totalBottles,
