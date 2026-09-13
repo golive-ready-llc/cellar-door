@@ -46,7 +46,7 @@ export function filterWines(
   }
 
   if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     result = result.filter(
       (w) =>
         w.name.toLowerCase().includes(q) ||
