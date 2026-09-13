@@ -4,12 +4,13 @@ import { randomBytes, createHash } from "crypto";
 import { prisma } from "@/lib/db";
 import { getAdminAuth } from "@/lib/firebase-admin";
 import { getUserTier } from "@/server/tier-check";
+import { hasFeature } from "@/lib/tier";
 import { logAudit } from "@/server/audit-log";
 
 const MAX_KEYS_PER_USER = 5;
 
 /**
- * Generate a new API key for a PREMIUM user.
+ * Generate a new API key for a user whose tier grants API access.
  * Returns the plaintext key (shown only once).
  */
 export async function generateApiKey(
@@ -27,7 +28,7 @@ export async function generateApiKey(
     }
 
     const tier = await getUserTier(user.id);
-    if (tier !== "PREMIUM") {
+    if (!hasFeature(tier, "apiAccess")) {
       return { error: "API access requires Cellar Pro (PREMIUM) subscription." };
     }
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getAdminAuth } from "@/lib/firebase-admin";
 import { NextResponse } from "next/server";
 import { getUserTier } from "@/server/tier-check";
+import { hasFeature } from "@/lib/tier";
 
 export interface ApiUser {
   id: string;
@@ -86,11 +87,11 @@ export async function authenticateApiKey(
     return { ok: false, response: apiError("API key has expired.", 401) };
   }
 
-  // Verify PREMIUM tier — go through getUserTier so the DEFAULT_TIER_FLOOR
+  // Verify API access — go through getUserTier so the DEFAULT_TIER_FLOOR
   // env-var override is honored consistently with the rest of the server
   // tier checks. Reading apiKey.user.tier directly would skip the floor.
   const effectiveTier = await getUserTier(apiKey.user.id);
-  if (effectiveTier !== "PREMIUM") {
+  if (!hasFeature(effectiveTier, "apiAccess")) {
     return { ok: false, response: apiError("API access requires an active Cellar Pro (PREMIUM) subscription.", 403) };
   }
 
