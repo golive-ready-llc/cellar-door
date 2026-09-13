@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computePriceData } from "@/lib/stats-utils";
+import { computePriceData, computeCoreStats } from "@/lib/stats-utils";
 import type { Wine } from "@/types/wine";
 
 /**
@@ -77,5 +77,34 @@ describe("computePriceData", () => {
     const data = computePriceData([makeWine({ price: 25 }), makeWine({ price: 500 })]);
 
     expect(data.map((b) => b.label)).toEqual(["$25-50", "$500+"]);
+  });
+});
+
+/**
+ * Regression: an empty cellar (or one with no vintages) must produce null
+ * vintages, not ±Infinity. `Math.min(...[])`/`Math.max(...[])` are
+ * ±Infinity — without the length guard, hero stat cards rendered
+ * "Newest: -Infinity" for a brand-new account.
+ */
+describe("computeCoreStats vintages", () => {
+  it("returns null vintages for an empty cellar", () => {
+    const stats = computeCoreStats([], []);
+    expect(stats.oldestVintage).toBeNull();
+    expect(stats.newestVintage).toBeNull();
+  });
+
+  it("returns null vintages when no wine has a vintage", () => {
+    const stats = computeCoreStats([makeWine({ vintage: null })], []);
+    expect(stats.oldestVintage).toBeNull();
+    expect(stats.newestVintage).toBeNull();
+  });
+
+  it("keeps real min and max vintages", () => {
+    const stats = computeCoreStats(
+      [makeWine({ vintage: 1998 }), makeWine({ vintage: 2020 })],
+      []
+    );
+    expect(stats.oldestVintage).toBe(1998);
+    expect(stats.newestVintage).toBe(2020);
   });
 });
