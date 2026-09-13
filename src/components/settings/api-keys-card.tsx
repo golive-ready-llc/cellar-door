@@ -24,7 +24,7 @@ interface ApiKeyInfo {
 }
 
 export function ApiKeysCard() {
-  const { tier } = useTier();
+  const { can } = useTier();
   const { getIdToken } = useAuth();
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,10 +35,10 @@ export function ApiKeysCard() {
   const [keyName, setKeyName] = useState("");
   const [revoking, setRevoking] = useState<string | null>(null);
 
-  const isPremium = tier === "PREMIUM";
+  const hasApiAccess = can("apiAccess");
 
   const fetchKeys = useCallback(async () => {
-    if (!isPremium) {
+    if (!hasApiAccess) {
       setLoading(false);
       return;
     }
@@ -55,7 +55,7 @@ export function ApiKeysCard() {
     } finally {
       setLoading(false);
     }
-  }, [isPremium, getIdToken]);
+  }, [hasApiAccess, getIdToken]);
 
   useEffect(() => {
     fetchKeys();
@@ -121,8 +121,8 @@ export function ApiKeysCard() {
     }
   };
 
-  // Non-PREMIUM users see a locked upgrade card
-  if (!isPremium) {
+  // Users whose tier doesn't grant API access see a locked upgrade card
+  if (!hasApiAccess) {
     return (
       <Card className="border-dashed border-muted-foreground/25">
         <CardHeader>

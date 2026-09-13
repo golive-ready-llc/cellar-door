@@ -328,6 +328,7 @@ export function EditWineDialog({
                       key={star}
                       type="button"
                       className="p-0.5 transition-transform hover:scale-110"
+                      aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
                       onClick={() =>
                         setUserRating(userRating === star ? null : star)
                       }
