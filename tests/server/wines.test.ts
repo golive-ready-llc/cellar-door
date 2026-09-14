@@ -15,6 +15,7 @@ const historyFindMany = vi.fn();
 const historyFindFirst = vi.fn();
 const historyUpdate = vi.fn();
 const historyDeleteMany = vi.fn();
+const historyDelete = vi.fn();
 const txSpy = vi.fn();
 
 const wineCount = vi.fn();
@@ -41,6 +42,7 @@ vi.mock("@/lib/db", () => ({
       findMany: historyFindMany,
       findFirst: historyFindFirst,
       update: historyUpdate,
+      delete: historyDelete,
       deleteMany: historyDeleteMany,
     },
     $transaction: txSpy,
@@ -460,5 +462,67 @@ describe("wine images in list responses", () => {
     const { data } = wineUpdate.mock.calls[0][0];
     expect(data).not.toHaveProperty("imageUrl");
     expect(data.name).toBe("Renamed");
+  });
+});
+
+describe("restoreWineFromHistory", () => {
+  function fakeHistoryRow() {
+    return {
+      id: "h1",
+      userId: "u1",
+      wineId: "w-old",
+      name: "Restored Wine",
+      winery: "Winery",
+      region: "",
+      country: "",
+      vintage: 2019,
+      type: "red",
+      sparkling: false,
+      grapeVariety: "",
+      imageUrl: "",
+      price: 25,
+      retailPrice: null,
+      description: "",
+      foodPairings: "",
+      alcohol: "",
+      disposition: "",
+      drinkWindow: "",
+      aiRatings: null,
+      consumeRating: null,
+      consumeNotes: "",
+      reason: "other",
+      consumedAt: new Date("2026-01-01"),
+    };
+  }
+
+  it("creates the wine and deletes the history entry inside one transaction", async () => {
+    const txWineCreate = vi.fn().mockResolvedValue(fakeWineRow({ id: "w-new", name: "Restored Wine" }));
+    const txHistoryDelete = vi.fn().mockResolvedValue({});
+    txSpy.mockImplementation((fn: (tx: unknown) => unknown) =>
+      fn({ wine: { create: txWineCreate }, wineHistory: { delete: txHistoryDelete } })
+    );
+    historyFindFirst.mockResolvedValue(fakeHistoryRow());
+
+    const { restoreWineFromHistory } = await import("@/server/actions/wines");
+    const restored = await restoreWineFromHistory("u1", "h1");
+
+    expect(txSpy).toHaveBeenCalledOnce();
+    expect(txWineCreate).toHaveBeenCalledOnce();
+    expect(txHistoryDelete).toHaveBeenCalledWith({ where: { id: "h1" } });
+    expect(restored.id).toBe("w-new");
+  });
+
+  it("fails as one unit when the history delete fails", async () => {
+    const txWineCreate = vi.fn().mockResolvedValue(fakeWineRow({ id: "w-new" }));
+    const txHistoryDelete = vi.fn().mockRejectedValue(new Error("delete failed"));
+    txSpy.mockImplementation((fn: (tx: unknown) => unknown) =>
+      fn({ wine: { create: txWineCreate }, wineHistory: { delete: txHistoryDelete } })
+    );
+    historyFindFirst.mockResolvedValue(fakeHistoryRow());
+
+    const { restoreWineFromHistory } = await import("@/server/actions/wines");
+    await expect(restoreWineFromHistory("u1", "h1")).rejects.toThrow("delete failed");
+    expect(txWineCreate).toHaveBeenCalledOnce();
+    expect(txHistoryDelete).toHaveBeenCalledOnce();
   });
 });

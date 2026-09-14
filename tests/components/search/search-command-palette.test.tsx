@@ -4,21 +4,20 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 // Stub the data layer — we don't want network calls during the lazy load
 // effect that fires on first open. Hoist the wine fixture so vi.mock's
 // factory can read it (vi.mock factories run before module-level vars).
-const { wines } = vi.hoisted(() => ({
-  wines: [
-  {
-    id: "w-1",
+const { wines } = vi.hoisted(() => {
+  const makeWine = (id: string, name: string, winery: string, grapeVariety: string) => ({
+    id,
     userId: "u1",
     cabinetId: null,
     barcode: "",
-    name: "Caymus Cabernet",
-    winery: "Caymus",
-    region: "Napa",
-    country: "USA",
-    vintage: 2019,
+    name,
+    winery,
+    region: "",
+    country: "",
+    vintage: 2020,
     type: "red",
     sparkling: false,
-    grapeVariety: "Cabernet Sauvignon",
+    grapeVariety,
     userRating: null,
     imageUrl: "",
     price: null,
@@ -40,44 +39,17 @@ const { wines } = vi.hoisted(() => ({
     tags: [],
     addedAt: "",
     updatedAt: "",
-  },
-  {
-    id: "w-2",
-    userId: "u1",
-    cabinetId: null,
-    barcode: "",
-    name: "Domaine Leroy Chambertin",
-    winery: "Domaine Leroy",
-    region: "Burgundy",
-    country: "France",
-    vintage: 2015,
-    type: "red",
-    sparkling: false,
-    grapeVariety: "Pinot Noir",
-    userRating: null,
-    imageUrl: "",
-    price: null,
-    retailPrice: null,
-    purchaseDate: "",
-    drinkBy: "",
-    notes: "",
-    description: "",
-    foodPairings: "",
-    alcohol: "",
-    row: null,
-    col: null,
-    depth: 0,
-    zone: "",
-    tastingNotes: null,
-    disposition: "",
-    drinkWindow: "",
-    aiRatings: null,
-    tags: [],
-    addedAt: "",
-    updatedAt: "",
-  },
-  ],
-}));
+  });
+  return {
+    wines: [
+      makeWine("w-1", "Caymus Cabernet", "Caymus", "Cabernet Sauvignon"),
+      makeWine("w-2", "Domaine Leroy Chambertin", "Domaine Leroy", "Pinot Noir"),
+      ...Array.from({ length: 4 }, (_, i) =>
+        makeWine(`w-bulk-${i}`, `Bulk Bin Red ${i}`, "Bulk Winery", "Merlot")
+      ),
+    ],
+  };
+});
 
 vi.mock("@/lib/data", () => ({
   fetchWines: vi.fn().mockResolvedValue(wines),
@@ -141,5 +113,33 @@ describe("SearchCommandPalette", () => {
       expect(screen.getByText("Caymus Cabernet")).toBeInTheDocument();
     });
     expect(screen.queryByText("Domaine Leroy Chambertin")).not.toBeInTheDocument();
+  });
+
+  it("keeps the highlight inside the results when typing shrinks the list", async () => {
+    searchState.open = true;
+    render(<SearchCommandPalette />);
+    const input = (await screen.findByPlaceholderText(
+      /search wines/i
+    )) as HTMLInputElement;
+    await waitFor(() => {
+      expect(screen.getByText(/wines indexed/i)).toBeInTheDocument();
+    });
+
+    // Four "Bulk Bin Red" matches; walk the highlight down to the last row.
+    fireEvent.change(input, { target: { value: "bulk bin red" } });
+    await waitFor(() => {
+      expect(screen.getByText("Bulk Bin Red 0")).toBeInTheDocument();
+    });
+    for (let i = 0; i < 3; i++) {
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+    }
+
+    // Narrow to one match. During that render the list is already short but
+    // the highlight index still points at row 3 — the palette must not read
+    // past the end of the new results.
+    fireEvent.change(input, { target: { value: "bulk bin red 1" } });
+
+    expect(await screen.findByText("Bulk Bin Red 1")).toBeInTheDocument();
+    expect(screen.queryByText("Bulk Bin Red 0")).not.toBeInTheDocument();
   });
 });

@@ -103,6 +103,11 @@ export function SearchCommandPalette() {
     setSelectedIndex(0);
   }, [results.length, query]);
 
+  // The reset effect runs after the render that already shrank the results,
+  // so `selectedIndex` can point past the end of the new list for one render.
+  // Clamp it — reading results[selectedIndex] unclamped crashed the palette.
+  const activeIndex = Math.min(selectedIndex, Math.max(0, results.length - 1));
+
   const navigateToWine = useCallback(
     (wine: Wine) => {
       setOpen(false);
@@ -123,10 +128,10 @@ export function SearchCommandPalette() {
         setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
       } else if (e.key === "Enter" && results.length > 0) {
         e.preventDefault();
-        navigateToWine(results[selectedIndex].wine);
+        navigateToWine(results[activeIndex].wine);
       }
     },
-    [results, selectedIndex, navigateToWine]
+    [results, activeIndex, navigateToWine]
   );
 
   return (
@@ -146,7 +151,7 @@ export function SearchCommandPalette() {
               aria-expanded={results.length > 0}
               aria-controls={resultsListId}
               aria-activedescendant={
-                results.length > 0 ? `search-result-${results[selectedIndex].wine.id}` : undefined
+                results.length > 0 ? `search-result-${results[activeIndex].wine.id}` : undefined
               }
               autoComplete="off"
               type="text"
@@ -197,7 +202,7 @@ export function SearchCommandPalette() {
               const { wine, cabinetName } = result;
               const typeColor =
                 WINE_TYPE_COLORS[wine.type as WineType] || "#666";
-              const isSelected = idx === selectedIndex;
+              const isSelected = idx === activeIndex;
 
               return (
                 <button

@@ -29,10 +29,17 @@ export function CellarChatWrapper() {
       setLoaded(true);
       return;
     }
-    fetchWines(userId).then((w) => {
-      setWines(w);
-      setLoaded(true);
-    });
+    // A failed initial load must not hide the FAB for the whole session:
+    // the effect only refires on user/tier change, so there'd be no retry.
+    // Show the FAB with whatever we have; refreshWines refetches on open.
+    fetchWines(userId)
+      .then((w) => {
+        setWines(w);
+        setLoaded(true);
+      })
+      .catch(() => {
+        setLoaded(true);
+      });
   }, [hasAI, userId]);
 
   // The list above loads once, when the app opens, so without this the chat

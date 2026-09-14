@@ -180,6 +180,7 @@ function DraggableFab({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => v
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        aria-label={isOpen ? "Close chat" : "Open chat"}
         className={cn(
           "w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200",
           isOpen
