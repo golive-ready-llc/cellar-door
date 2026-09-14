@@ -57,6 +57,24 @@ export function CabinetGrid({
     return map;
   }, [cabinet.storageRows]);
 
+  // Row/col of the pulsing highlight within this cabinet, resolved once. Each
+  // GridRow gets a plain "highlighted column or null", so the memos there can
+  // skip every row the flash doesn't touch.
+  const highlightedCell = useMemo(() => {
+    if (!highlightedWineId) return null;
+    const wine = wines.find((w) => w.id === highlightedWineId);
+    return wine && wine.row !== null && wine.col !== null
+      ? { row: wine.row, col: wine.col }
+      : null;
+  }, [highlightedWineId, wines]);
+
+  // Ignore a slot glow aimed at a different cabinet (ViewModeGrid pre-scopes
+  // this, but the prop contract stays honest for any direct caller).
+  const scopedSlot =
+    highlightedSlot && highlightedSlot.cabinetId === cabinet.id
+      ? highlightedSlot
+      : null;
+
   const effectiveRows = cabinet.rows;
   const effectiveCols = cabinet.cols;
 
@@ -99,7 +117,8 @@ export function CabinetGrid({
     onRowCaseDrop,
     onRowClick,
     highlightedWineId,
-    highlightedSlot,
+    highlightedCell,
+    highlightedSlot: scopedSlot,
   });
 
   // Auto-scale for racks wider than the viewport (view mode only)
@@ -230,6 +249,7 @@ function buildRowElements({
   onRowCaseDrop,
   onRowClick,
   highlightedWineId,
+  highlightedCell,
   highlightedSlot,
 }: {
   effectiveRows: number;
@@ -251,6 +271,7 @@ function buildRowElements({
   onRowCaseDrop?: (rowIndex: number, caseSize: number) => void;
   onRowClick?: (rowIndex: number, anchorRect: DOMRect) => void;
   highlightedWineId?: string | null;
+  highlightedCell: { row: number; col: number } | null;
   highlightedSlot?: import("./cabinet-grid-types").HighlightSlot | null;
 }): ReactNode[] {
   const rowElements: ReactNode[] = [];
@@ -308,8 +329,16 @@ function buildRowElements({
           suppressTooltip={editable}
           editable={editable}
           onWineDrop={onWineDrop}
-          highlightedWineId={highlightedWineId}
-          highlightedSlot={highlightedSlot}
+          highlightedCol={
+            highlightedCell && highlightedCell.row === rowIndex
+              ? highlightedCell.col
+              : null
+          }
+          slotHighlightCol={
+            highlightedSlot && highlightedSlot.row === rowIndex
+              ? highlightedSlot.col
+              : null
+          }
         />
       );
     }

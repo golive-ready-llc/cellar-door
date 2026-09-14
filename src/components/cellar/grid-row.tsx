@@ -1,9 +1,12 @@
-"use client";
-
+import { memo } from "react";
 import type { GridRowProps } from "./cabinet-grid-types";
 import { WineSlot } from "./wine-slot";
 
-export function GridRow({
+// Memoized: a highlight flash or slot glow touches one column of one row, and
+// CabinetGrid hands each row only the columns that concern it (null for every
+// other row). Plain prop equality then skips all untouched rows instead of
+// re-rendering every slot on the wall.
+export const GridRow = memo(function GridRow({
   cabinetId,
   rowIndex,
   cols,
@@ -18,24 +21,18 @@ export function GridRow({
   suppressTooltip,
   editable,
   onWineDrop,
-  highlightedWineId,
-  highlightedSlot,
+  highlightedCol,
+  slotHighlightCol,
 }: GridRowProps) {
   const cells = [];
   for (let colIndex = 0; colIndex < cols; colIndex++) {
     const key = `${rowIndex}-${colIndex}`;
     const winesAtPos = wineMap.get(key) || [];
     const frontWine = winesAtPos.length > 0 ? winesAtPos[0] : undefined;
-    const isHighlighted = !!highlightedWineId && winesAtPos.some(w => w.id === highlightedWineId);
-    const isSlotHighlighted =
-      !!highlightedSlot &&
-      highlightedSlot.cabinetId === cabinetId &&
-      highlightedSlot.row === rowIndex &&
-      highlightedSlot.col === colIndex;
 
     cells.push(
       <WineSlot
-        key={`${rowIndex}-${colIndex}`}
+        key={key}
         cabinetId={cabinetId}
         wine={frontWine}
         allWines={winesAtPos}
@@ -46,8 +43,8 @@ export function GridRow({
         onWineDrop={onWineDrop}
         rowIndex={rowIndex}
         colIndex={colIndex}
-        highlighted={isHighlighted}
-        slotHighlighted={isSlotHighlighted}
+        highlighted={colIndex === highlightedCol}
+        slotHighlighted={colIndex === slotHighlightCol}
         onClick={() => {
           if (depth >= 2 && onDepthSlotClick) {
             onDepthSlotClick(rowIndex, colIndex, winesAtPos);
@@ -75,4 +72,4 @@ export function GridRow({
       )}
     </div>
   );
-}
+});

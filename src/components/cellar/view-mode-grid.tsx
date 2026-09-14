@@ -49,7 +49,10 @@ interface ViewModeGridProps {
   ) => Promise<void>;
 }
 
-function CabinetGridWrapper({
+// Memoized: ViewModeGrid hands each wrapper a highlight already scoped to its
+// cabinet (null everywhere else), so a highlight flash re-renders the one
+// cabinet that shows it and the memos inside skip the rest.
+const CabinetGridWrapper = memo(function CabinetGridWrapper({
   cabinet,
   wines,
   moveMode,
@@ -124,7 +127,7 @@ function CabinetGridWrapper({
       highlightedSlot={highlightedSlot}
     />
   );
-}
+});
 
 // Memoized: the cellar page re-renders on every search keystroke and highlight
 // flash, and this grid is hundreds of slots deep. With stable handler props and
@@ -163,11 +166,21 @@ export const ViewModeGrid = memo(function ViewModeGrid({
     return map;
   }, [displayWines]);
 
+  // A highlight flash must not re-render every cabinet on the wall. Scope the
+  // pulsing wine to its one cabinet and the gold slot to its one cabinet, so
+  // the memoized wrappers elsewhere see unchanged props and bail out.
+  const highlightedCabinetId = useMemo(() => {
+    if (!highlightedWineId) return null;
+    return displayWines.find((w) => w.id === highlightedWineId)?.cabinetId ?? null;
+  }, [highlightedWineId, displayWines]);
+
   if (wallCabinets.length > 0) {
     return (
       <div className="flex flex-wrap gap-6 overflow-hidden">
         {wallCabinets.map((cabinet) => {
           const cabinetWines = cabinetWineMap.get(cabinet.id) || [];
+          const cabinetOwnsHighlight =
+            highlightedWineId != null && highlightedCabinetId === cabinet.id;
           return (
             <div
               key={cabinet.id}
@@ -184,8 +197,12 @@ export const ViewModeGrid = memo(function ViewModeGrid({
                 onSlotClick={onSlotClick}
                 onDepthSlotClick={onDepthSlotClick}
                 onBulkZoneClick={onBulkZoneClick}
-                highlightedWineId={highlightedWineId}
-                highlightedSlot={highlightedSlot}
+                highlightedWineId={cabinetOwnsHighlight ? highlightedWineId : null}
+                highlightedSlot={
+                  highlightedSlot && highlightedSlot.cabinetId === cabinet.id
+                    ? highlightedSlot
+                    : null
+                }
               />
             </div>
           );
