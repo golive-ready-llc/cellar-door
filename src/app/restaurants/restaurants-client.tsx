@@ -19,6 +19,10 @@ import {
   Loader2,
   ArrowRight,
   PlayCircle,
+  Shapes,
+  Store,
+  UtensilsCrossed,
+  Wine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,10 +65,10 @@ const FEATURES = [
 ];
 
 const VENUE_TYPES = [
-  { value: "restaurant", label: "Restaurant" },
-  { value: "wine_bar", label: "Wine bar" },
-  { value: "wine_shop", label: "Wine shop / retail" },
-  { value: "other", label: "Other" },
+  { value: "restaurant", label: "Restaurant", icon: UtensilsCrossed, color: "#f59e0b" },
+  { value: "wine_bar", label: "Wine bar", icon: Wine, color: "#a855f7" },
+  { value: "wine_shop", label: "Wine shop / retail", icon: Store, color: "#10b981" },
+  { value: "other", label: "Other", icon: Shapes, color: "#3b82f6" },
 ];
 
 const CELLAR_SIZES = ["Under 100", "100–500", "500–1,000", "1,000+"];
@@ -295,21 +299,34 @@ function DemoRequestForm() {
         <div className="grid gap-1.5">
           <Label>Venue type</Label>
           <div className="flex flex-wrap gap-2">
-            {VENUE_TYPES.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setVenueType(t.value)}
-                className={cn(
-                  "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                  venueType === t.value
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
+            {VENUE_TYPES.map((t) => {
+              const Icon = t.icon;
+              const isSelected = venueType === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setVenueType(t.value)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    !isSelected &&
+                      "border-border bg-background text-muted-foreground hover:text-foreground"
+                  )}
+                  // Each venue kind keeps its accent color at ALL times (the
+                  // icon), so the options are scannable before any tap.
+                  // Selection = that color as border + tint, not a generic
+                  // highlight.
+                  style={
+                    isSelected
+                      ? { borderColor: t.color, backgroundColor: `${t.color}24` }
+                      : undefined
+                  }
+                >
+                  <Icon className="h-4 w-4 shrink-0" style={{ color: t.color }} />
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
         </div>
         <div className="grid gap-1.5">

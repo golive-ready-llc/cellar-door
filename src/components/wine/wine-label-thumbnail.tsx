@@ -159,9 +159,9 @@ export function WineLabelThumbnail({
 
           {onAiFetch && (
             <Button
-              variant="outline"
+              variant="ai"
               size="sm"
-              className="w-full gap-1.5 text-amber-600 hover:text-amber-700 border-amber-200 hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              className="w-full gap-1.5"
               disabled={aiFetching}
               onClick={async () => {
                 await handleAiFetch();

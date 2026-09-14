@@ -163,9 +163,10 @@ export function CorkAndForkDialog({
                 className="flex-1"
               />
               <Button
+                variant="ai"
                 onClick={handleSearch}
                 disabled={loading || !meal.trim()}
-                className="bg-amber-600 hover:bg-amber-700 text-white shrink-0"
+                className="shrink-0"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
