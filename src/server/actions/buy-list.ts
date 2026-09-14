@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
-import type { BuyListItem } from "@/types/wine";
+import { isSparklingType, type BuyListItem } from "@/types/wine";
 import { resolveServerUserId } from "@/server/auth-guard";
 import { resolveImageRef } from "@/server/wine-image-refs";
 import { assertNotDemo } from "@/lib/demo";
@@ -71,11 +71,7 @@ export async function addBuyListItem(
         country: data.country ?? "",
         vintage: data.vintage,
         type: (data.type ?? "red").toLowerCase(),
-        sparkling: data.sparkling ?? (
-          ["sparkling", "champagne", "prosecco", "cava", "crémant", "cremant", "franciacorta"].includes(
-            (data.type ?? "").toLowerCase()
-          )
-        ),
+        sparkling: data.sparkling ?? isSparklingType(data.type ?? ""),
         grapeVariety: data.grapeVariety ?? "",
         imageUrl: data.imageUrl ? await resolveImageRef(uid, data.imageUrl) : "",
         retailPrice: data.retailPrice,

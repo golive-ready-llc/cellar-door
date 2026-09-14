@@ -10,7 +10,7 @@ import {
   WINE_TYPE_LABELS,
   WINE_TYPE_COLORS,
 } from "@/types/constants";
-import { isLightWineType } from "@/types/wine";
+import { isLightWineType, matchesSparklingFilter } from "@/types/wine";
 import type { Wine, WineType } from "@/types/wine";
 
 interface TypeFilterProps {
@@ -38,11 +38,7 @@ export function TypeFilterBadges({
       {WINE_TYPES.map((t) => {
         const count =
           t === "sparkling"
-            ? wines.filter((w) => w.sparkling === true || (
-                ["sparkling", "champagne", "prosecco", "cava", "crémant", "cremant", "franciacorta"].includes(
-                  (w.type ?? "").toLowerCase()
-                )
-              )).length
+            ? wines.filter(matchesSparklingFilter).length
             : wines.filter((w) => w.type === t).length;
         if (count === 0) return null;
         return (

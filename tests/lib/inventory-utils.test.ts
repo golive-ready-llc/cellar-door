@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { filterWines } from "@/lib/inventory-utils";
+import { matchesSparklingFilter } from "@/types/wine";
 import type { Wine } from "@/types/wine";
 
 /**
@@ -62,5 +63,37 @@ describe("filterWines search", () => {
 
   it("returns nothing for a query that matches no field", () => {
     expect(filterWines(wines, "all", [], "burgundy")).toHaveLength(0);
+  });
+});
+
+describe("filterWines sparkling", () => {
+  it("matches the sparkling boolean even when type is a still color", () => {
+    const roséChampagne = makeWine({ id: "w-1", type: "white", sparkling: true });
+    expect(filterWines([roséChampagne], "sparkling", [], "")).toHaveLength(1);
+  });
+
+  it("matches legacy type-only rows (sparkling variants)", () => {
+    const legacy = [
+      makeWine({ id: "w-1", type: "champagne", sparkling: false }),
+      makeWine({ id: "w-2", type: "crémant", sparkling: false }),
+    ];
+    expect(filterWines(legacy, "sparkling", [], "")).toHaveLength(2);
+  });
+
+  it("does not match still wines", () => {
+    expect(filterWines([makeWine({})], "sparkling", [], "")).toHaveLength(0);
+  });
+});
+
+describe("matchesSparklingFilter", () => {
+  it("is case-insensitive on legacy types", () => {
+    expect(matchesSparklingFilter({ type: "CHAMPAGNE", sparkling: false })).toBe(true);
+  });
+
+  it("treats the boolean flag as the source of truth for new data", () => {
+    expect(matchesSparklingFilter({ type: "red", sparkling: true })).toBe(true);
+    expect(matchesSparklingFilter({ type: "sparkling", sparkling: false })).toBe(true);
+    expect(matchesSparklingFilter({ type: "red", sparkling: false })).toBe(false);
+    expect(matchesSparklingFilter({ type: null, sparkling: null })).toBe(false);
   });
 });

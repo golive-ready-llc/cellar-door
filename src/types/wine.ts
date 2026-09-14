@@ -16,6 +16,16 @@ export function isSparklingType(type: string): boolean {
   return SPARKLING_VARIANTS.includes(type.toLowerCase() as WineType);
 }
 
+/** The one "does this wine show up under a Sparkling filter?" rule: the
+ *  canonical boolean flag, or a legacy type-only row whose type is a
+ *  sparkling variant. Filters and badge counts share this so surfaces
+ *  can't drift apart. */
+export function matchesSparklingFilter(
+  w: { type?: string | null; sparkling?: boolean | null }
+): boolean {
+  return w.sparkling === true || isSparklingType(w.type ?? "");
+}
+
 /** Wine types whose background fill color is light enough to need dark
  *  (#333) foreground text/icons instead of white (#fff). */
 export function isLightWineType(type: string): boolean {
