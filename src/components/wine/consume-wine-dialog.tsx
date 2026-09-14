@@ -24,7 +24,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
+  REMOVAL_REASONS,
   WINE_TYPE_COLORS,
+  type RemovalReasonId,
 } from "@/types/constants";
 import { isLightWineType, type Wine } from "@/types/wine";
 
@@ -35,14 +37,18 @@ interface ConsumeWineDialogProps {
   onConsume: (wineId: string, reason: string, rating?: number | null, notes?: string) => Promise<void>;
 }
 
-const REASONS = [
-  { id: "drank", label: "Drank", icon: WineIcon, color: "#8B5CF6" },
-  { id: "gifted", label: "Gifted", icon: Gift, color: "#EC4899" },
-  { id: "sold", label: "Sold", icon: DollarSign, color: "#22C55E" },
-  { id: "broken", label: "Broken", icon: AlertTriangle, color: "#EF4444" },
-  { id: "spoiled", label: "Spoiled", icon: CircleOff, color: "#F97316" },
-  { id: "other", label: "Other", icon: HelpCircle, color: "#6B7280" },
-] as const;
+// ids and labels come from REMOVAL_REASONS so a new reason added there shows
+// up in this picker automatically; the exhaustive key type forces an accent
+// to be chosen for it here.
+const REASON_ACCENTS: Record<RemovalReasonId, { icon: typeof WineIcon; color: string }> = {
+  drank: { icon: WineIcon, color: "#8B5CF6" },
+  gifted: { icon: Gift, color: "#EC4899" },
+  sold: { icon: DollarSign, color: "#22C55E" },
+  broken: { icon: AlertTriangle, color: "#EF4444" },
+  spoiled: { icon: CircleOff, color: "#F97316" },
+  other: { icon: HelpCircle, color: "#6B7280" },
+};
+const REASONS = REMOVAL_REASONS.map((r) => ({ ...r, ...REASON_ACCENTS[r.id] }));
 
 export function ConsumeWineDialog({
   wine,
