@@ -12,7 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Wine, Cabinet } from "@/types/wine";
-import { useBarcodeScannerHook } from "@/hooks/use-barcode-scanner";
+import { useBarcodeScanner } from "@/hooks/use-barcode-scanner";
 import {
   ScanDialogTitle,
   ScanDialogDescription,
@@ -55,7 +55,7 @@ export function BarcodeScanDialog({
     handleManualLookup,
     handleSave,
     handleOpenChange,
-  } = useBarcodeScannerHook(cabinets);
+  } = useBarcodeScanner(cabinets);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

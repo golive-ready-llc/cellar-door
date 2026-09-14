@@ -130,20 +130,14 @@ export function useAddWineForm({
     pendingSlot?.cabinetId ?? (cabinets.length > 0 ? cabinets[0].id : "")
   );
 
-  // Sync pendingSlot cabinetId
+  // When the add flow was launched from a specific empty slot, file the wine
+  // there: sync both the Unfiled placement state and the Section dropdown so
+  // what the user sees matches where the wine will actually go. (No other
+  // auto-default — see cabinetId above.)
   useEffect(() => {
-    if (pendingSlot?.cabinetId) {
-      setUnfiledCabinetId(pendingSlot.cabinetId);
-    }
-  }, [pendingSlot?.cabinetId]);
-
-  // When the add flow was launched from a specific empty slot, reflect that
-  // cabinet in the Section dropdown so what the user sees matches where the
-  // wine will actually go. (No other auto-default — see cabinetId above.)
-  useEffect(() => {
-    if (pendingSlot?.cabinetId) {
-      setCabinetId(pendingSlot.cabinetId);
-    }
+    if (!pendingSlot?.cabinetId) return;
+    setUnfiledCabinetId(pendingSlot.cabinetId);
+    setCabinetId(pendingSlot.cabinetId);
   }, [pendingSlot?.cabinetId]);
 
   const resetForm = useCallback(() => {
@@ -191,38 +185,38 @@ export function useAddWineForm({
       // skip it (same rule the Duplicate action uses).
       const qty = Math.max(1, Math.min(99, parseInt(quantity, 10) || 1));
       for (let n = 0; n < qty; n++) {
-      await onAdd({
-        cabinetId: cabinetId || null,
-        barcode: barcodeValue,
-        name: name.trim(),
-        winery: winery.trim(),
-        region: region.trim(),
-        country: country.trim(),
-        vintage: vintage ? parseInt(vintage, 10) : null,
-        type: type as Wine["type"],
-        sparkling,
-        grapeVariety: grapeVariety.trim(),
-        userRating,
-        imageUrl: imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : "",
-        price: purchasePrice ? parseFloat(purchasePrice) : null,
-        retailPrice: price ? parseFloat(price) : null,
-        purchaseDate: new Date().toISOString().split("T")[0],
-        drinkBy: drinkBy.trim(),
-        notes: notes.trim(),
-        description: description.trim(),
-        foodPairings: foodPairings.trim(),
-        alcohol: alcohol.trim(),
-        row: null,
-        col: null,
-        depth: 0,
-        zone: "",
-        tags,
-        tastingNotes: null,
-        disposition: disposition.trim(),
-        drinkWindow: drinkWindow.trim(),
-        aiRatings: null,
-        skipDuplicateCheck: skipDuplicateCheck || n > 0,
-      });
+        await onAdd({
+          cabinetId: cabinetId || null,
+          barcode: barcodeValue,
+          name: name.trim(),
+          winery: winery.trim(),
+          region: region.trim(),
+          country: country.trim(),
+          vintage: vintage ? parseInt(vintage, 10) : null,
+          type: type as Wine["type"],
+          sparkling,
+          grapeVariety: grapeVariety.trim(),
+          userRating,
+          imageUrl: imageBase64 ? `data:${imageMimeType};base64,${imageBase64}` : "",
+          price: purchasePrice ? parseFloat(purchasePrice) : null,
+          retailPrice: price ? parseFloat(price) : null,
+          purchaseDate: new Date().toISOString().split("T")[0],
+          drinkBy: drinkBy.trim(),
+          notes: notes.trim(),
+          description: description.trim(),
+          foodPairings: foodPairings.trim(),
+          alcohol: alcohol.trim(),
+          row: null,
+          col: null,
+          depth: 0,
+          zone: "",
+          tags,
+          tastingNotes: null,
+          disposition: disposition.trim(),
+          drinkWindow: drinkWindow.trim(),
+          aiRatings: null,
+          skipDuplicateCheck: skipDuplicateCheck || n > 0,
+        });
       }
       resetForm();
       setOpen(false);

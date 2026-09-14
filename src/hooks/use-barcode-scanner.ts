@@ -28,7 +28,7 @@ const DEFAULT_FIELDS: WineFormFields = {
   cabinetId: "",
 };
 
-export function useBarcodeScannerHook(cabinets: Cabinet[]) {
+export function useBarcodeScanner(cabinets: Cabinet[]) {
   const defaultCabinetId = cabinets.length > 0 ? cabinets[0].id : "";
 
   const [open, setOpen] = useState(false);
