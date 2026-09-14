@@ -1,4 +1,4 @@
-import type { Wine, WineType } from "@/types/wine";
+import { matchesSparklingFilter, type Wine, type WineType } from "@/types/wine";
 
 export type SortKey = "name" | "vintage" | "price" | "rating" | "addedAt" | "type";
 export type SortDirection = "asc" | "desc";
@@ -28,12 +28,7 @@ export function filterWines(
 
   if (selectedType !== "all") {
     if (selectedType === "sparkling") {
-      // Sparkling is orthogonal to color — match boolean flag OR legacy type="sparkling"
-      result = result.filter((w) => w.sparkling === true || (
-        ["sparkling", "champagne", "prosecco", "cava", "crémant", "cremant", "franciacorta"].includes(
-          (w.type ?? "").toLowerCase()
-        )
-      ));
+      result = result.filter(matchesSparklingFilter);
     } else {
       result = result.filter((w) => w.type === selectedType);
     }

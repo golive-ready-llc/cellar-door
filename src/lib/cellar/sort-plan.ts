@@ -15,7 +15,7 @@
 // Pure + deterministic so it can be unit-tested without React.
 
 import type { Wine, Cabinet, Wall } from "@/types/wine";
-import { bottleFitsSlot } from "@/types/wine";
+import { bottleFitsSlot, SPARKLING_VARIANTS } from "@/types/wine";
 import { getEffectiveDisposition } from "@/lib/drink-window";
 
 export type SortScheme =
@@ -116,7 +116,7 @@ function typeGroupRank(type: string): string {
     ["orange"],
     ["rosé", "rose"],
     ["white", "green"],
-    ["sparkling", "champagne", "prosecco", "cava", "crémant", "cremant", "franciacorta"],
+    SPARKLING_VARIANTS,
     ["dessert"],
     ["fortified"],
   ];

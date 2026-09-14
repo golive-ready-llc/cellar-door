@@ -8,9 +8,7 @@ import {
   corsHeaders,
 } from "@/lib/api-auth";
 import { serializeWine } from "@/lib/api-serialize";
-
-/** Legacy `type` values that may still exist in pre-schema-split data (before sparkling was a separate boolean). */
-const sparklingLegacyTypes = ["sparkling", "champagne", "prosecco", "cava", "crémant", "cremant", "franciacorta"];
+import { SPARKLING_VARIANTS, isSparklingType } from "@/types/wine";
 
 /** Handle CORS preflight */
 export async function OPTIONS() {
@@ -39,7 +37,7 @@ export async function GET(request: NextRequest) {
       // Sparkling is a boolean orthogonal to color. Match the `sparkling: true`
       // flag OR legacy rows where type was set to "sparkling" before the split.
       where.OR = [
-        { type: { in: sparklingLegacyTypes } },
+        { type: { in: SPARKLING_VARIANTS } },
         { sparkling: true },
       ];
     } else {
@@ -114,7 +112,7 @@ export async function POST(request: NextRequest) {
         type: ((body.type as string) ?? "red").toLowerCase(),
         sparkling: body.sparkling !== undefined
           ? !!body.sparkling
-          : sparklingLegacyTypes.includes(((body.type as string) ?? "").toLowerCase()),
+          : isSparklingType((body.type as string) ?? ""),
         grapeVariety: (body.grapeVariety as string) ?? "",
         userRating: body.userRating != null ? Number(body.userRating) : null,
         imageUrl: (body.imageUrl as string) ?? "",
