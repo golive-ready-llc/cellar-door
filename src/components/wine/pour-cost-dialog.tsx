@@ -246,9 +246,10 @@ export function PourCostDialog({
                 )}
 
                 <Button
+                  variant="ai"
                   onClick={handleCalculate}
                   disabled={loading || guestCount <= 0}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  className="w-full"
                 >
                   {loading ? (
                     <>
