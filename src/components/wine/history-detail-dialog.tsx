@@ -32,14 +32,21 @@ import { cn } from "@/lib/utils";
 import { WineDetailBody } from "@/components/wine/wine-detail-body";
 import { StarRating } from "@/components/ui/star-rating";
 import { DialRateDialog } from "@/components/wine/dial-rate-dialog";
-import { WINE_TYPE_LABELS, WINE_TYPE_COLORS, DISPOSITION_LABELS } from "@/types/constants";
+import {
+  REMOVAL_REASONS,
+  WINE_TYPES,
+  WINE_TYPE_LABELS,
+  WINE_TYPE_COLORS,
+  DISPOSITION_LABELS,
+  type RemovalReasonId,
+} from "@/types/constants";
 import { DISPOSITION_COLORS } from "@/components/cellar/cabinet-grid-utils";
 import type { WineHistoryItem, WineType } from "@/types/wine";
 import { toast } from "@/components/ui/custom-toast";
 import { useTier } from "@/hooks/use-tier";
 
 const REASON_META: Record<
-  string,
+  RemovalReasonId,
   { label: string; icon: typeof WineIcon; color: string }
 > = {
   drank: { label: "Drank", icon: WineIcon, color: "#22C55E" },
@@ -49,9 +56,6 @@ const REASON_META: Record<
   spoiled: { label: "Spoiled", icon: CircleOff, color: "#EF4444" },
   other: { label: "Other", icon: HelpCircle, color: "#6B7280" },
 };
-
-const WINE_TYPES = ["red", "white", "rosé", "sparkling", "dessert", "fortified", "orange", "green"] as const;
-const REASONS = ["drank", "gifted", "sold", "broken", "spoiled", "other"] as const;
 
 interface HistoryDetailDialogProps {
   item: WineHistoryItem;
@@ -244,7 +248,7 @@ export function HistoryDetailDialog({
     }
   }, [item]);
 
-  const reasonMeta = REASON_META[item.reason] || REASON_META.other;
+  const reasonMeta = REASON_META[item.reason as RemovalReasonId] || REASON_META.other;
   const ReasonIcon = reasonMeta.icon;
   const displayRating = item.consumeRating ?? item.rating;
 
@@ -297,12 +301,12 @@ export function HistoryDetailDialog({
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Reason Removed</label>
               <div className="flex flex-wrap gap-1.5">
-                {REASONS.map((r) => {
-                  const meta = REASON_META[r];
+                {REMOVAL_REASONS.map((r) => {
+                  const meta = REASON_META[r.id];
                   return (
-                    <Badge key={r} variant={reason === r ? "default" : "outline"} className="cursor-pointer text-xs"
-                      style={reason === r ? { backgroundColor: meta.color, color: "#fff" } : {}}
-                      onClick={() => setReason(r)}>
+                    <Badge key={r.id} variant={reason === r.id ? "default" : "outline"} className="cursor-pointer text-xs"
+                      style={reason === r.id ? { backgroundColor: meta.color, color: "#fff" } : {}}
+                      onClick={() => setReason(r.id)}>
                       {meta.label}
                     </Badge>
                   );

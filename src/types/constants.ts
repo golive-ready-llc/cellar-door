@@ -111,6 +111,8 @@ export const REMOVAL_REASONS = [
   { id: "other", label: "Other" },
 ] as const;
 
+export type RemovalReasonId = (typeof REMOVAL_REASONS)[number]["id"];
+
 export const DISPOSITION_LABELS: Record<string, string> = {
   D: "Drink Now",
   H: "Hold",

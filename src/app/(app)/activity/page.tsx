@@ -20,7 +20,7 @@ import { StarRating } from "@/components/ui/star-rating";
 import { cn } from "@/lib/utils";
 import { fetchWines, fetchRecentHistory } from "@/lib/data";
 import { useAuth } from "@/components/auth-provider";
-import { WINE_TYPE_COLORS, WINE_TYPE_LABELS } from "@/types/constants";
+import { WINE_TYPE_COLORS, WINE_TYPE_LABELS, type RemovalReasonId } from "@/types/constants";
 import { isLightWineType } from "@/types/wine";
 import type { Wine, WineHistoryItem } from "@/types/wine";
 
@@ -28,7 +28,7 @@ import type { Wine, WineHistoryItem } from "@/types/wine";
 // tasted, rated, removed — newest first. Built by merging owned wines (addedAt)
 // with history events (removedAt) into one timeline.
 
-type Kind = "added" | "drank" | "gifted" | "sold" | "broken" | "spoiled" | "other";
+type Kind = "added" | RemovalReasonId;
 
 interface Event {
   id: string;
