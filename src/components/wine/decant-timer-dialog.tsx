@@ -152,6 +152,10 @@ export function DecantTimerDialog({
   // recommendation for context.
   useEffect(() => {
     if (!open) return;
+    // A response that lands after the dialog moved to another wine (or
+    // closed) must not commit — a slow recommendation for the previous wine
+    // used to overwrite this wine's recommendation and reseed its timer.
+    let cancelled = false;
     setRecommendation(null);
     setError(null);
     notifiedRef.current = false;
@@ -193,6 +197,7 @@ export function DecantTimerDialog({
           },
           userId ?? undefined
         );
+        if (cancelled) return;
         if (result.success) {
           setRecommendation(result.data);
           // Only seed the timer length from the recommendation when we're not
@@ -206,13 +211,17 @@ export function DecantTimerDialog({
           setError(result.error || "Failed to get recommendation");
         }
       } catch {
+        if (cancelled) return;
         setError("Failed to get decant recommendation");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchRecommendation();
+    return () => {
+      cancelled = true;
+    };
   }, [open, wine, userId]);
 
   // Timer tick — derive "remaining" from the absolute end time so it stays

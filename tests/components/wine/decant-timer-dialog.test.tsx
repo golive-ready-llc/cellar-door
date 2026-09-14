@@ -154,6 +154,41 @@ describe("DecantTimerDialog", () => {
     expect(screen.getByText("2:00")).toBeInTheDocument();
   });
 
+  it("ignores a stale recommendation that lands after the dialog switched wines", async () => {
+    // Wine A's recommendation hangs in the air; wine B's resolves at once.
+    let resolveA: (value: unknown) => void = () => {};
+    aiDecantRecommendation.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveA = resolve; })
+    );
+    aiDecantRecommendation.mockResolvedValueOnce({
+      success: true,
+      data: { decantMinutes: 90, recommended: true, explanation: "B needs a long decant." },
+    });
+
+    const { rerender } = render(
+      <DecantTimerDialog wine={makeWine({ id: "w-a", name: "Wine A" })} open onOpenChange={vi.fn()} />
+    );
+
+    // Switch to wine B while A's request is still in flight.
+    rerender(
+      <DecantTimerDialog wine={makeWine({ id: "w-b", name: "Wine B" })} open onOpenChange={vi.fn()} />
+    );
+    await waitFor(() => expect(screen.getByText("90:00")).toBeInTheDocument());
+    expect(screen.getByText(/B needs a long decant/i)).toBeInTheDocument();
+
+    // A's answer finally lands — it must not overwrite B's recommendation
+    // or reseed B's timer with A's decant length.
+    await act(async () => {
+      resolveA({
+        success: true,
+        data: { decantMinutes: 15, recommended: true, explanation: "A needs 15 minutes." },
+      });
+    });
+    expect(screen.getByText("90:00")).toBeInTheDocument();
+    expect(screen.getByText(/B needs a long decant/i)).toBeInTheDocument();
+    expect(screen.queryByText(/A needs 15 minutes/i)).not.toBeInTheDocument();
+  });
+
   it("invokes onOpenChange(false) when the Skip button is clicked", async () => {
     aiDecantRecommendation.mockResolvedValue({
       success: true,

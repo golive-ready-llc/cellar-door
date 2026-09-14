@@ -161,6 +161,28 @@ describe("CellarChatWrapper", () => {
     expect(fetchWines).not.toHaveBeenCalled();
   });
 
+  it("keeps the FAB when the initial load fails, and recovers on chat open", async () => {
+    fetchWines
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce([makeWine()]);
+    render(<CellarChatWrapper />);
+
+    // A failed initial fetch must not hide the chat entry point for the
+    // whole session — the FAB still renders, with whatever list we have.
+    await waitFor(() => {
+      expect(screen.getByTestId("cellar-chat-fab")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("cellar-chat-fab")).toHaveTextContent("FAB (0)");
+
+    // Opening the chat refetches and the list recovers.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("cellar-chat-open"));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("cellar-chat-fab")).toHaveTextContent("FAB (1)");
+    });
+  });
+
   it("reloads the wine list each time the chat opens, so new bottles are included", async () => {
     // The app loaded with an empty cellar; a wine was added before the chat opened.
     fetchWines.mockResolvedValueOnce([]).mockResolvedValueOnce([makeWine()]);

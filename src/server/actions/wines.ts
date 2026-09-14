@@ -838,31 +838,38 @@ export async function restoreWineFromHistory(
   });
   if (!historyItem) throw new Error("History item not found");
 
-  // Re-create the wine from the history entry
-  const wine = await prisma.wine.create({
-    data: {
-      userId: uid,
-      name: historyItem.name,
-      winery: historyItem.winery || "",
-      vintage: historyItem.vintage,
-      type: historyItem.type || "red",
-      region: historyItem.region || "",
-      country: historyItem.country || "",
-      grapeVariety: historyItem.grapeVariety || "",
-      imageUrl: historyItem.imageUrl || "",
-      price: historyItem.price,
-      retailPrice: historyItem.retailPrice,
-      description: historyItem.description || "",
-      foodPairings: historyItem.foodPairings || "",
-      alcohol: historyItem.alcohol || "",
-      disposition: historyItem.disposition || "",
-      drinkWindow: historyItem.drinkWindow || "",
-      aiRatings: historyItem.aiRatings ?? Prisma.JsonNull,
-    },
-  });
+  // Re-create the wine from the history entry. Create + history-delete are
+  // one transaction: if they ran separately, a failure in between left the
+  // bottle restored AND the history entry alive, so a second tap of Restore
+  // created a duplicate bottle.
+  const wine = await prisma.$transaction(async (tx) => {
+    const created = await tx.wine.create({
+      data: {
+        userId: uid,
+        name: historyItem.name,
+        winery: historyItem.winery || "",
+        vintage: historyItem.vintage,
+        type: historyItem.type || "red",
+        region: historyItem.region || "",
+        country: historyItem.country || "",
+        grapeVariety: historyItem.grapeVariety || "",
+        imageUrl: historyItem.imageUrl || "",
+        price: historyItem.price,
+        retailPrice: historyItem.retailPrice,
+        description: historyItem.description || "",
+        foodPairings: historyItem.foodPairings || "",
+        alcohol: historyItem.alcohol || "",
+        disposition: historyItem.disposition || "",
+        drinkWindow: historyItem.drinkWindow || "",
+        aiRatings: historyItem.aiRatings ?? Prisma.JsonNull,
+      },
+    });
 
-  // Remove the history entry since it's been restored
-  await prisma.wineHistory.delete({ where: { id: historyItemId } });
+    // Remove the history entry since it's been restored
+    await tx.wineHistory.delete({ where: { id: historyItemId } });
+
+    return created;
+  });
 
   return mapPrismaWine(wine);
 }
