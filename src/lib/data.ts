@@ -485,7 +485,7 @@ export interface CellarSettingsData {
 /**
  * Local dev without a database keeps cellar settings in the browser. A key of
  * its own, so the one-time copy of the old localStorage values up to the
- * account (in useCellarData) can never read or delete these.
+ * account (in useCellar) can never read or delete these.
  */
 const DEV_CELLAR_SETTINGS_KEY = "cellar-door-dev-cellar-settings";
 

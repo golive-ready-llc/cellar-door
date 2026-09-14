@@ -62,7 +62,7 @@ export function useStatsData() {
 
   const loadData = useCallback(async () => {
     // Don't fetch with a null userId in production — resolveUserId would throw.
-    // Mirrors the guard in useCellarData (fixes the blank-flash / unhandled
+    // Mirrors the guard in useCellar (fixes the blank-flash / unhandled
     // rejection while auth is still resolving).
     if (!userId && !devMode) return;
     try {

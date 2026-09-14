@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useCallback, useState, useDeferredValue } from "react";
 import { UtensilsCrossed, Wine, GlassWater, Search, ArrowDownUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { editWine } from "@/lib/data";
 import {
   EditModeProvider,
 } from "@/components/cellar/edit-mode-context";
@@ -13,10 +12,7 @@ import { TemplatePalette } from "@/components/cellar/template-palette";
 import { UnfiledWines } from "@/components/cellar/unfiled-wines";
 import { useAddWine } from "@/components/add-wine-context";
 
-import { useCellarData } from "@/hooks/use-cellar-data";
-import { useCellarActions } from "@/hooks/use-cellar-actions";
-import { useCellarDialogs } from "@/hooks/use-cellar-dialogs";
-import { useCellarMode } from "@/hooks/use-cellar-mode";
+import { useCellar } from "@/hooks/use-cellar";
 import { useTier } from "@/hooks/use-tier";
 import { useWineData } from "@/contexts/wine-data-context";
 
@@ -46,8 +42,8 @@ export default function CellarPage() {
 }
 
 function CellarPageInner() {
-  // --- Data ---
-  const data = useCellarData();
+  const store = useCellar();
+  const { data, dialogs, actions, mode } = store;
   const { setWineData } = useWineData();
 
   // Push cellar data into the shared WineDataContext so any
@@ -62,46 +58,12 @@ function CellarPageInner() {
     });
   }, [data.wines, data.cabinets, data.walls, data.allTags, setWineData]);
 
-  // --- Dialogs ---
-  const dialogs = useCellarDialogs();
   const [corkForkOpen, setCorkForkOpen] = useState(false);
   const [sommelierOpen, setSommelierOpen] = useState(false);
   const [pourCostOpen, setPourCostOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { canUseAi, hasAI } = useTier();
-
-  // --- Actions ---
-  const actions = useCellarActions({
-    userId: data.userId,
-    wines: data.wines,
-    setWines: data.setWines,
-    setCabinets: data.setCabinets,
-    setWalls: data.setWalls,
-    selectedWallId: data.selectedWallId,
-    setSelectedWallId: data.setSelectedWallId,
-    pendingSlot: dialogs.pendingSlot,
-    setPendingSlot: dialogs.setPendingSlot,
-    setSelectedWine: dialogs.setSelectedWine,
-    setDetailOpen: dialogs.setDetailOpen,
-    selectedWine: dialogs.selectedWine,
-    // Flash a slot when a wine lands in it (add / place / move) so you can see
-    // where the bottle in your hand goes. Reuses the deep-link highlight.
-    highlightWine: data.setHighlightWithTimer,
-  });
-
-  // --- Mode (edit/move) ---
-  const mode = useCellarMode({
-    userId: data.userId,
-    wines: data.wines,
-    selectedWallId: data.selectedWallId,
-    setCabinets: data.setCabinets,
-    wallCabinets: data.wallCabinets,
-    handleSectionChanges: actions.handleSectionChanges,
-    handleWineMove: actions.handleWineMove,
-    setBulkConfigInsertIndex: dialogs.setBulkConfigInsertIndex,
-    setBulkConfigOpen: dialogs.setBulkConfigOpen,
-  });
 
   // --- Deep link: open detail on load ---
   // Destructure stable setters/consumers so the effect only re-runs when
@@ -119,50 +81,6 @@ function CellarPageInner() {
       }
     }
   }, [dataLoading, consumeDeepLink, setHighlightWithTimer, setSelectedWine, setDetailOpen]);
-
-  // --- Bulk zone drop handler ---
-  const { bulkZoneView: dialogsBulkZoneView } = dialogs;
-  const { wines: dataWines, userId: dataUserId, setWines: dataSetWines } = data;
-  const handleBulkZoneDrop = useCallback(
-    async (wineId: string) => {
-      const bz = dialogsBulkZoneView;
-      if (!bz || bz.cabinetId.startsWith("__new_")) return;
-      const existingInZone = dataWines.filter(
-        (w) => w.cabinetId === bz.cabinetId && w.row === bz.rowIndex
-      );
-      if (existingInZone.length >= bz.storageRow.capacity) return;
-      const usedCols = new Set(existingInZone.map((w) => w.col ?? 0));
-      const boxes = bz.storageRow.boxes;
-      const hasBoxes = boxes && boxes.length > 0;
-      const totalBoxCap = hasBoxes
-        ? boxes.reduce((s, b) => s + b, 0)
-        : 0;
-      let nextCol = totalBoxCap;
-      while (usedCols.has(nextCol)) nextCol++;
-      await editWine(
-        wineId,
-        { cabinetId: bz.cabinetId, row: bz.rowIndex, col: nextCol, depth: 0 },
-        dataUserId
-      );
-      dataSetWines((prev) =>
-        prev.map((w) =>
-          w.id === wineId
-            ? { ...w, cabinetId: bz.cabinetId, row: bz.rowIndex, col: nextCol, depth: 0 }
-            : w
-        )
-      );
-      // Flash the bottle in its new bulk-zone home.
-      setHighlightWithTimer(wineId);
-    },
-    [dialogsBulkZoneView, dataWines, dataUserId, dataSetWines, setHighlightWithTimer]
-  );
-
-  // --- Bulk zone wines (reactive) ---
-  const { getBulkZoneWines } = dialogs;
-  const bulkZoneWines = useMemo(
-    () => getBulkZoneWines(data.wines),
-    [getBulkZoneWines, data.wines]
-  );
 
   // --- Search/filter ---
   // The filter runs on a deferred value so a keystroke doesn't re-render the
@@ -207,7 +125,7 @@ function CellarPageInner() {
     [completeOnboarding]
   );
 
-  const { setAddWineOpen } = dialogs;
+  const { setPendingSlot, setAddWineOpen } = dialogs;
   const handleOnboardingAddWine = useCallback(
     (_method: "scan" | "search" | "manual") => {
       // Open the AddWineDialog — the method picker inside it handles scan/search/manual
@@ -231,16 +149,6 @@ function CellarPageInner() {
     });
   }, [data.wallCabinets, data.allTags, data.unfiledWines, handleAddWine, handlePlaceWine, triggerWineListScan, registerAddWine]);
 
-  // --- Show-in-cellar handler for detail dialog ---
-  const { scrollToWineInCellar } = data;
-  const handleShowInCellar = useCallback(
-    (wine: import("@/types/wine").Wine) => {
-      setDetailOpen(false);
-      setTimeout(() => scrollToWineInCellar(wine), 300);
-    },
-    [scrollToWineInCellar, setDetailOpen]
-  );
-
   // --- Sort assistant: apply one guided move (dest=null → set aside/unfile) ---
   const { handleWineMove, handleUnfileWine } = actions;
   const handleSortMove = useCallback(
@@ -258,10 +166,10 @@ function CellarPageInner() {
   // render would defeat that and re-render the whole grid on every keystroke.
   const handleSlotClick = useCallback(
     (cabinetId: string, row: number, col: number) => {
-      dialogs.setPendingSlot({ cabinetId, row, col });
-      dialogs.setAddWineOpen(true);
+      setPendingSlot({ cabinetId, row, col });
+      setAddWineOpen(true);
     },
-    [dialogs.setPendingSlot, dialogs.setAddWineOpen]
+    [setPendingSlot, setAddWineOpen]
   );
 
   // --- Loading state ---
@@ -442,75 +350,7 @@ function CellarPageInner() {
       />
 
       {/* All dialogs */}
-      <CellarDialogs
-        selectedWine={dialogs.selectedWine}
-        detailOpen={dialogs.detailOpen}
-        onDetailOpenChange={dialogs.setDetailOpen}
-        onTriggerConsume={dialogs.triggerConsume}
-        onEditWine={actions.handleEditWine}
-        onAddBottle={actions.handleAddBottle}
-        onDuplicate={actions.handleDuplicateWine}
-        onShowInCellar={handleShowInCellar}
-        cabinets={data.cabinets}
-        walls={data.walls}
-        allTags={data.allTags}
-        wines={data.wines}
-        consumeOpen={dialogs.consumeOpen}
-        onConsumeOpenChange={dialogs.setConsumeOpen}
-        onConsume={actions.handleConsumeWine}
-        addWineOpen={dialogs.addWineOpen}
-        onAddWineOpenChange={dialogs.setAddWineOpen}
-        wallCabinets={data.wallCabinets}
-        onAddWine={actions.handleAddWine}
-        unfiledWines={data.unfiledWines}
-        onPlaceWine={actions.handlePlaceWine}
-        pendingSlot={dialogs.pendingSlot}
-        onClearPendingSlot={() => dialogs.setPendingSlot(null)}
-        onScanWineList={dialogs.triggerWineListScan}
-        wineListScanOpen={dialogs.wineListScanOpen}
-        onWineListScanOpenChange={dialogs.setWineListScanOpen}
-        depthView={dialogs.depthView}
-        depthViewOpen={dialogs.depthViewOpen}
-        onDepthViewOpenChange={dialogs.setDepthViewOpen}
-        onDepthWineClick={(wine) => {
-          dialogs.setDepthViewOpen(false);
-          setTimeout(() => actions.handleWineClick(wine), 200);
-        }}
-        onDepthWineLongPress={() => {
-          dialogs.setDepthViewOpen(false);
-          setTimeout(() => mode.handleWineLongPress(), 200);
-        }}
-        onDepthEmptySlotClick={() => {
-          dialogs.setDepthViewOpen(false);
-          if (dialogs.depthView) {
-            dialogs.setPendingSlot({
-              cabinetId: dialogs.depthView.cabinetId,
-              row: dialogs.depthView.row,
-              col: dialogs.depthView.col,
-            });
-          }
-          setTimeout(() => dialogs.setAddWineOpen(true), 200);
-        }}
-        bulkZoneView={dialogs.bulkZoneView}
-        bulkZoneViewOpen={dialogs.bulkZoneViewOpen}
-        onBulkZoneViewOpenChange={dialogs.setBulkZoneViewOpen}
-        bulkZoneWines={bulkZoneWines}
-        editableZone={mode.editMode || mode.moveMode}
-        onBulkZoneWineClick={(wine) => {
-          dialogs.setBulkZoneViewOpen(false);
-          setTimeout(() => actions.handleWineClick(wine), 200);
-        }}
-        onBulkZoneWineLongPress={() => {
-          dialogs.setBulkZoneViewOpen(false);
-          setTimeout(() => mode.handleWineLongPress(), 200);
-        }}
-        onBulkZoneDrop={handleBulkZoneDrop}
-        onBulkZoneWineRemove={actions.handleUnfileWine}
-        onBatchRemove={actions.handleBatchRemoveWines}
-        bulkConfigOpen={dialogs.bulkConfigOpen}
-        onBulkConfigOpenChange={dialogs.setBulkConfigOpen}
-        onBulkConfigConfirm={mode.handleBulkConfigConfirm}
-      />
+      <CellarDialogs store={store} />
 
       {/* Floating mode indicator */}
       <FloatingModeIndicator
