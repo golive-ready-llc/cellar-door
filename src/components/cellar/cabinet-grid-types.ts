@@ -28,9 +28,12 @@ export interface CabinetGridProps {
   onWineDrop?: (wineId: string, targetRow: number, targetCol: number) => void;
   /** Called when a bulk storage zone is clicked (to open side view) */
   onBulkZoneClick?: (rowIndex: number, storageRow: StorageRow, wines: Wine[]) => void;
-  /** Wine ID to highlight with a pulsing ring (e.g. from search deep-link) */
+  /** Wine ID to highlight with a pulsing ring (e.g. from search deep-link).
+   *  Callers scope this to THIS cabinet — ViewModeGrid passes null everywhere
+   *  else so the memoized grid skips cabinets the flash doesn't touch. */
   highlightedWineId?: string | null;
-  /** An EMPTY slot to glow gold (e.g. the destination in the sort assistant). */
+  /** An EMPTY slot to glow gold (e.g. the destination in the sort assistant).
+   *  Scoped to this cabinet by the caller, like highlightedWineId. */
   highlightedSlot?: HighlightSlot | null;
 }
 
@@ -74,8 +77,12 @@ export interface GridRowProps {
   suppressTooltip?: boolean;
   editable?: boolean;
   onWineDrop?: (wineId: string, targetRow: number, targetCol: number) => void;
-  highlightedWineId?: string | null;
-  highlightedSlot?: HighlightSlot | null;
+  /** Column of the pulsing highlight in THIS row, or null when the highlight
+   *  is elsewhere. Precomputed by CabinetGrid so rows the flash doesn't touch
+   *  can memo-bail out instead of re-rendering every slot. */
+  highlightedCol: number | null;
+  /** Column of the gold empty-slot glow in THIS row, or null. */
+  slotHighlightCol: number | null;
 }
 
 export interface EditableRowProps {
