@@ -302,41 +302,41 @@ export function useAIWineFill({
         // bottles rather than a single one.
         const qty = Math.max(1, Math.round(Number(w.quantity) || 1));
         for (let n = 0; n < qty; n++) {
-        await onAdd({
-          cabinetId: null,
-          barcode: "",
-          name: (w.name as string) || "",
-          winery: (w.winery as string) || "",
-          region: (w.region as string) || "",
-          country: (w.country as string) || "",
-          vintage: w.vintage as number | null,
-          type: ((w.type as string) || "red") as Wine["type"],
-          sparkling: w.sparkling === true,
-          grapeVariety: (w.grapeVariety as string) || "",
-          userRating: null,
-          imageUrl: "",
-          // The price printed on an invoice/receipt IS what the user paid.
-          price: (w.estimatedPrice as number | null) ?? null,
-          retailPrice: null,
-          purchaseDate: new Date().toISOString().split("T")[0],
-          drinkBy: (w.drinkBy as string) || "",
-          notes: "",
-          description: (w.description as string) || "",
-          foodPairings: "",
-          alcohol: (w.alcohol as string) || "",
-          row: null,
-          col: null,
-          depth: 0,
-          zone: "",
-          tags: [],
-          tastingNotes: null,
-          disposition: (w.disposition as string) || "",
-          drinkWindow: (w.drinkWindow as string) || "",
-          aiRatings: null,
-          // Invoices regularly list multiple bottles of the same wine and
-          // wines the user already owns — both are intentional adds here.
-          skipDuplicateCheck: true,
-        });
+          await onAdd({
+            cabinetId: null,
+            barcode: "",
+            name: (w.name as string) || "",
+            winery: (w.winery as string) || "",
+            region: (w.region as string) || "",
+            country: (w.country as string) || "",
+            vintage: w.vintage as number | null,
+            type: ((w.type as string) || "red") as Wine["type"],
+            sparkling: w.sparkling === true,
+            grapeVariety: (w.grapeVariety as string) || "",
+            userRating: null,
+            imageUrl: "",
+            // The price printed on an invoice/receipt IS what the user paid.
+            price: (w.estimatedPrice as number | null) ?? null,
+            retailPrice: null,
+            purchaseDate: new Date().toISOString().split("T")[0],
+            drinkBy: (w.drinkBy as string) || "",
+            notes: "",
+            description: (w.description as string) || "",
+            foodPairings: "",
+            alcohol: (w.alcohol as string) || "",
+            row: null,
+            col: null,
+            depth: 0,
+            zone: "",
+            tags: [],
+            tastingNotes: null,
+            disposition: (w.disposition as string) || "",
+            drinkWindow: (w.drinkWindow as string) || "",
+            aiRatings: null,
+            // Invoices regularly list multiple bottles of the same wine and
+            // wines the user already owns — both are intentional adds here.
+            skipDuplicateCheck: true,
+          });
         }
       }
       toast.success(`Added ${receiptSelected.size} wines`);
