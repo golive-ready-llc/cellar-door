@@ -12,7 +12,7 @@ import type { Wine } from "@/types/wine";
 
 /**
  * Regression: the cross-page "show in cellar" action pushed /cellar?wineId=…
- * while use-cellar-data reads `?wine=` (the same param the search palette
+ * while useCellar reads `?wine=` (the same param the search palette
  * links with). Nothing read `wineId`, so the vault/inventory/stats detail
  * dialogs navigated to a plain cellar with no bottle opened or highlighted.
  */

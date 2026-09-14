@@ -7,208 +7,115 @@ import { ConsumeWineDialog } from "@/components/wine/consume-wine-dialog";
 import { DepthSideView } from "@/components/cellar/depth-side-view";
 import { BulkZoneSideView } from "@/components/cellar/bulk-zone-side-view";
 import { BulkConfigDialog } from "@/components/cellar/bulk-config-dialog";
-import type { Wine, Wall, Cabinet, StorageRow } from "@/types/wine";
-import type { SectionTemplate } from "@/components/cellar/storage-type-picker";
+import type { CellarStore } from "@/hooks/use-cellar";
+import type { Wine } from "@/types/wine";
 
-interface CellarDialogsProps {
-  // Wine detail
-  selectedWine: Wine | null;
-  detailOpen: boolean;
-  onDetailOpenChange: (open: boolean) => void;
-  onTriggerConsume: () => void;
-  onEditWine: (wineId: string, data: Partial<Wine>) => Promise<void>;
-  onAddBottle: () => void;
-  onDuplicate: () => void;
-  onShowInCellar: ((wine: Wine) => void) | undefined;
-  cabinets: Cabinet[];
-  walls: Wall[];
-  allTags: string[];
-  wines: Wine[];
+/**
+ * The cellar's dialog layer. Renders every dialog the cellar surface can
+ * open, reading state and actions straight from the store — the dialog
+ * choreography (close-then-deferred-open, since Base UI dialogs don't stack)
+ * lives next to the JSX that triggers it.
+ */
+export function CellarDialogs({ store }: { store: CellarStore }) {
+  const { data, dialogs, actions, mode } = store;
+  const selectedWine = dialogs.selectedWine;
 
-  // Consume
-  consumeOpen: boolean;
-  onConsumeOpenChange: (open: boolean) => void;
-  onConsume: (
-    wineId: string,
-    reason: string,
-    rating?: number | null,
-    notes?: string
-  ) => Promise<void>;
+  // Detail-view transitions: close the side view, wait for it to unmount,
+  // then open the next dialog.
+  const openWineFromDepthView = (wine: Wine) => {
+    dialogs.setDepthViewOpen(false);
+    setTimeout(() => actions.handleWineClick(wine), 200);
+  };
+  const longPressFromDepthView = () => {
+    dialogs.setDepthViewOpen(false);
+    setTimeout(() => mode.handleWineLongPress(), 200);
+  };
+  const addWineIntoDepthSlot = () => {
+    dialogs.setDepthViewOpen(false);
+    if (dialogs.depthView) {
+      dialogs.setPendingSlot({
+        cabinetId: dialogs.depthView.cabinetId,
+        row: dialogs.depthView.row,
+        col: dialogs.depthView.col,
+      });
+    }
+    setTimeout(() => dialogs.setAddWineOpen(true), 200);
+  };
+  const openWineFromBulkZone = (wine: Wine) => {
+    dialogs.setBulkZoneViewOpen(false);
+    setTimeout(() => actions.handleWineClick(wine), 200);
+  };
+  const longPressFromBulkZone = () => {
+    dialogs.setBulkZoneViewOpen(false);
+    setTimeout(() => mode.handleWineLongPress(), 200);
+  };
 
-  // Add wine
-  addWineOpen: boolean;
-  onAddWineOpenChange: (open: boolean) => void;
-  wallCabinets: Cabinet[];
-  onAddWine: (
-    data: Omit<Wine, "id" | "addedAt" | "updatedAt" | "userId">
-  ) => Promise<void>;
-  unfiledWines: Wine[];
-  onPlaceWine: (
-    wineId: string,
-    cabinetId: string,
-    row?: number,
-    col?: number
-  ) => Promise<void>;
-  pendingSlot: { cabinetId: string; row: number; col: number } | null;
-  onClearPendingSlot: () => void;
-  onScanWineList: () => void;
-
-  // Wine list scan
-  wineListScanOpen: boolean;
-  onWineListScanOpenChange: (open: boolean) => void;
-
-  // Depth view
-  depthView: {
-    cabinetId: string;
-    row: number;
-    col: number;
-    depth: number;
-    wines: Wine[];
-    sectionName: string;
-  } | null;
-  depthViewOpen: boolean;
-  onDepthViewOpenChange: (open: boolean) => void;
-  onDepthWineClick: (wine: Wine) => void;
-  onDepthWineLongPress: () => void;
-  onDepthEmptySlotClick: () => void;
-
-  // Bulk zone
-  bulkZoneView: {
-    cabinetId: string;
-    rowIndex: number;
-    storageRow: StorageRow;
-    sectionName: string;
-  } | null;
-  bulkZoneViewOpen: boolean;
-  onBulkZoneViewOpenChange: (open: boolean) => void;
-  bulkZoneWines: Wine[];
-  editableZone: boolean;
-  onBulkZoneWineClick: (wine: Wine) => void;
-  onBulkZoneWineLongPress: () => void;
-  onBulkZoneDrop: (wineId: string) => Promise<void>;
-  onBulkZoneWineRemove: (wineId: string) => Promise<void>;
-  /** Batch remove wines from bulk zone or depth view */
-  onBatchRemove?: (wineIds: string[]) => Promise<void>;
-
-  // Bulk config
-  bulkConfigOpen: boolean;
-  onBulkConfigOpenChange: (open: boolean) => void;
-  onBulkConfigConfirm: (template: SectionTemplate) => void;
-}
-
-export function CellarDialogs({
-  selectedWine,
-  detailOpen,
-  onDetailOpenChange,
-  onTriggerConsume,
-  onEditWine,
-  onAddBottle,
-  onDuplicate,
-  onShowInCellar,
-  cabinets,
-  // Accepted for interface stability; the detail dialog reads walls from
-  // WineDataContext now, so it's unused here.
-  walls: _walls,
-  allTags,
-  wines,
-  consumeOpen,
-  onConsumeOpenChange,
-  onConsume,
-  addWineOpen,
-  onAddWineOpenChange,
-  wallCabinets,
-  onAddWine,
-  unfiledWines,
-  onPlaceWine,
-  pendingSlot,
-  onClearPendingSlot,
-  onScanWineList,
-  wineListScanOpen,
-  onWineListScanOpenChange,
-  depthView,
-  depthViewOpen,
-  onDepthViewOpenChange,
-  onDepthWineClick,
-  onDepthWineLongPress,
-  onDepthEmptySlotClick,
-  bulkZoneView,
-  bulkZoneViewOpen,
-  onBulkZoneViewOpenChange,
-  bulkZoneWines,
-  editableZone,
-  onBulkZoneWineClick,
-  onBulkZoneWineLongPress,
-  onBulkZoneDrop,
-  onBulkZoneWineRemove,
-  onBatchRemove,
-  bulkConfigOpen,
-  onBulkConfigOpenChange,
-  onBulkConfigConfirm,
-}: CellarDialogsProps) {
   return (
     <>
       {/* Depth Side View */}
-      {depthView && (
+      {dialogs.depthView && (
         <DepthSideView
-          open={depthViewOpen}
-          onOpenChange={onDepthViewOpenChange}
-          row={depthView.row}
-          col={depthView.col}
-          depth={depthView.depth}
-          wines={depthView.wines}
-          sectionName={depthView.sectionName}
-          onWineClick={onDepthWineClick}
-          onWineLongPress={onDepthWineLongPress}
-          onEmptySlotClick={onDepthEmptySlotClick}
-          onBatchRemove={onBatchRemove}
+          open={dialogs.depthViewOpen}
+          onOpenChange={dialogs.setDepthViewOpen}
+          row={dialogs.depthView.row}
+          col={dialogs.depthView.col}
+          depth={dialogs.depthView.depth}
+          wines={dialogs.depthView.wines}
+          sectionName={dialogs.depthView.sectionName}
+          onWineClick={openWineFromDepthView}
+          onWineLongPress={longPressFromDepthView}
+          onEmptySlotClick={addWineIntoDepthSlot}
+          onBatchRemove={actions.handleBatchRemoveWines}
         />
       )}
 
       {/* Bulk Zone Side View */}
-      {bulkZoneView && (
+      {dialogs.bulkZoneView && (
         <BulkZoneSideView
-          open={bulkZoneViewOpen}
-          onOpenChange={onBulkZoneViewOpenChange}
-          storageRow={bulkZoneView.storageRow}
-          wines={bulkZoneWines}
-          sectionName={bulkZoneView.sectionName}
-          editable={editableZone}
-          onWineClick={onBulkZoneWineClick}
-          onWineLongPress={onBulkZoneWineLongPress}
-          onWineDrop={onBulkZoneDrop}
-          onWineRemove={onBulkZoneWineRemove}
-          onBatchRemove={onBatchRemove}
+          open={dialogs.bulkZoneViewOpen}
+          onOpenChange={dialogs.setBulkZoneViewOpen}
+          storageRow={dialogs.bulkZoneView.storageRow}
+          wines={dialogs.bulkZoneWines}
+          sectionName={dialogs.bulkZoneView.sectionName}
+          editable={mode.editMode || mode.moveMode}
+          onWineClick={openWineFromBulkZone}
+          onWineLongPress={longPressFromBulkZone}
+          onWineDrop={actions.handleBulkZoneDrop}
+          onWineRemove={actions.handleUnfileWine}
+          onBatchRemove={actions.handleBatchRemoveWines}
         />
       )}
 
       {/* Bulk Storage Config Dialog */}
       <BulkConfigDialog
-        open={bulkConfigOpen}
-        onOpenChange={onBulkConfigOpenChange}
-        onConfirm={onBulkConfigConfirm}
+        open={dialogs.bulkConfigOpen}
+        onOpenChange={dialogs.setBulkConfigOpen}
+        onConfirm={mode.handleBulkConfigConfirm}
       />
 
       {/* Add Wine Dialog */}
       <AddWineDialog
-        cabinets={wallCabinets.length > 0 ? wallCabinets : cabinets}
-        onAdd={onAddWine}
-        allTags={allTags}
-        open={addWineOpen}
+        cabinets={
+          data.wallCabinets.length > 0 ? data.wallCabinets : data.cabinets
+        }
+        onAdd={actions.handleAddWine}
+        allTags={data.allTags}
+        open={dialogs.addWineOpen}
         onOpenChange={(open) => {
-          onAddWineOpenChange(open);
-          if (!open) onClearPendingSlot();
+          dialogs.setAddWineOpen(open);
+          if (!open) dialogs.setPendingSlot(null);
         }}
-        unfiledWines={unfiledWines}
-        onPlaceWine={onPlaceWine}
-        pendingSlot={pendingSlot}
-        onScanWineList={onScanWineList}
+        unfiledWines={data.unfiledWines}
+        onPlaceWine={actions.handlePlaceWine}
+        pendingSlot={dialogs.pendingSlot}
+        onScanWineList={dialogs.triggerWineListScan}
       />
 
       {/* Wine List Scan Dialog */}
       <WineListScanDialog
-        open={wineListScanOpen}
-        onOpenChange={onWineListScanOpenChange}
-        userWines={wines.map((w) => ({
+        open={dialogs.wineListScanOpen}
+        onOpenChange={dialogs.setWineListScanOpen}
+        userWines={data.wines.map((w) => ({
           id: w.id,
           name: w.name,
           winery: w.winery,
@@ -229,26 +136,26 @@ export function CellarDialogs({
         <>
           <WineDetailDialog
             wine={selectedWine}
-            open={detailOpen}
-            onOpenChange={onDetailOpenChange}
-            onConsume={onTriggerConsume}
+            open={dialogs.detailOpen}
+            onOpenChange={dialogs.setDetailOpen}
+            onConsume={dialogs.triggerConsume}
             onUpdate={async (updates) => {
-              await onEditWine(selectedWine.id, updates);
+              await actions.handleEditWine(selectedWine.id, updates);
             }}
-            onSave={onEditWine}
-            onAddBottle={onAddBottle}
-            onDuplicate={onDuplicate}
+            onSave={actions.handleEditWine}
+            onAddBottle={actions.handleAddBottle}
+            onDuplicate={actions.handleDuplicateWine}
             onShowInCellar={
-              selectedWine.cabinetId && onShowInCellar
-                ? () => onShowInCellar(selectedWine)
+              selectedWine.cabinetId
+                ? () => actions.handleShowInCellar(selectedWine)
                 : undefined
             }
           />
           <ConsumeWineDialog
             wine={selectedWine}
-            open={consumeOpen}
-            onOpenChange={onConsumeOpenChange}
-            onConsume={onConsume}
+            open={dialogs.consumeOpen}
+            onOpenChange={dialogs.setConsumeOpen}
+            onConsume={actions.handleConsumeWine}
           />
         </>
       )}
