@@ -38,6 +38,14 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Cellar Door",
   },
+  // AdSense site verification. Google's reviewer and the "verify code" check
+  // read the served HTML head — the ads script itself only loads after cookie
+  // consent (AdSenseLoader), which no crawler grants, so without this tag the
+  // site reads as "code missing" and cannot be approved. The publisher id is
+  // public: it is published verbatim in /ads.txt.
+  other: {
+    "google-adsense-account": "ca-pub-7508799616295186",
+  },
 };
 
 export default function RootLayout({

@@ -450,8 +450,12 @@ export default function LandingPage() {
     }
   }, [loading, user, router]);
 
-  // Show loading while checking auth (only for real authenticated users)
-  if (loading || user) {
+  // Only a RESOLVED signed-in user gets the redirect shell (the effect above
+  // is routing them to /cellar). Auth still "loading" must render the full
+  // marketing page: the server render and every crawler see this state, and
+  // returning a "Loading..." shell here is what got the site read as an empty
+  // page by AdSense's reviewer (2026-09-21).
+  if (user) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
