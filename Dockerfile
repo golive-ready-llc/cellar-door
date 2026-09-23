@@ -89,7 +89,7 @@ RUN npm run build
 FROM node:22-alpine AS prisma-cli
 WORKDIR /pcli
 ARG PRISMA_VERSION
-RUN npm init -y > /dev/null  && npm install --no-audit --no-fund --ignore-scripts "prisma@${PRISMA_VERSION}"
+RUN npm init -y > /dev/null  && npm install --no-audit --no-fund "prisma@${PRISMA_VERSION}"
 
 
 # ---- runner: minimal runtime image ---------------------------------------
