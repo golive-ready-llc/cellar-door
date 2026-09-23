@@ -82,3 +82,117 @@ describe("fetchAvailableModels — masked-key resolution", () => {
     expect(fetchSpy.mock.calls[0][1].headers.Authorization).toBe("Bearer sk-real-stored-key");
   });
 });
+
+/**
+ * A key resolved from storage may only be sent to the endpoint it was stored
+ * against. `baseUrl` is caller-controlled, so pairing it with a stored key
+ * would make these actions a read-back channel for the decrypted key: point
+ * one at any host and it arrives in that host's Authorization header. Keys are
+ * encrypted at rest and masked on read so that cannot happen, and in
+ * single-user mode there is no admin sign-in in front of this.
+ */
+describe("stored keys are pinned to their stored endpoint", () => {
+  it("refuses to send a stored key to a caller-supplied base URL", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const { testProviderConnection } = await import("@/server/actions/ai-config");
+    const result = await testProviderConnection(
+      "token",
+      "deepseek",
+      PLACEHOLDER,
+      "https://attacker.example"
+    );
+    expect(result.error).toMatch(/Save the new base URL/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("refuses the same redirect on the model list", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const { fetchAvailableModels } = await import("@/server/actions/ai-config");
+    const result = await fetchAvailableModels(
+      "token",
+      "deepseek",
+      PLACEHOLDER,
+      "https://attacker.example"
+    );
+    expect(result.error).toMatch(/Save the new base URL/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("accepts a base URL that is the stored one spelled differently", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchSpy);
+    const { testProviderConnection } = await import("@/server/actions/ai-config");
+    // Stored slot has no baseUrl, so the provider default applies; the UI
+    // sends that same endpoint with a /v1 suffix and a trailing slash.
+    const result = await testProviderConnection(
+      "token",
+      "deepseek",
+      PLACEHOLDER,
+      "https://api.deepseek.com/v1/"
+    );
+    expect(result.data?.success).toBe(true);
+    expect(fetchSpy.mock.calls[0][0]).toBe("https://api.deepseek.com/v1/models");
+  });
+
+  it("uses the stored base URL for a self-hosted endpoint", async () => {
+    getAIConfig.mockResolvedValue(
+      storedConfig({
+        text: {
+          provider: "deepseek",
+          apiKey: "sk-real-stored-key",
+          model: "local",
+          baseUrl: "http://ollama.lan:11434",
+        },
+      })
+    );
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchSpy);
+    const { testProviderConnection } = await import("@/server/actions/ai-config");
+    const result = await testProviderConnection(
+      "token",
+      "deepseek",
+      PLACEHOLDER,
+      "http://ollama.lan:11434"
+    );
+    expect(result.data?.success).toBe(true);
+    expect(fetchSpy.mock.calls[0][0]).toBe("http://ollama.lan:11434/v1/models");
+    expect(fetchSpy.mock.calls[0][1].headers.Authorization).toBe("Bearer sk-real-stored-key");
+  });
+
+  it("still lets an admin test a freshly typed key against a new endpoint", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchSpy);
+    const { testProviderConnection } = await import("@/server/actions/ai-config");
+    // The key came from the caller, not from storage — nothing secret leaks.
+    const result = await testProviderConnection(
+      "token",
+      "deepseek",
+      "sk-typed-by-admin",
+      "https://openrouter.ai/api"
+    );
+    expect(result.data?.success).toBe(true);
+    expect(fetchSpy.mock.calls[0][0]).toBe("https://openrouter.ai/api/v1/models");
+    expect(fetchSpy.mock.calls[0][1].headers.Authorization).toBe("Bearer sk-typed-by-admin");
+  });
+
+  it("leaves Gemini alone — its key always goes to Google", async () => {
+    getAIConfig.mockResolvedValue(
+      storedConfig({
+        text: { provider: "gemini", apiKey: "g-real-key", model: "", baseUrl: "" },
+      })
+    );
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchSpy);
+    const { testProviderConnection } = await import("@/server/actions/ai-config");
+    const result = await testProviderConnection(
+      "token",
+      "gemini",
+      PLACEHOLDER,
+      "https://attacker.example"
+    );
+    expect(result.data?.success).toBe(true);
+    expect(fetchSpy.mock.calls[0][0]).toContain("generativelanguage.googleapis.com");
+  });
+});

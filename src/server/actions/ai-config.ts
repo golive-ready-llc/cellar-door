@@ -42,18 +42,46 @@ export async function getAdminAIConfig(
   }
 }
 
+/** The provider's official endpoint, used when no base URL is configured. */
+function providerDefaultUrl(provider: string): string {
+  return provider === "alibaba"
+    ? "https://dashscope.aliyuncs.com/compatible-mode"
+    : "https://api.deepseek.com";
+}
+
+/** Normalise a base URL the way the request builder does, so two spellings of
+ *  the same endpoint (trailing slash, trailing /v1) compare equal. */
+function normalizeBaseUrl(url: string | undefined, provider: string): string {
+  return (url || providerDefaultUrl(provider))
+    .replace(/\/+$/, "")
+    .replace(/\/v1$/, "");
+}
+
+/** Providers whose key travels to a configurable base URL. Gemini always goes
+ *  to Google's fixed host, so its key cannot be redirected. */
+const SENDS_KEY_TO_BASE_URL = new Set(["deepseek", "alibaba"]);
+
 /**
- * Resolve the key the admin UI sent for a test/model-fetch call. The UI shows
+ * Resolve the key and endpoint for a test/model-fetch call. The UI shows
  * stored keys as the masked placeholder, so when the sentinel arrives here the
  * real key must be pulled from the stored config (first slot using this
  * provider that has a key) — otherwise the literal "••••" went straight into
  * an Authorization header, which crashes fetch with a cryptic ByteString
  * error (bullets aren't Latin-1).
+ *
+ * A key resolved from storage may only be sent to the base URL it was stored
+ * against. `baseUrl` comes from the caller, so honouring it alongside a stored
+ * key would turn this action into a way to read the decrypted key back out:
+ * point it at any host and the key arrives in its Authorization header. Keys
+ * are encrypted at rest and masked on read precisely so that cannot happen.
+ * It matters most in single-user mode, where there is no admin sign-in and
+ * anyone who can load /admin can call this.
  */
 async function resolveTestApiKey(
   apiKey: string | undefined,
-  provider: string
-): Promise<{ key?: string; error?: string }> {
+  provider: string,
+  baseUrl: string | undefined
+): Promise<{ key?: string; baseUrl?: string; error?: string }> {
   if (apiKey && apiKey !== API_KEY_PLACEHOLDER) {
     // HTTP header values must be Latin-1; real provider keys are printable
     // ASCII. Reject anything else with a readable message instead of letting
@@ -61,16 +89,28 @@ async function resolveTestApiKey(
     if (/[^\x21-\x7e]/.test(apiKey)) {
       return { error: "API key contains invalid characters — re-paste the key" };
     }
-    return { key: apiKey };
+    // The caller supplied the key, so it is theirs to send where they like.
+    return { key: apiKey, baseUrl };
   }
   if (apiKey === API_KEY_PLACEHOLDER) {
     const config = await getAIConfig();
     const slots = [config.text, config.textFailover, config.vision, config.visionFailover];
     const match = slots.find((s) => s.provider === provider && s.apiKey);
-    if (match) return { key: match.apiKey };
-    return { error: "No stored API key found for this provider — re-enter the key" };
+    if (!match) {
+      return { error: "No stored API key found for this provider — re-enter the key" };
+    }
+    if (
+      SENDS_KEY_TO_BASE_URL.has(provider) &&
+      normalizeBaseUrl(baseUrl, provider) !== normalizeBaseUrl(match.baseUrl, provider)
+    ) {
+      return {
+        error:
+          "Save the new base URL before testing it, or re-enter the API key to test a different endpoint.",
+      };
+    }
+    return { key: match.apiKey, baseUrl: match.baseUrl };
   }
-  return {};
+  return { baseUrl };
 }
 
 /**
@@ -154,14 +194,14 @@ export async function fetchAvailableModels(
     const admin = await requireAdmin(idToken);
     if (!admin.ok) return { error: admin.error };
 
-    const resolved = await resolveTestApiKey(apiKey, provider);
+    const resolved = await resolveTestApiKey(apiKey, provider, baseUrl);
     if (resolved.error) return { error: resolved.error };
     apiKey = resolved.key;
+    baseUrl = resolved.baseUrl;
 
     if (provider === "deepseek" || provider === "alibaba") {
       if (!apiKey) return { error: "API key is required" };
-      const defaultUrl = provider === "alibaba" ? "https://dashscope.aliyuncs.com/compatible-mode" : "https://api.deepseek.com";
-      const url = ((baseUrl || defaultUrl).replace(/\/+$/, "").replace(/\/v1$/, "")) + "/v1/models";
+      const url = normalizeBaseUrl(baseUrl, provider) + "/v1/models";
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${apiKey}` },
         signal: AbortSignal.timeout(10000),
@@ -224,14 +264,14 @@ export async function testProviderConnection(
 
     if (provider === "mock") return { data: { success: true, latency: 0 } };
 
-    const resolved = await resolveTestApiKey(apiKey, provider);
+    const resolved = await resolveTestApiKey(apiKey, provider, baseUrl);
     if (resolved.error) return { error: resolved.error };
     apiKey = resolved.key;
+    baseUrl = resolved.baseUrl;
 
     if (provider === "deepseek" || provider === "alibaba") {
       if (!apiKey) return { error: "API key is not configured" };
-      const defaultUrl = provider === "alibaba" ? "https://dashscope.aliyuncs.com/compatible-mode" : "https://api.deepseek.com";
-      const url = ((baseUrl || defaultUrl).replace(/\/+$/, "").replace(/\/v1$/, "")) + "/v1/models";
+      const url = normalizeBaseUrl(baseUrl, provider) + "/v1/models";
       const start = Date.now();
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${apiKey}` },
