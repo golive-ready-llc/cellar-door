@@ -151,6 +151,15 @@ export type AdminAuthResult =
  */
 export async function requireAdmin(idToken: string): Promise<AdminAuthResult> {
   try {
+    if (isSingleUserMode()) {
+      await ensureSingleUser();
+      return {
+        ok: true,
+        email: SINGLE_USER_EMAIL,
+        uid: SINGLE_USER_FIREBASE_UID,
+      };
+    }
+
     const auth = getAdminAuth();
     if (!auth) {
       return { ok: false, error: "Authentication failed" };

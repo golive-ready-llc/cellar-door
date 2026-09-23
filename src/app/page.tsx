@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/site-url";
+import { isSingleUserMode } from "@/lib/single-user";
 import LandingPage from "./landing-client";
 
 export const metadata: Metadata = {
@@ -17,5 +19,9 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
+  if (isSingleUserMode()) {
+    redirect("/cellar");
+  }
+
   return <LandingPage />;
 }
