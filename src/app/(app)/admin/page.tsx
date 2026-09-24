@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { getAdminStats, type AdminStats } from "@/server/actions/admin";
+import { isSingleUserMode } from "@/lib/single-user";
 import {
   getFeedbackQueue,
   updateFeedbackStatus,
@@ -77,22 +78,25 @@ export default function AdminPage() {
     async function fetchStats() {
       try {
         const token = await getIdToken();
-        if (!token) {
+
+        if (!token && !isSingleUserMode()) {
           setError("Access Denied");
           setLoading(false);
           return;
         }
-        const result = await getAdminStats(token);
+
+        const adminToken = token ?? "";
+        const result = await getAdminStats(adminToken);
         if (result.error) {
           setError(result.error);
         } else if (result.data) {
           setStats(result.data);
         }
         // Also fetch feedback queue
-        const fbResult = await getFeedbackQueue(token);
+        const fbResult = await getFeedbackQueue(adminToken);
         if (fbResult.data) setFeedback(fbResult.data);
         // Also fetch AI config — always show the card with defaults if fetch fails
-        const aiResult = await getAdminAIConfig(token);
+        const aiResult = await getAdminAIConfig(adminToken);
         if (aiResult.data) {
           setAiConfig(aiResult.data);
           setAiConfigError(null);
@@ -522,8 +526,9 @@ export default function AdminPage() {
           items={feedback}
           onUpdate={async (id, status, note) => {
             const token = await getIdToken();
-            if (!token) return;
-            const result = await updateFeedbackStatus(token, id, status, note);
+            if (!token && !isSingleUserMode()) return;
+            const adminToken = token ?? "";
+            const result = await updateFeedbackStatus(adminToken, id, status, note);
             if (result.success) {
               setFeedback((prev) =>
                 prev.map((f) =>
@@ -544,20 +549,23 @@ export default function AdminPage() {
           config={aiConfig}
           onSave={async (updates) => {
             const token = await getIdToken();
-            if (!token) return { error: "Not authenticated" };
-            const result = await updateAdminAIConfig(token, updates);
+            if (!token && !isSingleUserMode()) return { error: "Not authenticated" };
+            const adminToken = token ?? "";
+            const result = await updateAdminAIConfig(adminToken, updates);
             if (result.data) setAiConfig(result.data);
             return result;
           }}
           onTestConnection={async (provider, apiKey, baseUrl) => {
             const token = await getIdToken();
-            if (!token) return { error: "Not authenticated" };
-            return testProviderConnection(token, provider, apiKey, baseUrl);
+            if (!token && !isSingleUserMode()) return { error: "Not authenticated" };
+            const adminToken = token ?? "";
+            return testProviderConnection(adminToken, provider, apiKey, baseUrl);
           }}
           onFetchModels={async (provider, apiKey, baseUrl) => {
             const token = await getIdToken();
-            if (!token) return { error: "Not authenticated" };
-            return fetchAvailableModels(token, provider, apiKey, baseUrl);
+            if (!token && !isSingleUserMode()) return { error: "Not authenticated" };
+            const adminToken = token ?? "";
+            return fetchAvailableModels(adminToken, provider, apiKey, baseUrl);
           }}
         />
       )}
