@@ -74,13 +74,18 @@ must `docker compose build` for the change to take effect.
 `NEXT_PUBLIC_SINGLE_USER_MODE=true` and there is no sign-in at all. The app
 treats every request as one implicit local owner, created automatically on
 first boot. No Google account, no Firebase project, no external service of any
-kind.
+kind. There is no landing page to pass through either: `/` goes straight to
+`/cellar`.
 
 > ⚠️ **This disables authentication.** Anyone who can reach the server has
-> full access to your cellar. That is fine on a LAN, over a VPN/Tailscale, or
-> behind your own reverse-proxy auth (Authelia, oauth2-proxy, Cloudflare
-> Access) — but do not expose it to the open internet as-is. The server logs a
-> warning at startup whenever single-user mode is on.
+> full access to your cellar — `/admin` included, since there is no sign-in to
+> stand in front of it. That means the usage stats, the feedback queue and the
+> AI provider settings. Stored provider keys stay encrypted and masked, and
+> they can only be tested against the endpoint they were saved with, so the
+> console cannot hand them back out in clear text. That is fine on a LAN, over
+> a VPN/Tailscale, or behind your own reverse-proxy auth (Authelia,
+> oauth2-proxy, Cloudflare Access) — but do not expose it to the open internet
+> as-is. The server logs a warning at startup whenever single-user mode is on.
 >
 > `SITE_PASSWORD` adds a shared-password page in front of the app. It keeps
 > casual visitors out, but it is a convenience gate, not access control: use
@@ -212,8 +217,10 @@ feature is available without configuring Stripe at all. Leave the
 Two ways:
 
 - **Env var** — set `GEMINI_API_KEY` and you're done.
-- **Admin console** — set `ADMIN_EMAIL` + `NEXT_PUBLIC_ADMIN_EMAIL` to your
-  account's email, sign in, and visit `/admin`. You can configure separate
+- **Admin console** — visit `/admin`. In single-user mode it is already open:
+  there is no sign-in, so `ADMIN_EMAIL` does not apply. With Firebase, set
+  `ADMIN_EMAIL` + `NEXT_PUBLIC_ADMIN_EMAIL` to your account's email and sign in
+  first. Either way you can configure separate
   **text** and **vision** providers with independent failovers. Anything
   OpenAI-compatible works (Gemini, DeepSeek, Alibaba Qwen, OpenRouter,
   Together, local llama.cpp/Ollama behind an OpenAI shim, …). Keys entered
