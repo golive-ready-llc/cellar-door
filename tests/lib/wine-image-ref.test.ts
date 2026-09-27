@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decodeImageDataUrl, listImageUrl, parseWineImageRef } from "@/lib/wine-image-ref";
+import { decodeImageDataUrl, listImageUrl, parseWineImageRef, wineImageUrlAt } from "@/lib/wine-image-ref";
 
 const JPEG = "data:image/jpeg;base64," + Buffer.from("fake-jpeg-bytes").toString("base64");
 const OTHER_JPEG = "data:image/jpeg;base64," + Buffer.from("other-jpeg-bytes").toString("base64");
@@ -18,6 +18,14 @@ describe("wine image references", () => {
 
   it("gives a changed image a new URL", () => {
     expect(listImageUrl("wine", "w1", JPEG)).not.toBe(listImageUrl("wine", "w1", OTHER_JPEG));
+  });
+
+  it("versions by the row's write time and round-trips too", () => {
+    const at = new Date("2026-01-02T03:04:05Z");
+    const url = wineImageUrlAt("wine", "w1", at);
+    expect(url).toBe(`/api/wine-image/w1?v=${at.getTime().toString(36)}`);
+    expect(parseWineImageRef(wineImageUrlAt("history", "h 1", at))).toEqual({ kind: "history", id: "h 1" });
+    expect(wineImageUrlAt("wine", "w1", new Date(at.getTime() + 1))).not.toBe(url);
   });
 
   it("round-trips the record id and kind", () => {

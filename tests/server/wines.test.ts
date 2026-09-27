@@ -159,14 +159,17 @@ beforeEach(() => {
 });
 
 describe("getWines", () => {
-  it("scopes findMany to the resolved userId", async () => {
-    wineFindMany.mockResolvedValue([fakeWineRow()]);
+  it("scopes findMany to the resolved userId and omits the image column", async () => {
+    wineFindMany.mockImplementation((args: { select?: unknown }) =>
+      args?.select ? [] : [fakeWineRow()]
+    );
     const { getWines } = await import("@/server/actions/wines");
     await getWines("u1");
     expect(resolveServerUserId).toHaveBeenCalledWith("u1");
     expect(wineFindMany).toHaveBeenCalledWith({
       where: { userId: "u1" },
       orderBy: { addedAt: "desc" },
+      omit: { imageUrl: true },
     });
   });
 
@@ -203,12 +206,21 @@ describe("getWine", () => {
 
 describe("getWinesByCabinet", () => {
   it("filters by both userId and cabinetId", async () => {
-    wineFindMany.mockResolvedValue([]);
+    wineFindMany.mockImplementation((args: { select?: unknown }) => (args?.select ? [] : []));
     const { getWinesByCabinet } = await import("@/server/actions/wines");
     await getWinesByCabinet("u1", "cab1");
     expect(wineFindMany).toHaveBeenCalledWith({
       where: { userId: "u1", cabinetId: "cab1" },
       orderBy: { addedAt: "desc" },
+      omit: { imageUrl: true },
+    });
+    expect(wineFindMany).toHaveBeenCalledWith({
+      where: {
+        userId: "u1",
+        cabinetId: "cab1",
+        imageUrl: { not: { startsWith: "data:image/" } },
+      },
+      select: { id: true, imageUrl: true },
     });
   });
 });
@@ -387,12 +399,13 @@ describe("bulkRemoveWines", () => {
 
 describe("history queries", () => {
   it("getHistory scopes to the resolved userId", async () => {
-    historyFindMany.mockResolvedValue([]);
+    historyFindMany.mockImplementation((args: { select?: unknown }) => (args?.select ? [] : []));
     const { getHistory } = await import("@/server/actions/wines");
     await getHistory("u1");
     expect(historyFindMany).toHaveBeenCalledWith({
       where: { userId: "u1" },
       orderBy: { removedAt: "desc" },
+      omit: { imageUrl: true },
     });
   });
 
@@ -440,17 +453,51 @@ describe("importWines", () => {
 
 describe("wine images in list responses", () => {
   const JPEG = "data:image/jpeg;base64," + Buffer.from("label").toString("base64");
+  const WRITTEN_AT = new Date("2026-01-02T03:04:05Z");
 
-  it("getWines references stored images by URL; backups still get the data", async () => {
-    wineFindMany.mockResolvedValue([
-      fakeWineRow({ id: "w1", imageUrl: JPEG }),
-      fakeWineRow({ id: "w2", imageUrl: "https://img.example/x.jpg" }),
-    ]);
+  /** A row as the omit query returns it: no image column at all. */
+  const slimWineRow = (overrides: Record<string, unknown> = {}) => {
+    const row = fakeWineRow({ updatedAt: WRITTEN_AT, ...overrides }) as {
+      imageUrl?: string;
+    } & Record<string, unknown>;
+    delete row.imageUrl;
+    return row;
+  };
+
+  it("getWines references stored images by a updatedAt-versioned URL; backups still get the data", async () => {
+    wineFindMany.mockImplementation((args: { select?: unknown }) =>
+      args?.select
+        ? [{ id: "w2", imageUrl: "https://img.example/x.jpg" }]
+        : [slimWineRow({ id: "w1" }), slimWineRow({ id: "w2" })]
+    );
     const { getWines } = await import("@/server/actions/wines");
     const list = await getWines("u1");
-    expect(list[0].imageUrl).toMatch(/^\/api\/wine-image\/w1\?v=/);
+    expect(list[0].imageUrl).toBe(
+      `/api/wine-image/w1?v=${WRITTEN_AT.getTime().toString(36)}`
+    );
     expect(list[1].imageUrl).toBe("https://img.example/x.jpg");
+    expect(wineFindMany.mock.calls[0][0].omit).toEqual({ imageUrl: true });
+
+    wineFindMany.mockReset();
+    wineFindMany.mockResolvedValue([fakeWineRow({ id: "w1", imageUrl: JPEG })]);
     const full = await getWines("u1", { fullImages: true });
+    expect(full[0].imageUrl).toBe(JPEG);
+  });
+
+  it("getHistory references stored images by a removedAt-versioned URL; backups get the data", async () => {
+    const slimHistoryRow = { id: "h1", removedAt: WRITTEN_AT };
+    historyFindMany.mockImplementation((args: { select?: unknown }) =>
+      args?.select ? [] : [slimHistoryRow]
+    );
+    const { getHistory } = await import("@/server/actions/wines");
+    const list = await getHistory("u1");
+    expect(list[0].imageUrl).toBe(
+      `/api/wine-image/h1?v=${WRITTEN_AT.getTime().toString(36)}&k=h`
+    );
+
+    historyFindMany.mockReset();
+    historyFindMany.mockResolvedValue([{ ...slimHistoryRow, imageUrl: JPEG }]);
+    const full = await getHistory("u1", undefined, { fullImages: true });
     expect(full[0].imageUrl).toBe(JPEG);
   });
 

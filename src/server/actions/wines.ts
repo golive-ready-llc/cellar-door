@@ -7,7 +7,7 @@ import type { AiRatings, Wine } from "@/types/wine";
 import { isSparklingType } from "@/types/wine";
 import { logAudit } from "@/server/audit-log";
 import { limitWineText } from "@/lib/wine-text-limits";
-import { listImageUrl, parseWineImageRef } from "@/lib/wine-image-ref";
+import { listImageUrl, parseWineImageRef, wineImageUrlAt } from "@/lib/wine-image-ref";
 import { resolveImageRef } from "@/server/wine-image-refs";
 import { resolveServerUserId } from "@/server/auth-guard";
 import { assertNotDemo } from "@/lib/demo";
@@ -297,13 +297,34 @@ export async function getWines(
   options?: { fullImages?: boolean }
 ): Promise<Wine[]> {
   const uid = await resolveServerUserId(userId);
-  const wines = await prisma.wine.findMany({
-    where: { userId: uid },
-    orderBy: { addedAt: "desc" },
-  });
 
   // Lists reference images by URL; backups ask for the image data itself.
-  return populateCdScores(wines.map(options?.fullImages ? mapPrismaWine : mapListWine));
+  // The image column holds base64 data URLs, so fetching it for lists just to
+  // swap in a URL moved ~5.5 MB per load for the largest cellar (measured
+  // 344 ms full vs 68 ms with the column omitted). List queries omit it and
+  // version the image URL by updatedAt instead of the image fingerprint
+  // (see wineImageUrlAt).
+  if (options?.fullImages) {
+    const wines = await prisma.wine.findMany({
+      where: { userId: uid },
+      orderBy: { addedAt: "desc" },
+    });
+    return populateCdScores(wines.map(mapPrismaWine));
+  }
+  const [wines, passthroughs] = await Promise.all([
+    prisma.wine.findMany({
+      where: { userId: uid },
+      orderBy: { addedAt: "desc" },
+      omit: { imageUrl: true },
+    }),
+    // Values that aren't stored rasters (external URLs, empty) travel as-is.
+    prisma.wine.findMany({
+      where: { userId: uid, imageUrl: { not: { startsWith: "data:image/" } } },
+      select: { id: true, imageUrl: true },
+    }),
+  ]);
+  const direct = new Map(passthroughs.map((r) => [r.id, r.imageUrl]));
+  return populateCdScores(wines.map((w) => mapListWine(w, direct.get(w.id))));
 }
 
 export async function getWinesByCabinet(
@@ -311,12 +332,24 @@ export async function getWinesByCabinet(
   cabinetId: string
 ): Promise<Wine[]> {
   const uid = await resolveServerUserId(userId);
-  const wines = await prisma.wine.findMany({
-    where: { userId: uid, cabinetId },
-    orderBy: { addedAt: "desc" },
-  });
+  const [wines, passthroughs] = await Promise.all([
+    prisma.wine.findMany({
+      where: { userId: uid, cabinetId },
+      orderBy: { addedAt: "desc" },
+      omit: { imageUrl: true },
+    }),
+    prisma.wine.findMany({
+      where: {
+        userId: uid,
+        cabinetId,
+        imageUrl: { not: { startsWith: "data:image/" } },
+      },
+      select: { id: true, imageUrl: true },
+    }),
+  ]);
+  const direct = new Map(passthroughs.map((r) => [r.id, r.imageUrl]));
 
-  return populateCdScores(wines.map(mapListWine));
+  return populateCdScores(wines.map((w) => mapListWine(w, direct.get(w.id))));
 }
 
 export async function getWine(
@@ -638,13 +671,53 @@ export async function getHistory(
   options?: { fullImages?: boolean }
 ): Promise<import("@/types/wine").WineHistoryItem[]> {
   const uid = await resolveServerUserId(userId);
-  const rows = await prisma.wineHistory.findMany({
-    where: { userId: uid },
-    orderBy: { removedAt: "desc" },
-    // Optional cap for views that only show recent events (activity feed).
-    ...(limit ? { take: Math.min(Math.max(1, Math.floor(limit)), 1000) } : {}),
+
+  // Same shape as the wine lists: backups get the stored image data, lists
+  // get a URL. History rows are immutable (updateHistoryItem never touches
+  // imageUrl), so the URL is versioned by removedAt — the image column stays
+  // out of the list query, which for a long-lived account carried several MB
+  // of base64 labels per load.
+  if (options?.fullImages) {
+    const rows = await prisma.wineHistory.findMany({
+      where: { userId: uid },
+      orderBy: { removedAt: "desc" },
+    });
+    return rows.map((r) => mapHistoryItem(r, r.imageUrl));
+  }
+  const [rows, passthroughs] = await Promise.all([
+    prisma.wineHistory.findMany({
+      where: { userId: uid },
+      orderBy: { removedAt: "desc" },
+      // Optional cap for views that only show recent events (activity feed).
+      ...(limit ? { take: Math.min(Math.max(1, Math.floor(limit)), 1000) } : {}),
+      omit: { imageUrl: true },
+    }),
+    prisma.wineHistory.findMany({
+      where: { userId: uid, imageUrl: { not: { startsWith: "data:image/" } } },
+      select: { id: true, imageUrl: true },
+    }),
+  ]);
+  const direct = new Map(passthroughs.map((r) => [r.id, r.imageUrl]));
+  return rows.map((r) => {
+    const stored = direct.get(r.id);
+    return mapHistoryItem(
+      r,
+      stored !== undefined
+        ? listImageUrl("history", r.id, stored)
+        : wineImageUrlAt("history", r.id, r.removedAt)
+    );
   });
-  return rows.map((r) => ({
+}
+
+/** Map a history row for a response; `imageUrl` is the value to ship (stored
+ *  data for backups, a versioned URL for lists). */
+function mapHistoryItem(
+  r: Omit<Awaited<ReturnType<typeof prisma.wineHistory.findFirst>> & object, "imageUrl"> & {
+    imageUrl?: string;
+  },
+  imageUrl: string
+): import("@/types/wine").WineHistoryItem {
+  return {
     id: r.id,
     originalId: r.originalId,
     name: r.name,
@@ -659,7 +732,7 @@ export async function getHistory(
     consumeNotes: r.consumeNotes,
     price: r.price,
     retailPrice: r.retailPrice,
-    imageUrl: options?.fullImages ? r.imageUrl : listImageUrl("history", r.id, r.imageUrl),
+    imageUrl,
     description: r.description,
     foodPairings: r.foodPairings,
     alcohol: r.alcohol,
@@ -669,7 +742,7 @@ export async function getHistory(
     addedAt: r.addedAt?.toISOString() ?? null,
     removedAt: r.removedAt.toISOString(),
     reason: r.reason,
-  }));
+  };
 }
 
 /** Entry shape for the taste-profile aggregation: just the bucket labels and
@@ -879,6 +952,8 @@ export async function restoreWineFromHistory(
 // ============================================================
 
 type PrismaWine = Awaited<ReturnType<typeof prisma.wine.findFirst>> & object;
+/** A full wine row, or a list row whose image column was omitted (see getWines). */
+type PrismaWineRow = Omit<PrismaWine, "imageUrl"> & { imageUrl?: string };
 
 /** Convert old structured {aroma,taste,finish,overall} or plain string → string */
 function flattenTastingNotes(notes: unknown): string {
@@ -914,13 +989,22 @@ async function populateCdScores(wines: Wine[]): Promise<Wine[]> {
   });
 }
 
-/** mapPrismaWine for list responses: images are referenced by URL (see wine-image-ref). */
-function mapListWine(wine: PrismaWine): Wine {
+/** mapPrismaWine for list responses: images are referenced by URL (see
+ *  wine-image-ref). `storedUrl` is the actual image value when the row was
+ *  fetched by the passthrough query; otherwise the image column was omitted
+ *  and the URL is versioned by the row's updatedAt. */
+function mapListWine(wine: PrismaWineRow, storedUrl?: string): Wine {
   const mapped = mapPrismaWine(wine);
-  return { ...mapped, imageUrl: listImageUrl("wine", wine.id, wine.imageUrl) };
+  return {
+    ...mapped,
+    imageUrl:
+      storedUrl !== undefined
+        ? listImageUrl("wine", wine.id, storedUrl)
+        : wineImageUrlAt("wine", wine.id, wine.updatedAt),
+  };
 }
 
-function mapPrismaWine(wine: PrismaWine): Wine {
+function mapPrismaWine(wine: PrismaWineRow): Wine {
   return {
     id: wine.id,
     userId: wine.userId,
@@ -938,7 +1022,7 @@ function mapPrismaWine(wine: PrismaWine): Wine {
     bottleSize: ((wine as PrismaWine & { bottleSize?: string }).bottleSize ?? "standard") as Wine["bottleSize"],
     grapeVariety: wine.grapeVariety,
     userRating: wine.userRating,
-    imageUrl: wine.imageUrl,
+    imageUrl: wine.imageUrl ?? "",
     price: wine.price,
     retailPrice: wine.retailPrice,
     purchaseDate: wine.purchaseDate,
