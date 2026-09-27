@@ -38,6 +38,18 @@ export function wineImageUrl(kind: WineImageKind, id: string, stored: string): s
   return `${ROUTE_PREFIX}${encodeURIComponent(id)}?v=${fingerprint(stored)}${kindParam}`;
 }
 
+/**
+ * Route URL versioned by the row's last-write time instead of the image
+ * content. Wine.updatedAt is bumped by any update (image writes included) and
+ * history rows are immutable, so the cache key still turns when the image
+ * does — while list queries can skip the image column entirely instead of
+ * pulling every bottle's base64 label just to fingerprint it.
+ */
+export function wineImageUrlAt(kind: WineImageKind, id: string, writtenAt: Date): string {
+  const kindParam = kind === "history" ? "&k=h" : "";
+  return `${ROUTE_PREFIX}${encodeURIComponent(id)}?v=${writtenAt.getTime().toString(36)}${kindParam}`;
+}
+
 /** Image value for list responses: stored raster data URLs become a route URL; anything else is unchanged. */
 export function listImageUrl(kind: WineImageKind, id: string, stored: string): string {
   return isRoutableImage(stored) ? wineImageUrl(kind, id, stored) : stored;
