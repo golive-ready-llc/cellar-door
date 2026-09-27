@@ -207,4 +207,42 @@ describe("DecantTimerDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Skip$/i }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  // AGENTS.md button hierarchy: the view's primary action uses the default
+  // Button variant — never an ad-hoc tinted fill.
+  it("renders Play (idle) as the default variant, not an ad-hoc purple fill", async () => {
+    aiDecantRecommendation.mockResolvedValue({
+      success: true,
+      data: { decantMinutes: 1, recommended: true, explanation: "ok" },
+    });
+
+    render(<DecantTimerDialog wine={makeWine()} open onOpenChange={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByText("1:00")).toBeInTheDocument());
+    const playBtn = document.querySelector("button.rounded-full.w-14.h-14") as HTMLElement;
+    expect(playBtn).toBeTruthy();
+    expect(playBtn.className).toContain("bg-primary");
+    expect(playBtn.className).not.toContain("bg-purple-600");
+  });
+
+  it("renders Pour (complete) as the default variant, not an ad-hoc purple fill", async () => {
+    aiDecantRecommendation.mockResolvedValue({
+      success: true,
+      data: { decantMinutes: 1, recommended: true, explanation: "ok" },
+    });
+    // A decant that finished while the dialog was closed rehydrates straight
+    // to the complete state — no ticker needed to reach Pour.
+    window.localStorage.setItem(
+      "cd:decant:active",
+      JSON.stringify({ wineId: "w-1", endTime: Date.now() - 1000, totalSeconds: 60 })
+    );
+
+    render(<DecantTimerDialog wine={makeWine()} open onOpenChange={vi.fn()} />);
+
+    const pourBtn = await waitFor(() =>
+      screen.getByRole("button", { name: /^Pour$/i })
+    );
+    expect(pourBtn.className).toContain("bg-primary");
+    expect(pourBtn.className).not.toContain("bg-purple-600");
+  });
 });
