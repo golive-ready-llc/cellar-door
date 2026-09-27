@@ -217,4 +217,20 @@ describe("useCellar choreography", () => {
     expect(result.current.data.highlightedWineId).toBe("w1");
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
   });
+
+  it("surfaces a failed load and recovers on retry", async () => {
+    const { fetchWines } = await import("@/lib/data");
+    vi.mocked(fetchWines).mockRejectedValueOnce(new Error("network down"));
+
+    const { result } = await renderCellar();
+    expect(result.current.data.loadError).toBe(true);
+    expect(result.current.data.wines).toEqual([]);
+
+    vi.mocked(fetchWines).mockResolvedValueOnce([makeWine()]);
+    await act(async () => {
+      await result.current.data.retryLoad();
+    });
+    expect(result.current.data.loadError).toBe(false);
+    expect(result.current.data.wines.length).toBe(1);
+  });
 });

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useStatsData } from "@/hooks/use-stats-data";
 import { StatsHeader } from "@/components/stats/stats-header";
 import { HeroStatCards } from "@/components/stats/hero-stat-cards";
@@ -40,6 +41,8 @@ export default function StatsPage() {
     cabinets,
     history,
     loading,
+    loadError,
+    retryLoad,
     selectedWine,
     detailOpen,
     setDetailOpen,
@@ -81,6 +84,20 @@ export default function StatsPage() {
             <div key={i} className="h-64 bg-muted animate-pulse rounded-xl" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Stats" subtitle="Insights about your wine collection" />
+        <EmptyState
+          icon={AlertTriangle}
+          title="Couldn't load your stats"
+          description="Something went wrong fetching your collection. Check your connection and try again."
+          action={{ label: "Try again", onClick: retryLoad }}
+        />
       </div>
     );
   }

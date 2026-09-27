@@ -71,6 +71,7 @@ export function useCellar() {
   const [walls, setWalls] = useState<Wall[]>([]);
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [selectedType, setSelectedType] = useState<WineType | "all">("all");
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
@@ -176,6 +177,7 @@ export function useCellar() {
     // bug observed on Firefox after Google sign-in.
     if (!userId && !devMode) return;
     try {
+      setLoadError(false);
       const [wineData, cabinetData, wallData] = await Promise.all([
         fetchWines(userId),
         fetchCabinets(userId),
@@ -191,6 +193,8 @@ export function useCellar() {
             : wallData[0].id
         );
       }
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -207,6 +211,15 @@ export function useCellar() {
     invalidateReadCache();
     return loadData();
   }, [loadData]);
+
+  // Retry after a failed load: back to the loading shell (the page has no
+  // data to show) and through the cache-bypassing refresh, so a cached read
+  // can't pin the error state.
+  const retryLoad = useCallback(() => {
+    setLoadError(false);
+    setLoading(true);
+    return refreshData();
+  }, [refreshData]);
 
   // Warm the other tabs' data once the cellar is loaded and the browser is
   // idle — history and buy-list land in the read cache, so switching to those
@@ -1041,6 +1054,8 @@ export function useCellar() {
 
       loadData,
       refreshData,
+      loadError,
+      retryLoad,
 
       consumeDeepLink,
 

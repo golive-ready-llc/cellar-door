@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Wine as WineIcon, Search } from "lucide-react";
+import { Wine as WineIcon, Search, AlertTriangle } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WineDetailDialog } from "@/components/wine/wine-detail-dialog";
 import { useWineData } from "@/contexts/wine-data-context";
@@ -55,6 +55,19 @@ export default function InventoryPage() {
         </div>
         <WineListSkeleton count={6} variant="grid" />
       </div>
+    );
+  }
+
+  // A failed load must not render as "Your cellar is empty" — that message
+  // lives below and would be a lie.
+  if (inv.loadError) {
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        title="Couldn't load your inventory"
+        description="Something went wrong fetching your wines. Check your connection and try again."
+        action={{ label: "Try again", onClick: inv.retryLoad }}
+      />
     );
   }
 
