@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { SITE_URL } from "@/lib/site-url";
 import { prisma } from "@/lib/db";
 import { authenticateIdToken } from "@/lib/api-auth";
 
@@ -24,13 +25,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Create portal session
-    // Self-hosted deployments set NEXT_PUBLIC_SITE_URL so Stripe returns the
-    // user to THEIR domain; falls back to the hosted service.
-    const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://mycellardoor.app";
-
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
-      return_url: `${origin}/settings`,
+      return_url: `${SITE_URL}/settings`,
     });
 
     return NextResponse.json({ url: session.url });

@@ -1,6 +1,32 @@
 import type { Tier } from "@/lib/tier";
+import { stripe } from "@/lib/stripe";
+import { prisma } from "@/lib/db";
 
 export type BillingInterval = "monthly" | "annual";
+
+/**
+ * Every payment route (subscription checkout, credit top-up) resolves the
+ * caller's Stripe customer the same way: reuse the id stored on the user, or
+ * create the customer on first checkout and persist it. A divergent copy of
+ * this block could mint a second Stripe customer for the same user and orphan
+ * their subscriptions, so it lives here once.
+ */
+export async function getOrCreateStripeCustomerId(
+  user: { id: string; email: string; stripeCustomerId: string | null },
+  firebaseUid: string
+): Promise<string> {
+  if (user.stripeCustomerId) return user.stripeCustomerId;
+
+  const customer = await stripe.customers.create({
+    email: user.email,
+    metadata: { userId: user.id, firebaseUid },
+  });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { stripeCustomerId: customer.id },
+  });
+  return customer.id;
+}
 
 /**
  * Maps Stripe price IDs to app tier enums.

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { stripe } from "@/lib/stripe";
-import { priceIdFromTier } from "@/lib/stripe-helpers";
+import { priceIdFromTier, getOrCreateStripeCustomerId } from "@/lib/stripe-helpers";
+import { SITE_URL } from "@/lib/site-url";
 import { prisma } from "@/lib/db";
 import { authenticateIdToken } from "@/lib/api-auth";
 import { TIER_CONFIGS, type Tier } from "@/lib/tier";
@@ -40,25 +41,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Get or create Stripe customer
-    let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: { userId: user.id, firebaseUid: authResult.uid },
-      });
-      customerId = customer.id;
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { stripeCustomerId: customerId },
-      });
-    }
+    const customerId = await getOrCreateStripeCustomerId(user, authResult.uid);
 
     // 5. Create Checkout Session
     const tierConfig = TIER_CONFIGS[tier];
-    // Self-hosted deployments set NEXT_PUBLIC_SITE_URL so Stripe returns the
-    // user to THEIR domain; falls back to the hosted service.
-    const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://mycellardoor.app";
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -69,8 +55,8 @@ export async function POST(request: NextRequest) {
         metadata: { userId: user.id, tier },
       },
       metadata: { userId: user.id, tier },
-      success_url: `${origin}/settings?checkout=success`,
-      cancel_url: `${origin}/settings`,
+      success_url: `${SITE_URL}/settings?checkout=success`,
+      cancel_url: `${SITE_URL}/settings`,
       allow_promotion_codes: true,
     });
 
