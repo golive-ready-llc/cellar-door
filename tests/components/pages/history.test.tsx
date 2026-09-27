@@ -122,4 +122,33 @@ describe("HistoryPage detail dialog", () => {
     expect(await screen.findByText("3.1")).toBeInTheDocument();
     expect(screen.queryByText("4.2")).not.toBeInTheDocument();
   });
+
+  it("clearing the vintage on save clears it in the row and dialog, instead of resurrecting the old value", async () => {
+    historyMock.mockResolvedValue([
+      historyItem({ id: "h9", name: "Gamma", winery: "Gamma Winery", vintage: 1999 }),
+    ]);
+    render(<HistoryPage />);
+
+    await openItem("Gamma");
+    // The vintage shows in both the row and the open dialog.
+    expect(screen.getAllByText(/1999/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /Edit/ }));
+    fireEvent.change(screen.getByPlaceholderText("Year"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
+
+    await waitFor(() => {
+      expect(editHistoryItemMock).toHaveBeenCalledWith(
+        "h9",
+        expect.objectContaining({ vintage: null }),
+        "u1"
+      );
+    });
+    // The server persisted null; the local row must show the cleared value
+    // too — the old `updates.vintage ?? h.vintage` overrides put the deleted
+    // vintage back on screen until a full reload.
+    await waitFor(() => {
+      expect(screen.queryByText(/1999/)).toBeNull();
+    });
+  });
 });

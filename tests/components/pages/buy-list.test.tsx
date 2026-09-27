@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { BuyListItem } from "@/types/wine";
 
 const buyListMock = vi.fn<() => Promise<BuyListItem[]>>();
+const createWineMock = vi.fn(async () => ({ success: true }));
 const communityScoreMock =
   vi.fn<
     (name: string, winery: string, vintage: number | null) => Promise<{
@@ -16,13 +17,24 @@ vi.mock("@/lib/data", () => ({
   fetchCabinets: async () => [],
   addBuyListItem: async () => ({ success: true }),
   removeBuyListItem: async () => ({ success: true }),
-  createWine: async () => ({ success: true }),
+  createWine: (...args: unknown[]) => createWineMock(...(args as [])),
   fetchCommunityScore: (name: string, winery: string, vintage: number | null) =>
     communityScoreMock(name, winery, vintage),
 }));
 vi.mock("@/components/auth-provider", () => ({
   useAuth: () => ({ userId: "u1", user: null, devMode: false, tier: "PRO" }),
 }));
+
+// The toast viewport lives in the app layout, not the page — spy on the
+// calls instead of asserting rendered DOM.
+const toastMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+  default: vi.fn(),
+}));
+vi.mock("@/components/ui/custom-toast", () => ({ toast: toastMock }));
 
 import BuyListPage from "@/app/(app)/buy-list/page";
 
@@ -69,6 +81,9 @@ const ITEM_B = buyListItem({ id: "b2", name: "Beta", winery: "Beta Winery" });
 describe("BuyListPage detail dialog", () => {
   beforeEach(() => {
     buyListMock.mockReset();
+    createWineMock.mockReset();
+    createWineMock.mockResolvedValue({ success: true });
+    toastMock.error.mockClear();
     communityScoreMock.mockReset();
     communityScoreMock.mockImplementation(async (name: string) =>
       name === "Alpha"
@@ -88,5 +103,44 @@ describe("BuyListPage detail dialog", () => {
     fireEvent.click(screen.getByText("Beta"));
     expect(await screen.findByText("3.1")).toBeInTheDocument();
     expect(screen.queryByText("4.2")).not.toBeInTheDocument();
+  });
+
+  it("Mark Purchased adds the wine even when an identical one is already in the cellar, and removes the item", async () => {
+    buyListMock.mockResolvedValue([ITEM_A]);
+    render(<BuyListPage />);
+
+    fireEvent.click(await screen.findByText("Alpha"));
+    fireEvent.click(await screen.findByRole("button", { name: /Mark Purchased/ }));
+
+    // Buying another bottle of a wine you already own is the normal wishlist
+    // case: the create must carry skipDuplicateCheck so the duplicate
+    // sentinel can't escape as an uncaught error that silently no-ops the
+    // button (and kills the rest of a batch purchase).
+    await waitFor(() => {
+      expect(createWineMock).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Alpha", skipDuplicateCheck: true }),
+        "u1"
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("Alpha")).toBeNull();
+    });
+  });
+
+  it("toasts instead of silently no-opping when the cellar add fails", async () => {
+    buyListMock.mockResolvedValue([ITEM_A]);
+    createWineMock.mockRejectedValue(new Error("network down"));
+    render(<BuyListPage />);
+
+    fireEvent.click(await screen.findByText("Alpha"));
+    fireEvent.click(await screen.findByRole("button", { name: /Mark Purchased/ }));
+
+    await waitFor(() => {
+      expect(toastMock.error).toHaveBeenCalledWith(
+        expect.stringContaining("Couldn't add Alpha")
+      );
+    });
+    // The item stays — it was not purchased.
+    expect(await screen.findByText("Alpha")).toBeInTheDocument();
   });
 });

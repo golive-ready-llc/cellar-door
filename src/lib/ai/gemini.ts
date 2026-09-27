@@ -250,76 +250,77 @@ export class GeminiProvider implements AIProvider {
     // reliably set to their bottle/label photo.
     const query = `${wine.name} ${wine.winery}${wine.vintage ? ` ${wine.vintage}` : ""}`;
 
-    try {
-      const response = await this.client.models.generateContent({
-        model: FAST_MODEL,
-        contents: `Find the product page for this wine: "${query}". Describe the wine briefly.`,
-        config: { tools: [{ googleSearch: {} }], temperature: 0.1 },
-      });
+    // A failing grounding call (quota, revoked key, network) must THROW, not
+    // return an empty success — wrapAI keeps the 5-credit reservation on a
+    // success, so the old catch-all burned credits per call while telling the
+    // user "No label image found" (same fix deepseek.ts already carries).
+    // Per-chunk misses below still just skip to the next chunk.
+    const response = await this.client.models.generateContent({
+      model: FAST_MODEL,
+      contents: `Find the product page for this wine: "${query}". Describe the wine briefly.`,
+      config: { tools: [{ googleSearch: {} }], temperature: 0.1 },
+    });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const candidate = (response as any).candidates?.[0];
-      const chunks: Array<{ web?: { uri?: string } }> =
-        candidate?.groundingMetadata?.groundingChunks || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const candidate = (response as any).candidates?.[0];
+    const chunks: Array<{ web?: { uri?: string } }> =
+      candidate?.groundingMetadata?.groundingChunks || [];
 
+    for (const chunk of chunks.slice(0, 6)) {
+      const redirectUrl = chunk?.web?.uri;
+      if (!redirectUrl) continue;
 
-      for (const chunk of chunks.slice(0, 6)) {
-        const redirectUrl = chunk?.web?.uri;
-        if (!redirectUrl) continue;
+      try {
+        const redirectRes = await fetch(redirectUrl, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+          redirect: "manual",
+          signal: AbortSignal.timeout(5000),
+        });
+        const pageUrl = redirectRes.headers.get("location");
+        if (!pageUrl) continue;
 
+        // SSRF guard: pageUrl must be https and resolve to a PUBLIC host.
+        // assertPublicUrl resolves DNS and blocks all private/reserved ranges
+        // (a string-prefix check missed 172.17-31/Docker and DNS rebinding).
         try {
-          const redirectRes = await fetch(redirectUrl, {
-            headers: { "User-Agent": "Mozilla/5.0" },
-            redirect: "manual",
-            signal: AbortSignal.timeout(5000),
-          });
-          const pageUrl = redirectRes.headers.get("location");
-          if (!pageUrl) continue;
-
-          // SSRF guard: pageUrl must be https and resolve to a PUBLIC host.
-          // assertPublicUrl resolves DNS and blocks all private/reserved ranges
-          // (a string-prefix check missed 172.17-31/Docker and DNS rebinding).
-          try {
-            const parsedPageUrl = await assertPublicUrl(pageUrl);
-            if (parsedPageUrl.protocol !== "https:") continue;
-          } catch {
-            continue; // invalid or private/blocked host
-          }
-
-          const pageRes = await fetch(pageUrl, {
-            headers: {
-              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-              Accept: "text/html,*/*",
-            },
-            signal: AbortSignal.timeout(10000),
-            // Don't follow redirects into a private host after the public check.
-            redirect: "manual",
-          });
-
-          if (!pageRes.ok) continue;
-          const html = await pageRes.text();
-
-          const ogMatch =
-            html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-            html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-
-          if (!ogMatch) continue;
-
-          // og:image is often root-relative; resolve it against the page URL
-          // the SSRF guard already vetted. Absolute URLs pass through unchanged.
-          const imageUrl = new URL(ogMatch[1], pageUrl).toString();
-          const dataUrl = await this.downloadImageAsDataUrl(imageUrl, pageUrl);
-          if (dataUrl) {
-            return { imageUrl: dataUrl, source: "google" };
-          }
+          const parsedPageUrl = await assertPublicUrl(pageUrl);
+          if (parsedPageUrl.protocol !== "https:") continue;
         } catch {
-          // Skip this chunk, try next
+          continue; // invalid or private/blocked host
         }
+
+        const pageRes = await fetch(pageUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            Accept: "text/html,*/*",
+          },
+          signal: AbortSignal.timeout(10000),
+          // Don't follow redirects into a private host after the public check.
+          redirect: "manual",
+        });
+
+        if (!pageRes.ok) continue;
+        const html = await pageRes.text();
+
+        const ogMatch =
+          html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+          html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+
+        if (!ogMatch) continue;
+
+        // og:image is often root-relative; resolve it against the page URL
+        // the SSRF guard already vetted. Absolute URLs pass through unchanged.
+        const imageUrl = new URL(ogMatch[1], pageUrl).toString();
+        const dataUrl = await this.downloadImageAsDataUrl(imageUrl, pageUrl);
+        if (dataUrl) {
+          return { imageUrl: dataUrl, source: "google" };
+        }
+      } catch {
+        // Skip this chunk, try next
       }
-    } catch (e) {
-      console.error("[fetchWineImage] error:", e);
     }
 
+    // Grounding ran but no chunk produced a usable image — a genuine miss.
     return { imageUrl: "", source: "google" };
   }
 

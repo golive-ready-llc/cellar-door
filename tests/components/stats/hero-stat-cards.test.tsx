@@ -13,6 +13,18 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
 }));
 
+/**
+ * Regression: the hero cards hardcoded "$" while every other money figure
+ * on /stats goes through useCurrency — a EUR user saw "Collection Value
+ * $52,000" above a "Cost Basis €47,840" card for the same total. The cards
+ * now format via the user's currency; the mock stands in for it.
+ */
+vi.mock("@/hooks/use-currency", () => ({
+  useCurrency: () => ({
+    formatPrice: (usd: number) => `€${Math.round(usd * 0.9).toLocaleString("en-US")}`,
+  }),
+}));
+
 const stats: CoreStats = {
   totalBottles: 42,
   totalValue: 1234,
@@ -75,17 +87,19 @@ describe("HeroStatCards", () => {
   it("formats values from props", () => {
     render(<HeroStatCards stats={stats} wines={wines} history={history} />);
     expect(screen.getByText("42")).toBeInTheDocument(); // total bottles
-    expect(screen.getByText("$1,234")).toBeInTheDocument(); // collection value
+    expect(screen.getByText("€1,111")).toBeInTheDocument(); // collection value (1234 USD → EUR)
     expect(screen.getByText("4.2")).toBeInTheDocument(); // avg rating
     expect(screen.getByText("7")).toBeInTheDocument(); // consumed
-    expect(screen.getByText("$30")).toBeInTheDocument(); // avg price
+    expect(screen.getByText("€27")).toBeInTheDocument(); // avg price (30 USD → EUR)
     expect(screen.getByText("1995")).toBeInTheDocument(); // oldest vintage
     // 2 unique countries (France, Italy)
     expect(screen.getByText("2")).toBeInTheDocument();
+    // No raw-USD leak anywhere on the cards.
+    expect(screen.queryByText(/\$1,234|\$30/)).toBeNull();
   });
 
   it("renders subtext for retail value when present", () => {
     render(<HeroStatCards stats={stats} wines={wines} history={history} />);
-    expect(screen.getByText(/retail/i)).toBeInTheDocument();
+    expect(screen.getByText(/€1,350 retail/i)).toBeInTheDocument();
   });
 });

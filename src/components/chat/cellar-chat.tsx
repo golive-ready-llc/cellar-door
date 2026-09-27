@@ -406,9 +406,14 @@ export function CellarChat({ wines, onWineClick, hasAI, onOpen }: CellarChatProp
           const shown = reply;
           if (!started) {
             started = true;
-            setLoading(false);
             setMessages((prev) => [...prev, { role: "assistant", content: shown }]);
           } else {
+            // Positional update of the streaming reply. This is only safe
+            // while sendMessage's `loading` guard blocks new sends — clearing
+            // loading at the first chunk let a second message slip in and be
+            // deleted by this slice. loading now stays true for the whole
+            // stream (the finally clears it), so input and quick actions stay
+            // disabled until the reply finishes.
             setMessages((prev) => [...prev.slice(0, -1), { role: "assistant", content: shown }]);
           }
         }

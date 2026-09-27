@@ -47,16 +47,20 @@ export function useHaSensors(
     }
 
     // Returns true if the poll failed (so the caller can back off). A poll counts
-    // as "failed" whenever no reading came back — a non-OK response, a thrown
-    // fetch, or a 200 carrying an `error` field (HA reachable-but-unreadable).
+    // as "failed" whenever no reading came back — a thrown fetch or token
+    // refresh (offline around token expiry), a non-OK response, or a 200
+    // carrying an `error` field (HA reachable-but-unreadable). Everything
+    // must stay inside the try: getIdToken rejecting outside it used to kill
+    // the self-rescheduling tick, so readings froze forever instead of
+    // backing off and resuming.
     const fetchSensors = async (): Promise<boolean> => {
-      const token = await getIdToken();
-      if (cancelled) return false;
-      if (!token) return true;
-
-      setData((prev) => ({ ...prev, loading: !prev.lastUpdated })); // only show loading on first fetch
-
       try {
+        const token = await getIdToken();
+        if (cancelled) return false;
+        if (!token) return true;
+
+        setData((prev) => ({ ...prev, loading: !prev.lastUpdated })); // only show loading on first fetch
+
         const res = await fetch(`/api/ha-sensor?wallId=${wallId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });

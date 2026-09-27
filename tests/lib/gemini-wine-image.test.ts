@@ -108,4 +108,31 @@ describe("GeminiProvider.fetchWineImage", () => {
     const { fetchedUrls } = await runImageSearch("https://img.shop.example/b.jpg");
     expect(fetchedUrls).toContain("https://img.shop.example/b.jpg");
   });
+
+  it("throws when the grounding call itself fails, instead of returning a paid empty success", async () => {
+    const provider = new GeminiProvider("test-key");
+    (
+      provider as unknown as {
+        client: { models: { generateContent: () => Promise<never> } };
+      }
+    ).client = {
+      models: {
+        generateContent: async () => {
+          throw new Error("429 quota exceeded");
+        },
+      },
+    };
+
+    // A quota/network failure must reject so wrapAI refunds the 5 reserved
+    // credits and the router can fail over — the old catch-all returned
+    // { imageUrl: "" } as success, charging credits for "no image found".
+    await expect(
+      provider.fetchWineImage({
+        name: "Côtes du Rhône",
+        winery: "Guigal",
+        vintage: 2019,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+    ).rejects.toThrow("429 quota exceeded");
+  });
 });
