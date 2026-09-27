@@ -261,7 +261,69 @@ describe("/api/v1/wines/[id] DELETE", () => {
       params: Promise.resolve({ id: "w1" }),
     });
     expect(res.status).toBe(200);
-    expect(prismaMock.wineHistory.create).toHaveBeenCalled();
     expect(prismaMock.wine.delete).toHaveBeenCalledWith({ where: { id: "w1" } });
+  });
+
+  it("archives through the shared wine-history store, so the REST row matches the app's removal path", async () => {
+    authMock.mockResolvedValue(okUser);
+    const addedAt = new Date("2026-01-02T03:04:05.000Z");
+    prismaMock.wine.findFirst.mockResolvedValue({
+      id: "w1",
+      userId: "user_1",
+      name: "Estate",
+      winery: "Kanon",
+      vintage: 2019,
+      type: "red",
+      region: "WA",
+      country: "USA",
+      grapeVariety: "Cabernet",
+      userRating: 4.5,
+      price: 50,
+      retailPrice: 60,
+      imageUrl: "",
+      description: "d",
+      foodPairings: "f",
+      alcohol: "14%",
+      disposition: "ready",
+      drinkWindow: "2024-2030",
+      aiRatings: { rating_ws: 92 },
+      addedAt,
+    });
+    prismaMock.wine.delete.mockResolvedValue({});
+    prismaMock.wineHistory.create.mockResolvedValue({});
+    const res = await DELETE(req("http://localhost/api/v1/wines/w1", { method: "DELETE" }), {
+      params: Promise.resolve({ id: "w1" }),
+    });
+    expect(res.status).toBe(200);
+    // Same snapshot the removeWine server action writes: fields the inline
+    // copy used to omit (consumeRating/consumeNotes) are pinned here so the
+    // two removal paths cannot drift apart again.
+    expect(prismaMock.wineHistory.create).toHaveBeenCalledWith({
+      data: {
+        userId: "user_1",
+        originalId: "w1",
+        name: "Estate",
+        winery: "Kanon",
+        vintage: 2019,
+        type: "red",
+        region: "WA",
+        country: "USA",
+        grapeVariety: "Cabernet",
+        rating: 4.5,
+        consumeRating: null,
+        consumeNotes: "",
+        price: 50,
+        retailPrice: 60,
+        imageUrl: "",
+        description: "d",
+        foodPairings: "f",
+        alcohol: "14%",
+        disposition: "ready",
+        drinkWindow: "2024-2030",
+        aiRatings: { rating_ws: 92 },
+        addedAt,
+        reason: "api_delete",
+      },
+    });
   });
 });
