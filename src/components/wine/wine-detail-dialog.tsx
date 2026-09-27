@@ -246,12 +246,6 @@ function RatingDisplay({
 }
 
 // ============================================================
-// Dial Rate Dialog — speedometer gauge with colored segments
-// ============================================================
-
-// DialRateDialog is imported from ./dial-rate-dialog
-
-// ============================================================
 // Detail View — the read-only wine details
 // ============================================================
 
@@ -794,9 +788,7 @@ function DetailView({
           open={duplicateOpen}
           onOpenChange={setDuplicateOpen}
           wineName={wine.name}
-          onConfirm={async (count) => {
-            await onDuplicate(count);
-          }}
+          onConfirm={onDuplicate}
         />
       )}
     </>
