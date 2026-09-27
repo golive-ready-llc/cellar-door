@@ -28,15 +28,18 @@ export function SearchCommandPalette() {
   const [wines, setWines] = useState<Wine[]>([]);
   const [cabinetMap, setCabinetMap] = useState<Map<string, string>>(new Map());
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const resultsListId = "search-results-list";
 
-  // Lazy-load wines + cabinets on first open
+  // Lazy-load wines + cabinets on first open. A failed load must not leave
+  // the palette stuck on "Loading wines…" — clearing loadFailed re-runs this
+  // effect, which is the retry.
   useEffect(() => {
-    if (open && !loaded) {
-      Promise.all([fetchWines(userId), fetchCabinets(userId)]).then(
-        ([wineData, cabinetData]) => {
+    if (open && !loaded && !loadFailed) {
+      Promise.all([fetchWines(userId), fetchCabinets(userId)])
+        .then(([wineData, cabinetData]) => {
           setWines(wineData);
           const map = new Map<string, string>();
           for (const c of cabinetData) {
@@ -44,10 +47,10 @@ export function SearchCommandPalette() {
           }
           setCabinetMap(map);
           setLoaded(true);
-        }
-      );
+        })
+        .catch(() => setLoadFailed(true));
     }
-  }, [open, loaded, userId]);
+  }, [open, loaded, loadFailed, userId]);
 
   // Reset query when opening
   useEffect(() => {
@@ -180,7 +183,20 @@ export function SearchCommandPalette() {
             id={resultsListId}
             className="max-h-80 overflow-y-auto p-1.5"
           >
-            {!loaded && query.trim() && (
+            {loadFailed && query.trim() && (
+              <p className="text-xs text-muted-foreground text-center py-6">
+                Couldn&rsquo;t load your wines.{" "}
+                <button
+                  type="button"
+                  onClick={() => setLoadFailed(false)}
+                  className="text-primary underline underline-offset-2"
+                >
+                  Try again
+                </button>
+              </p>
+            )}
+
+            {!loadFailed && !loaded && query.trim() && (
               <p className="text-xs text-muted-foreground text-center py-6">
                 Loading wines…
               </p>

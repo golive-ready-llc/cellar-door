@@ -30,6 +30,7 @@ export function useInventoryData() {
   const [wines, setWines] = useState<Wine[]>([]);
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<WineType | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -78,12 +79,15 @@ export function useInventoryData() {
     // rejection while auth is still resolving).
     if (!userId && !devMode) return;
     try {
+      setLoadError(false);
       const [wineData, cabinetData] = await Promise.all([
         fetchWines(userId),
         fetchCabinets(userId),
       ]);
       setWines(wineData);
       setCabinets(cabinetData);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -91,6 +95,14 @@ export function useInventoryData() {
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  // Retry after a failed load: back to the loading skeleton (the page has no
+  // data to show), then fetch again.
+  const retryLoad = useCallback(() => {
+    setLoadError(false);
+    setLoading(true);
+    return loadData();
   }, [loadData]);
 
   // Dialog transition: detail -> consume
@@ -246,6 +258,8 @@ export function useInventoryData() {
     wines,
     cabinets,
     loading,
+    loadError,
+    retryLoad,
     searchQuery,
     selectedType,
     sortKey,

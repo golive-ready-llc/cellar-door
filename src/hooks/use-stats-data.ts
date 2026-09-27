@@ -24,6 +24,7 @@ export function useStatsData() {
   const [walls, setWalls] = useState<Wall[]>([]);
   const [history, setHistory] = useState<WineHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [selectedWine, setSelectedWine] = useState<Wine | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [filterLabel, setFilterLabel] = useState<string>("");
@@ -66,6 +67,7 @@ export function useStatsData() {
     // rejection while auth is still resolving).
     if (!userId && !devMode) return;
     try {
+      setLoadError(false);
       const [wineData, historyData, wallData, cabinetData] = await Promise.all([
         fetchWines(userId),
         fetchHistory(userId),
@@ -76,6 +78,8 @@ export function useStatsData() {
       setHistory(historyData);
       setWalls(wallData);
       setCabinets(cabinetData);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -83,6 +87,14 @@ export function useStatsData() {
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  // Retry after a failed load: back to the loading skeleton (the page has no
+  // data to show), then fetch again.
+  const retryLoad = useCallback(() => {
+    setLoadError(false);
+    setLoading(true);
+    return loadData();
   }, [loadData]);
 
   // Derived chart data
@@ -102,6 +114,8 @@ export function useStatsData() {
     cabinets,
     history,
     loading,
+    loadError,
+    retryLoad,
     selectedWine,
     detailOpen,
     setDetailOpen,

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useCallback, useState, useDeferredValue } from "react";
-import { UtensilsCrossed, Wine, GlassWater, Search, ArrowDownUp } from "lucide-react";
+import { UtensilsCrossed, Wine, GlassWater, Search, ArrowDownUp, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   EditModeProvider,
 } from "@/components/cellar/edit-mode-context";
@@ -175,6 +176,19 @@ function CellarPageInner() {
   // --- Loading state ---
   if (data.loading) {
     return <AppLoading stage="Loading your cellar…" phase={2} />;
+  }
+
+  // --- Load-failure state: an empty-looking cellar after a failed fetch is a
+  // lie — say what happened and offer the retry.
+  if (data.loadError) {
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        title="Couldn't load your cellar"
+        description="Something went wrong fetching your collection. Check your connection and try again."
+        action={{ label: "Try again", onClick: data.retryLoad }}
+      />
+    );
   }
 
   return (

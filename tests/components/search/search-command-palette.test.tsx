@@ -142,4 +142,27 @@ describe("SearchCommandPalette", () => {
     expect(await screen.findByText("Bulk Bin Red 1")).toBeInTheDocument();
     expect(screen.queryByText("Bulk Bin Red 0")).not.toBeInTheDocument();
   });
+
+  it("surfaces a failed index load and recovers via Try again", async () => {
+    const { fetchWines } = await import("@/lib/data");
+    vi.mocked(fetchWines).mockRejectedValueOnce(new Error("offline"));
+
+    searchState.open = true;
+    render(<SearchCommandPalette />);
+    const input = (await screen.findByPlaceholderText(
+      /search wines/i
+    )) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "caymus" } });
+
+    expect(
+      await screen.findByText(/couldn.t load your wines/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/loading wines/i)).not.toBeInTheDocument();
+
+    // Retry re-runs the lazy load; the default mock resolves the fixture.
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/wines indexed/i)).toBeInTheDocument();
+    });
+  });
 });
