@@ -468,14 +468,17 @@ export default function HistoryPage() {
           onUpdate={async (id, updates) => {
             const result = await editHistoryItem(id, updates, userId);
             if (result.success) {
-              // Refresh the selected item and history list
+              // Refresh the selected item and history list. The plain spread
+              // is correct: the dialog sends explicit nulls for cleared
+              // fields, and `x ?? old` here used to resurrect exactly those
+              // cleared values until the next full reload.
               setItems((prev) =>
                 prev.map((h) =>
-                  h.id === id ? { ...h, ...updates, vintage: updates.vintage as number | null ?? h.vintage, price: updates.price as number | null ?? h.price, retailPrice: updates.retailPrice as number | null ?? h.retailPrice } : h
+                  h.id === id ? { ...h, ...updates } as WineHistoryItem : h
                 )
               );
               setSelectedItem((prev) =>
-                prev && prev.id === id ? { ...prev, ...updates, vintage: updates.vintage as number | null ?? prev.vintage, price: updates.price as number | null ?? prev.price, retailPrice: updates.retailPrice as number | null ?? prev.retailPrice } : prev
+                prev && prev.id === id ? { ...prev, ...updates } as WineHistoryItem : prev
               );
             }
             return result;

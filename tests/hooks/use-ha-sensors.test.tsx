@@ -10,7 +10,8 @@ import { renderHook, waitFor, act } from "@testing-library/react";
 
 // Stable across renders — an getIdToken recreated per useAuth() call would
 // re-run the poll effect on every render (the hook's effect depends on it).
-const getIdToken = () => Promise.resolve("tok");
+// A vi.fn so individual tests can make the token refresh reject.
+const getIdToken = vi.fn(() => Promise.resolve("tok"));
 
 vi.mock("@/components/auth-provider", () => ({
   useAuth: () => ({ getIdToken }),
@@ -30,6 +31,8 @@ let releaseA: ((value: FetchLike) => void) | undefined;
 
 beforeEach(() => {
   releaseA = undefined;
+  getIdToken.mockReset();
+  getIdToken.mockImplementation(() => Promise.resolve("tok"));
   fetchMock = vi.fn((url: string): Promise<FetchLike> => {
     if (url === "/api/ha-sensor?wallId=wall-a") {
       return new Promise((resolve) => {
@@ -69,5 +72,39 @@ describe("useHaSensors wall switching", () => {
 
     expect(result.current.temp).toBe("61°F");
     expect(result.current.humidity).toBe("80%");
+  });
+});
+
+describe("useHaSensors poll resilience", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("keeps polling after a token refresh rejects, instead of freezing the readings forever", async () => {
+    // Offline around a token-expiry boundary: getIdToken rejects (network),
+    // then connectivity returns and the next refresh succeeds.
+    getIdToken.mockRejectedValueOnce(new Error("network"));
+
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useHaSensors("wall-b", true));
+
+    // First poll: the token rejection must land in error state (not an
+    // unhandled rejection) and still schedule the backoff retry. The fetch
+    // never happens on this cycle — the token failed before it.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.error).toBe("network");
+    expect(fetchMock).toHaveBeenCalledTimes(0);
+
+    // One failure backs off to 120s. The retry must actually fire — before
+    // the fix, the rejecting token escaped fetchSensors' try and killed the
+    // self-rescheduling tick, so readings froze until a full reload.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.temp).toBe("61°F");
+    expect(result.current.error).toBeNull();
   });
 });

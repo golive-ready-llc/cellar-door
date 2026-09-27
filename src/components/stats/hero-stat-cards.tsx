@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Wine as WineIcon,
   TrendingUp,
@@ -9,6 +11,7 @@ import {
   Clock,
 } from "lucide-react";
 import { StatCard } from "@/components/stats/stat-card";
+import { useCurrency } from "@/hooks/use-currency";
 import type { CoreStats } from "@/lib/stats-utils";
 import type { Wine, WineHistoryItem } from "@/types/wine";
 
@@ -19,6 +22,11 @@ interface HeroStatCardsProps {
 }
 
 export function HeroStatCards({ stats, wines, history }: HeroStatCardsProps) {
+  // Values are stored in USD; format in the user's selected currency like
+  // every other money figure on /stats (ValueTracker, the detail pages) —
+  // hardcoded "$" here put two different totals on the same screen.
+  const { formatPrice } = useCurrency();
+
   return (
     <>
       {/* Primary stat cards */}
@@ -32,12 +40,12 @@ export function HeroStatCards({ stats, wines, history }: HeroStatCardsProps) {
         />
         <StatCard
           label="Collection Value"
-          value={`$${stats.totalValue.toLocaleString()}`}
+          value={formatPrice(stats.totalValue)}
           icon={DollarSign}
           color="#22c55e"
           subtext={
             stats.totalRetailValue > 0
-              ? `~$${stats.totalRetailValue.toLocaleString()} retail`
+              ? `~${formatPrice(stats.totalRetailValue)} retail`
               : undefined
           }
           href="/stats/value"
@@ -72,7 +80,7 @@ export function HeroStatCards({ stats, wines, history }: HeroStatCardsProps) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Avg. Price"
-          value={stats.avgPrice > 0 ? `$${stats.avgPrice.toFixed(0)}` : "—"}
+          value={stats.avgPrice > 0 ? formatPrice(stats.avgPrice) : "—"}
           icon={TrendingUp}
           color="#f97316"
           href="/stats/price"

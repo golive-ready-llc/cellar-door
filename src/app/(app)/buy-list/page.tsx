@@ -29,6 +29,7 @@ import { AddBuyListDialog } from "@/components/wine/add-buy-list-dialog";
 import { BuyListDetailDialog } from "@/components/wine/buy-list-detail-dialog";
 import { WineListItem } from "@/components/inventory/wine-list-item";
 import type { WineDisplayData } from "@/components/inventory/wine-list-item";
+import { toast } from "@/components/ui/custom-toast";
 import { fetchBuyList, addBuyListItem, removeBuyListItem, createWine, fetchCabinets } from "@/lib/data";
 import {
   WINE_TYPES,
@@ -133,41 +134,50 @@ export default function BuyListPage() {
   };
 
   const handlePurchase = async (item: BuyListItem) => {
-    const newWine = await createWine({
-      cabinetId: cabinets[0]?.id ?? null,
-      barcode: item.barcode,
-      name: item.name,
-      winery: item.winery,
-      region: item.region,
-      country: item.country,
-      vintage: item.vintage,
-      type: item.type,
-      sparkling: isSparklingType(item.type),
-      grapeVariety: item.grapeVariety,
-      imageUrl: item.imageUrl,
-      price: item.retailPrice,
-      retailPrice: item.retailPrice,
-      purchaseDate: new Date().toISOString().split("T")[0],
-      drinkBy: "",
-      notes: item.notes,
-      description: item.description,
-      foodPairings: item.foodPairings,
-      alcohol: item.alcohol,
-      userRating: null,
-      row: null,
-      col: null,
-      depth: 0,
-      zone: "",
-      tastingNotes: null,
-      disposition: item.disposition,
-      drinkWindow: item.drinkWindow,
-      aiRatings: item.aiRatings,
-      tags: [],
-    }, userId);
+    // skipDuplicateCheck: buying another bottle of a wine you already own is
+    // the normal wishlist case. Without it the duplicate sentinel escaped as
+    // an uncaught DuplicateWineError — "Mark Purchased" silently did nothing,
+    // and a batch purchase died at the first already-owned wine.
+    try {
+      const newWine = await createWine({
+        cabinetId: cabinets[0]?.id ?? null,
+        barcode: item.barcode,
+        name: item.name,
+        winery: item.winery,
+        region: item.region,
+        country: item.country,
+        vintage: item.vintage,
+        type: item.type,
+        sparkling: isSparklingType(item.type),
+        grapeVariety: item.grapeVariety,
+        imageUrl: item.imageUrl,
+        price: item.retailPrice,
+        retailPrice: item.retailPrice,
+        purchaseDate: new Date().toISOString().split("T")[0],
+        drinkBy: "",
+        notes: item.notes,
+        description: item.description,
+        foodPairings: item.foodPairings,
+        alcohol: item.alcohol,
+        userRating: null,
+        row: null,
+        col: null,
+        depth: 0,
+        zone: "",
+        tastingNotes: null,
+        disposition: item.disposition,
+        drinkWindow: item.drinkWindow,
+        aiRatings: item.aiRatings,
+        tags: [],
+        skipDuplicateCheck: true,
+      }, userId);
 
-    if (newWine) {
-      await removeBuyListItem(item.id, userId);
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      if (newWine) {
+        await removeBuyListItem(item.id, userId);
+        setItems((prev) => prev.filter((i) => i.id !== item.id));
+      }
+    } catch {
+      toast.error(`Couldn't add ${item.name} to your cellar — try again`);
     }
   };
 
