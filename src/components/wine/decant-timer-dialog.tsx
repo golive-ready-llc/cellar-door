@@ -478,7 +478,6 @@ export function DecantTimerDialog({
                     <Button
                       size="sm"
                       onClick={() => handleOpenChange(false)}
-                      className="bg-purple-600 hover:bg-purple-700"
                     >
                       <WineIcon className="h-4 w-4 mr-1.5" />
                       Pour
@@ -516,7 +515,7 @@ export function DecantTimerDialog({
                     <Button
                       size="lg"
                       onClick={handleStart}
-                      className="rounded-full w-14 h-14 bg-purple-600 hover:bg-purple-700"
+                      className="rounded-full w-14 h-14"
                     >
                       <Play className="h-6 w-6 ml-0.5" />
                     </Button>
