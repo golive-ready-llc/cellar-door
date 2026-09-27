@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-auth";
 import { serializeWine } from "@/lib/api-serialize";
 import { propagateSharedFields, sharedFieldPatch } from "@/server/wine-shared";
+import { wineHistoryData } from "@/server/wine-history-store";
 
 /** Handle CORS preflight */
 export async function OPTIONS() {
@@ -166,32 +167,12 @@ export async function DELETE(
     return apiError("Wine not found.", 404);
   }
 
-  // Move to history before deleting — single transaction
+  // Archive to history, then delete — single transaction. The snapshot shape
+  // comes from the shared wine-history store so every removal path (server
+  // action, bulk remove, REST API) archives identical rows.
   await prisma.$transaction([
     prisma.wineHistory.create({
-      data: {
-        userId: user.id,
-        originalId: wine.id,
-        name: wine.name,
-        winery: wine.winery,
-        vintage: wine.vintage,
-        type: wine.type,
-        region: wine.region,
-        country: wine.country,
-        grapeVariety: wine.grapeVariety,
-        rating: wine.userRating,
-        price: wine.price,
-        retailPrice: wine.retailPrice,
-        imageUrl: wine.imageUrl,
-        description: wine.description,
-        foodPairings: wine.foodPairings,
-        alcohol: wine.alcohol,
-        disposition: wine.disposition,
-        drinkWindow: wine.drinkWindow,
-        aiRatings: wine.aiRatings ?? undefined,
-        addedAt: wine.addedAt,
-        reason: "api_delete",
-      },
+      data: wineHistoryData(user.id, wine, { reason: "api_delete" }),
     }),
     prisma.wine.delete({ where: { id } }),
   ]);
