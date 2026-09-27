@@ -401,7 +401,7 @@ export function HistoryDetailDialog({
               cdScore,
               cdRatingCount,
             }}
-            formatPrice={(n) => formatPrice(n)}
+            formatPrice={formatPrice}
             headerExtra={
               <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
                 <Badge className="flex items-center gap-1" style={{ backgroundColor: reasonMeta.color, color: "#fff" }}>

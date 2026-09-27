@@ -89,7 +89,7 @@ export function BuyListDetailDialog({
             cdScore,
             cdRatingCount,
           }}
-          formatPrice={(n) => formatPrice(n)}
+          formatPrice={formatPrice}
           headerExtra={
             item.addedAt ? (
               <p className="text-caption">
