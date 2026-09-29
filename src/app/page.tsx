@@ -8,7 +8,10 @@ export const metadata: Metadata = {
   title: "Cellar Door — AI Wine Cellar Management",
   description:
     "Open-source, AI-powered wine cellar management — track, organize, and analyze your collection with label scanning, community scores, and a visual cellar map. Free to self-host.",
-  alternates: { canonical: SITE_URL },
+  alternates: {
+    canonical: SITE_URL,
+    types: { "application/rss+xml": `${SITE_URL}/feed.xml` },
+  },
   openGraph: {
     title: "Cellar Door — AI Wine Cellar Management",
     description:

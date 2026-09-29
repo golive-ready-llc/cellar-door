@@ -7,7 +7,10 @@ export const metadata: Metadata = {
   title: "Try the Live Demo — No Signup | Cellar Door",
   description:
     "Explore the full Cellar Door wine cellar manager with a sample collection: the visual cellar map, label scanning, tasting notes, stats, and AI features — no account needed.",
-  alternates: { canonical: `${SITE_URL}/demo` },
+  alternates: {
+    canonical: `${SITE_URL}/demo`,
+    types: { "application/rss+xml": `${SITE_URL}/feed.xml` },
+  },
 };
 
 /**

@@ -8,7 +8,10 @@ export const metadata: Metadata = {
   title: "Wine Cellar Blog — Storage, Tasting, and Collecting | Cellar Door",
   description:
     "Practical wine articles for collectors: how to store wine at home, decanting basics, vintage charts, building your first cellar. By the team behind Cellar Door.",
-  alternates: { canonical: `${SITE_URL}/blog` },
+  alternates: {
+    canonical: `${SITE_URL}/blog`,
+    types: { "application/rss+xml": `${SITE_URL}/feed.xml` },
+  },
   openGraph: {
     title: "Wine Cellar Blog | Cellar Door",
     description:
