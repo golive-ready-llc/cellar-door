@@ -38,6 +38,11 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Cellar Door",
   },
+  alternates: {
+    // Standard feed autodiscovery: readers, aggregators, and crawlers find
+    // the blog through this link.
+    types: { "application/rss+xml": `${SITE_URL}/feed.xml` },
+  },
   // AdSense site verification. Google's reviewer and the "verify code" check
   // read the served HTML head — the ads script itself only loads after cookie
   // consent (AdSenseLoader), which no crawler grants, so without this tag the
