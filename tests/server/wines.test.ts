@@ -312,6 +312,20 @@ describe("updateWine", () => {
     expect(wineUpdate).not.toHaveBeenCalled();
   });
 
+  it("reads only identity columns for the ownership check — the label never leaves Postgres", async () => {
+    wineFindFirst.mockResolvedValue(
+      fakeWineRow({ id: "w1", name: "Bordeaux", winery: "Chateau X", vintage: 2019 })
+    );
+    wineUpdate.mockResolvedValue(fakeWineRow());
+    wineUpdateMany.mockResolvedValue({ count: 0 });
+    const { updateWine } = await import("@/server/actions/wines");
+    await updateWine("u1", "w1", { userRating: 5 });
+    expect(wineFindFirst).toHaveBeenCalledWith({
+      where: { id: "w1", userId: "u1" },
+      select: { id: true, cabinetId: true, name: true, winery: true, vintage: true },
+    });
+  });
+
   it("only forwards explicitly provided fields to update", async () => {
     wineFindFirst.mockResolvedValue(fakeWineRow());
     wineUpdate.mockResolvedValue(fakeWineRow({ name: "New Name" }));
@@ -509,6 +523,38 @@ describe("wine images in list responses", () => {
     const { data } = wineUpdate.mock.calls[0][0];
     expect(data).not.toHaveProperty("imageUrl");
     expect(data.name).toBe("Renamed");
+  });
+
+  it("updateWine/addWine return list image URLs, not the stored base64", async () => {
+    const { wineImageUrl } = await import("@/lib/wine-image-ref");
+    const expected = wineImageUrl("wine", "w1", JPEG);
+
+    wineFindFirst.mockResolvedValue(fakeWineRow({ id: "w1" }));
+    wineUpdate.mockResolvedValue(fakeWineRow({ id: "w1", imageUrl: JPEG }));
+    const { updateWine } = await import("@/server/actions/wines");
+    const updated = await updateWine("u1", "w1", { name: "New Name" });
+    expect(updated.imageUrl).toBe(expected);
+
+    wineCreate.mockResolvedValue(fakeWineRow({ id: "w1", imageUrl: JPEG }));
+    wineFindFirst.mockResolvedValue(null); // no duplicate for addWine's check
+    const { addWine } = await import("@/server/actions/wines");
+    const added = await addWine({ userId: "u1", name: "Test Wine", winery: "Test Winery" });
+    expect("duplicate" in added).toBe(false);
+    expect((added as { imageUrl: string }).imageUrl).toBe(expected);
+  });
+
+  it("importWines returns list image URLs — duplicating a labeled bottle N times no longer ships N labels", async () => {
+    const { wineImageUrl } = await import("@/lib/wine-image-ref");
+    const createManyAndReturn = vi.fn().mockImplementation(async ({ data }: { data: unknown[] }) =>
+      data.map((_, i) => fakeWineRow({ id: `imp${i}`, imageUrl: JPEG }))
+    );
+    txSpy.mockImplementationOnce((fn: (tx: unknown) => unknown) => fn({ wine: { createManyAndReturn } }));
+    const { importWines } = await import("@/server/actions/wines");
+    const created = await importWines("u1", [{ name: "A" }, { name: "B" }] as never);
+    expect(created.map((w) => w.imageUrl)).toEqual([
+      wineImageUrl("wine", "imp0", JPEG),
+      wineImageUrl("wine", "imp1", JPEG),
+    ]);
   });
 });
 

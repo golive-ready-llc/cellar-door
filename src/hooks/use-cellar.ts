@@ -522,15 +522,16 @@ export function useCellar() {
 
   const handlePlaceWine = useCallback(
     async (wineId: string, cabinetId: string, row?: number, col?: number) => {
-      await editWine(
+      // One round trip, then patch the row in place — the same sync path a
+      // drag-move uses. Refetching the whole cellar here cost a second server
+      // action plus a full-list transfer and re-render to place one bottle.
+      const updated = await editWineAndSync(
         wineId,
         { cabinetId, row: row ?? null, col: col ?? null },
-        userId
+        { userId, setWines }
       );
-      const wineData = await fetchWines(userId);
-      setWines(wineData);
       // Flash where the unfiled bottle just landed.
-      setHighlightWithTimer(wineId);
+      if (updated) setHighlightWithTimer(wineId);
     },
     [userId, setWines, setHighlightWithTimer]
   );

@@ -186,6 +186,30 @@ describe("useCellar choreography", () => {
     expect(h.editWine).not.toHaveBeenCalled();
   });
 
+  it("places a wine with ONE server round trip — no full-cellar refetch", async () => {
+    const { fetchWines } = await import("@/lib/data");
+    const { result } = await renderCellar();
+    act(() => result.current.data.setWines([makeWine({ id: "place-me" })]));
+    const fetchCallsBefore = vi.mocked(fetchWines).mock.calls.length;
+
+    h.editWine.mockResolvedValueOnce(
+      makeWine({ id: "place-me", cabinetId: "cab-1", row: 1, col: 2 })
+    );
+    await act(async () => {
+      await result.current.actions.handlePlaceWine("place-me", "cab-1", 1, 2);
+    });
+
+    expect(h.editWine).toHaveBeenCalledWith(
+      "place-me",
+      { cabinetId: "cab-1", row: 1, col: 2 },
+      "u1"
+    );
+    expect(vi.mocked(fetchWines).mock.calls.length).toBe(fetchCallsBefore);
+    expect(result.current.data.wines[0].cabinetId).toBe("cab-1");
+    expect(result.current.data.unfiledWines).toHaveLength(0);
+    expect(result.current.data.highlightedWineId).toBe("place-me");
+  });
+
   it("show-in-cellar closes the detail dialog, then switches wall, flashes and scrolls", async () => {
     document.body.innerHTML = '<div id="cabinet-cab-1" />';
     const scrollIntoView = vi.fn();
