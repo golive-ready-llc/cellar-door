@@ -32,8 +32,6 @@ interface CellarChatProps {
   onWineClick?: (wine: Wine) => void;
   /** Whether user has AI access (Cellar+ or higher) */
   hasAI: boolean;
-  /** No longer used: /api/chat identifies the caller from the session. */
-  userId?: string | null;
   /** Called each time the chat opens, so the caller can refresh `wines`. */
   onOpen?: () => void;
 }
@@ -452,7 +450,7 @@ export function CellarChat({ wines, onWineClick, hasAI, onOpen }: CellarChatProp
 
       {/* Chat panel */}
       {isOpen && (
-        <div className="fixed top-36 right-4 md:top-36 md:right-6 z-50 w-96 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        <div className="fixed top-36 right-4 md:right-6 z-50 w-96 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden"
           style={{ height: "min(500px, calc(100vh - 12rem))" }}
         >
           {/* Header */}

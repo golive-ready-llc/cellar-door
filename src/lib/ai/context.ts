@@ -32,35 +32,35 @@ export function buildCellarContext(wines: CellarSummaryWine[]): string {
 
   // Type distribution
   const typeCounts: Record<string, number> = {};
-  for (const w of wines) {
-    typeCounts[w.type] = (typeCounts[w.type] || 0) + 1;
+  for (const wine of wines) {
+    typeCounts[wine.type] = (typeCounts[wine.type] || 0) + 1;
   }
   const typeStr = Object.entries(typeCounts)
     .sort((a, b) => b[1] - a[1])
-    .map(([t, c]) => `${c} ${t}`)
+    .map(([type, count]) => `${count} ${type}`)
     .join(", ");
 
   // Value
   const totalValue = wines.reduce(
-    (sum, w) => sum + (w.price || w.retailPrice || 0),
+    (sum, wine) => sum + (wine.price || wine.retailPrice || 0),
     0
   );
 
   // Country distribution
   const countryCounts: Record<string, number> = {};
-  for (const w of wines) {
-    if (w.country) countryCounts[w.country] = (countryCounts[w.country] || 0) + 1;
+  for (const wine of wines) {
+    if (wine.country) countryCounts[wine.country] = (countryCounts[wine.country] || 0) + 1;
   }
   const topCountries = Object.entries(countryCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([c, n]) => `${c} (${n})`)
+    .map(([country, count]) => `${country} (${count})`)
     .join(", ");
 
   // Readiness
-  const drinkNow = wines.filter((w) => w.disposition === "D").length;
-  const hold = wines.filter((w) => w.disposition === "H").length;
-  const pastPeak = wines.filter((w) => w.disposition === "P").length;
+  const drinkNow = wines.filter((wine) => wine.disposition === "D").length;
+  const hold = wines.filter((wine) => wine.disposition === "H").length;
+  const pastPeak = wines.filter((wine) => wine.disposition === "P").length;
 
   // Include as many wines in the explicit list as fit an approximate token
   // budget, so the prompt never overflows the model's context — this supports
@@ -70,16 +70,16 @@ export function buildCellarContext(wines: CellarSummaryWine[]): string {
   // recently added; everything the list can't fit is still represented by the
   // statistical summary above.
   const LIST_CHAR_BUDGET = 90_000; // ~22K tokens — safe well within a 64K context
-  const lineFor = (w: CellarSummaryWine) =>
-    `- ${w.name} (${w.winery}, ${w.vintage || "NV"}, ${w.type}${w.disposition ? `, ${w.disposition === "D" ? "Drink Now" : w.disposition === "H" ? "Hold" : "Past Peak"}` : ""}${w.price ? `, $${w.price}` : ""}${w.grapeVariety ? `, ${w.grapeVariety}` : ""}${w.region ? `, ${w.region}` : ""})`;
+  const lineFor = (wine: CellarSummaryWine) =>
+    `- ${wine.name} (${wine.winery}, ${wine.vintage || "NV"}, ${wine.type}${wine.disposition ? `, ${wine.disposition === "D" ? "Drink Now" : wine.disposition === "H" ? "Hold" : "Past Peak"}` : ""}${wine.price ? `, $${wine.price}` : ""}${wine.grapeVariety ? `, ${wine.grapeVariety}` : ""}${wine.region ? `, ${wine.region}` : ""})`;
   const orderedForList = [
-    ...wines.filter((w) => w.disposition === "D"),
-    ...wines.filter((w) => w.disposition !== "D").slice().reverse(),
+    ...wines.filter((wine) => wine.disposition === "D"),
+    ...wines.filter((wine) => wine.disposition !== "D").slice().reverse(),
   ];
   const listLines: string[] = [];
   let listChars = 0;
-  for (const w of orderedForList) {
-    const line = lineFor(w);
+  for (const wine of orderedForList) {
+    const line = lineFor(wine);
     if (listLines.length > 0 && listChars + line.length + 1 > LIST_CHAR_BUDGET) break;
     listLines.push(line);
     listChars += line.length + 1;
@@ -92,13 +92,13 @@ export function buildCellarContext(wines: CellarSummaryWine[]): string {
   const total = wines.length;
   const typePctStr = Object.entries(typeCounts)
     .sort((a, b) => b[1] - a[1])
-    .map(([t, c]) => `${Math.round((c / total) * 100)}% ${t}`)
+    .map(([type, count]) => `${Math.round((count / total) * 100)}% ${type}`)
     .join(", ");
   const avgPrice = total > 0 ? `$${(totalValue / total).toFixed(0)}` : "$0";
   const top3Countries = Object.entries(countryCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([c]) => c)
+    .map(([country]) => country)
     .join(", ");
 
   const header = truncated

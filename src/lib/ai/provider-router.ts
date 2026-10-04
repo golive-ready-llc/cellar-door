@@ -48,8 +48,8 @@ async function tryWithFailover<T>(
   fn: (provider: AIProvider) => Promise<T>,
   primary: AIProvider | null,
   failover: AIProvider | null,
-  primaryLabel = "primary",
-  failoverLabel = "failover"
+  primaryLabel: string,
+  failoverLabel: string
 ): Promise<T> {
   if (primary) {
     try {
@@ -107,9 +107,9 @@ export class ProviderRouter implements AIProvider {
 
   constructor(config: AIConfigData) {
     this.textPrimary = buildProvider(config.text);
-    this.textFailover = config.textFailover.provider ? buildProvider(config.textFailover) : null;
+    this.textFailover = buildProvider(config.textFailover);
     this.visionPrimary = buildProvider(config.vision);
-    this.visionFailover = config.visionFailover.provider ? buildProvider(config.visionFailover) : null;
+    this.visionFailover = buildProvider(config.visionFailover);
     // Labels for failover logs — which SLOT failed matters more than the class.
     this.textPrimaryLabel = config.text.provider || "text-primary";
     this.textFailoverLabel = config.textFailover.provider || "text-failover";
