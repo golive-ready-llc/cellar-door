@@ -144,3 +144,66 @@ describe("BuyListPage detail dialog", () => {
     expect(await screen.findByText("Alpha")).toBeInTheDocument();
   });
 });
+
+/**
+ * Regression: this page forked the inventory filter and kept only the
+ * `type === selectedType` half, so the Sparkling chip never appeared unless
+ * a row literally carried a legacy type="sparkling". A rosé Champagne stored
+ * as type="rosé" + sparkling=true (the canonical shape) was unfilterable,
+ * legacy "champagne"-typed rows appeared under no chip at all, the row badge
+ * missed the flag, and Mark Purchased wrote sparkling:false into the cellar.
+ * Filter, chip counts, badge, and the purchase conversion now share
+ * matchesSparklingFilter with Inventory.
+ */
+describe("BuyListPage sparkling filter", () => {
+  const ROSE_SPARKLING = buyListItem({
+    id: "b3",
+    name: "Bollinger",
+    type: "rosé",
+    sparkling: true,
+  });
+  const LEGACY_CHAMPAGNE = buyListItem({
+    id: "b4",
+    name: "Veuve",
+    type: "champagne",
+  });
+
+  beforeEach(() => {
+    buyListMock.mockReset();
+    createWineMock.mockReset();
+    createWineMock.mockResolvedValue({ success: true });
+  });
+
+  it("counts sparkling-flagged and legacy-variant rows under one Sparkling chip", async () => {
+    buyListMock.mockResolvedValue([ROSE_SPARKLING, LEGACY_CHAMPAGNE, ITEM_A]);
+    render(<BuyListPage />);
+
+    expect(await screen.findByText("Sparkling (2)")).toBeInTheDocument();
+  });
+
+  it("the Sparkling filter shows flagged and legacy rows, not still wines", async () => {
+    buyListMock.mockResolvedValue([ROSE_SPARKLING, LEGACY_CHAMPAGNE, ITEM_A]);
+    render(<BuyListPage />);
+
+    fireEvent.click(await screen.findByText("Sparkling (2)"));
+
+    expect(await screen.findByText("Bollinger")).toBeInTheDocument();
+    expect(screen.getByText("Veuve")).toBeInTheDocument();
+    expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+  });
+
+  it("Mark Purchased carries the sparkling flag into the cellar", async () => {
+    buyListMock.mockResolvedValue([ROSE_SPARKLING]);
+    render(<BuyListPage />);
+
+    fireEvent.click(await screen.findByText("Bollinger"));
+    fireEvent.click(await screen.findByRole("button", { name: /Mark Purchased/ }));
+
+    await waitFor(() => {
+      expect(createWineMock).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Bollinger", sparkling: true }),
+        "u1"
+      );
+    });
+  });
+});

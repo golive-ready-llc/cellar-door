@@ -36,7 +36,7 @@ import {
   WINE_TYPE_COLORS,
   WINE_TYPE_LABELS,
 } from "@/types/constants";
-import { isLightWineType, isSparklingType } from "@/types/wine";
+import { isLightWineType, matchesSparklingFilter } from "@/types/wine";
 import { useWineTextColors } from "@/hooks/use-wine-colors";
 import { useCurrency } from "@/hooks/use-currency";
 import { useAuth } from "@/components/auth-provider";
@@ -56,7 +56,7 @@ function toWineDisplay(item: BuyListItem): WineDisplayData {
     country: item.country,
     price: item.retailPrice,
     disposition: item.disposition,
-    sparkling: isSparklingType(item.type),
+    sparkling: matchesSparklingFilter(item),
   };
 }
 
@@ -99,7 +99,11 @@ export default function BuyListPage() {
     let result = items;
 
     if (selectedType !== "all") {
-      result = result.filter((i) => i.type === selectedType);
+      result = result.filter((i) =>
+        selectedType === "sparkling"
+          ? matchesSparklingFilter(i)
+          : i.type === selectedType
+      );
     }
 
     if (searchQuery.trim()) {
@@ -148,7 +152,7 @@ export default function BuyListPage() {
         country: item.country,
         vintage: item.vintage,
         type: item.type,
-        sparkling: isSparklingType(item.type),
+        sparkling: matchesSparklingFilter(item),
         grapeVariety: item.grapeVariety,
         imageUrl: item.imageUrl,
         price: item.retailPrice,
@@ -304,7 +308,10 @@ export default function BuyListPage() {
               All ({items.length})
             </Badge>
             {WINE_TYPES.map((t) => {
-              const count = items.filter((i) => i.type === t).length;
+              const count =
+                t === "sparkling"
+                  ? items.filter(matchesSparklingFilter).length
+                  : items.filter((i) => i.type === t).length;
               if (count === 0) return null;
               return (
                 <Badge

@@ -5,13 +5,16 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { generateStatsCard, shareCanvas } from "@/lib/share-utils";
 import { computeShareData } from "@/lib/stats-utils";
+import { useCurrency } from "@/hooks/use-currency";
 import { InsuranceReportButton } from "@/components/stats/insurance-report";
 import type { Wine } from "@/types/wine";
 
 export function StatsHeader({ wines }: { wines: Wine[] }) {
+  const { formatPrice } = useCurrency();
+
   const handleShare = async () => {
     const data = computeShareData(wines);
-    const canvas = generateStatsCard(data);
+    const canvas = generateStatsCard(data, formatPrice);
     await shareCanvas(canvas, "My Wine Collection");
   };
 

@@ -23,10 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { WINE_TYPES, WINE_TYPE_LABELS } from "@/types/constants";
+import { toast } from "@/components/ui/custom-toast";
 import type { BuyListItem, WineType } from "@/types/wine";
 
 interface AddBuyListDialogProps {
-  onAdd: (item: Omit<BuyListItem, "id" | "addedAt" | "userId">) => void;
+  onAdd: (item: Omit<BuyListItem, "id" | "addedAt" | "userId">) => void | Promise<void>;
   trigger?: React.ReactElement;
 }
 
@@ -71,7 +72,10 @@ export function AddBuyListDialog({ onAdd, trigger }: AddBuyListDialogProps) {
 
     setSaving(true);
     try {
-      onAdd({
+      // Awaited: a failed save must not escape as an unhandled rejection
+      // after the form has already reset and closed — the typed entry would
+      // be silently lost.
+      await onAdd({
         barcode: "",
         name: name.trim(),
         winery: winery.trim(),
@@ -96,6 +100,8 @@ export function AddBuyListDialog({ onAdd, trigger }: AddBuyListDialogProps) {
       });
       resetForm();
       setOpen(false);
+    } catch {
+      toast.error(`Couldn't add ${name.trim()} to your buy list — try again`);
     } finally {
       setSaving(false);
     }
