@@ -74,10 +74,12 @@ export function CorkAndForkDialog({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AiMealPairingResult | null>(null);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSearch = useCallback(async () => {
     if (!meal.trim() || wines.length === 0) return;
     setLoading(true);
+    setError(null);
     setSearched(true);
     try {
       // Only send drink-ready wines (disposition "D" or empty — NOT "H" Hold)
@@ -100,7 +102,15 @@ export function CorkAndForkDialog({
       const res = await aiMealPairing(meal.trim(), wineData, userId ?? undefined);
       if (res.success) {
         setResult(res.data);
+      } else {
+        setError(res.error || "Couldn't find a pairing. Please try again.");
       }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't find a pairing. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -121,6 +131,7 @@ export function CorkAndForkDialog({
     setMeal("");
     setResult(null);
     setSearched(false);
+    setError(null);
   }, []);
 
   return (
@@ -207,6 +218,13 @@ export function CorkAndForkDialog({
                 <p className="text-sm text-muted-foreground">
                   Finding the perfect pairing from your cellar...
                 </p>
+              </div>
+            )}
+
+            {/* Error state */}
+            {!loading && error && (
+              <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">
+                {error}
               </div>
             )}
 

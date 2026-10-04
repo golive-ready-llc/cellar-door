@@ -69,10 +69,12 @@ export function PourCostDialog({
   const [style, setStyle] = useState("casual");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AiPourCostResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleCalculate = useCallback(async () => {
     if (guestCount <= 0 || wines.length === 0) return;
     setLoading(true);
+    setError(null);
     try {
       const wineData = wines.map((w) => ({
         id: w.id,
@@ -99,7 +101,15 @@ export function PourCostDialog({
       );
       if (res.success) {
         setResult(res.data);
+      } else {
+        setError(res.error || "Couldn't plan the tasting. Please try again.");
       }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't plan the tasting. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -118,6 +128,7 @@ export function PourCostDialog({
 
   const handleReset = useCallback(() => {
     setResult(null);
+    setError(null);
   }, []);
 
   const COURSE_LABELS = ["Aperitif", "Starter", "Main", "Cheese", "Dessert"];
@@ -272,6 +283,12 @@ export function PourCostDialog({
                     <p className="text-xs text-muted-foreground">
                       Curating your tasting flight and discussion notes...
                     </p>
+                  </div>
+                )}
+
+                {error && !loading && (
+                  <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">
+                    {error}
                   </div>
                 )}
               </>

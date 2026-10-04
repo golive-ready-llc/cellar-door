@@ -38,10 +38,12 @@ export function TerroirTwinDialog({
   const { hasAI, userId } = useTier();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AiTerroirTwinResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [addedToBuyList, setAddedToBuyList] = useState<Set<number>>(new Set());
 
   const handleFind = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const wineInput: WineDataInput = {
         name: wine.name,
@@ -64,7 +66,15 @@ export function TerroirTwinDialog({
       const res = await aiTerroirTwins(wineInput, userWines, userId ?? undefined);
       if (res.success) {
         setResult(res.data);
+      } else {
+        setError(res.error || "Couldn't find terroir twins. Please try again.");
       }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't find terroir twins. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -129,7 +139,7 @@ export function TerroirTwinDialog({
       onOpenChange={(v) => {
         onOpenChange(v);
         if (!v) {
-          setTimeout(() => { setResult(null); setAddedToBuyList(new Set()); }, 300);
+          setTimeout(() => { setResult(null); setError(null); setAddedToBuyList(new Set()); }, 300);
         }
       }}
     >
@@ -188,6 +198,13 @@ export function TerroirTwinDialog({
                 <p className="text-sm text-muted-foreground">
                   Exploring terroir connections around the world...
                 </p>
+              </div>
+            )}
+
+            {/* Error state */}
+            {!loading && error && (
+              <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">
+                {error}
               </div>
             )}
 
