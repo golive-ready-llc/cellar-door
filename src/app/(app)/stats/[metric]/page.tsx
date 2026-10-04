@@ -56,6 +56,8 @@ import { useIncrementalList } from "@/hooks/use-incremental-list";
 import { WINE_TYPE_COLORS } from "@/types/constants";
 import { isLightWineType, type Wine, type WineHistoryItem, type Cabinet } from "@/types/wine";
 
+const REMOVED_DATE_FMT = new Intl.DateTimeFormat();
+
 type Metric =
   | "bottles"
   | "value"
@@ -542,7 +544,7 @@ function HistoryList({
       </p>
       {visible.map((h) => {
         const dateStr = h.removedAt
-          ? new Date(h.removedAt).toLocaleDateString()
+          ? REMOVED_DATE_FMT.format(new Date(h.removedAt))
           : "—";
         const rating = h.consumeRating ?? h.rating;
         const typeColor =
