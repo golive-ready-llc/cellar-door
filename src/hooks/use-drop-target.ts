@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import { useDragDrop, type DragType } from "@/components/cellar/drag-drop-context";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useDragDropActions } from "@/components/cellar/drag-drop-context";
+import type { DragType } from "@/components/cellar/drag-drop-types";
 
 interface UseDropTargetOptions {
   id: string;
@@ -23,8 +24,15 @@ export function useDropTarget({
   onDrop,
   enabled = true,
 }: UseDropTargetOptions): UseDropTargetReturn {
-  const { registerDropTarget, unregisterDropTarget, activeDropTargetId } =
-    useDragDrop();
+  // Actions context only: its value never changes identity, so a drag in
+  // progress (pointer moves, target crossings) cannot re-render every drop
+  // target on the wall. The hover highlight arrives by subscription below.
+  const {
+    registerDropTarget,
+    unregisterDropTarget,
+    subscribeActiveTarget,
+    isActiveTarget,
+  } = useDragDropActions();
   const dropRef = useRef<HTMLElement | null>(null);
 
   // Keep onDrop in a ref so we don't re-register every render
@@ -56,7 +64,14 @@ export function useDropTarget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, enabled, registerDropTarget, unregisterDropTarget, stableOnDrop, ...accepts]);
 
-  const isOver = activeDropTargetId === id;
+  // Boolean snapshot per target: when the drag crosses into a new slot, only
+  // the slot that gained and the slot that lost the highlight re-render.
+  const subscribe = useCallback(
+    (onChange: () => void) => subscribeActiveTarget(id, onChange),
+    [id, subscribeActiveTarget]
+  );
+  const getSnapshot = useCallback(() => isActiveTarget(id), [id, isActiveTarget]);
+  const isOver = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   return { dropRef, isOver };
 }
