@@ -30,14 +30,13 @@ export function DataBackupCard() {
   const restoreRef = useRef<HTMLInputElement>(null);
   const [, setImporting] = useState(false);
 
-  // ── CSV Export ───────────────────────────────────────────
   const handleCSVExport = async () => {
     try {
       const [wines, cabinets] = await Promise.all([
         fetchWines(userId),
         fetchCabinets(userId),
       ]);
-      const cabinetMap = new Map(cabinets.map((c) => [c.id, c.name]));
+      const cabinetMap = new Map(cabinets.map((cabinet) => [cabinet.id, cabinet.name]));
       const csv = winesToCSV(wines, cabinetMap);
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const filename = `cellar-door-inventory-${new Date().toISOString().split("T")[0]}.csv`;
@@ -51,7 +50,6 @@ export function DataBackupCard() {
     }
   };
 
-  // ── CSV Import ───────────────────────────────────────────
   const handleCSVImport = async (
     wineData: Omit<Wine, "id" | "addedAt" | "updatedAt" | "userId">[]
   ) => {
@@ -73,7 +71,6 @@ export function DataBackupCard() {
     }
   };
 
-  // ── Full Backup (JSON) ──────────────────────────────────
   const handleCreateBackup = async () => {
     try {
       const data = await fetchAllDataForBackup(userId);
@@ -95,7 +92,6 @@ export function DataBackupCard() {
     }
   };
 
-  // ── Restore Backup ──────────────────────────────────────
   const handleRestoreFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -148,7 +144,6 @@ export function DataBackupCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* CSV Section */}
         <div>
           <p className="text-sm font-medium mb-2">CSV</p>
           <div className="flex gap-2">
@@ -178,7 +173,6 @@ export function DataBackupCard() {
 
         <Separator />
 
-        {/* Cloud / Full Backup Section */}
         <div>
           <p className="text-sm font-medium mb-2">Full Backup</p>
           <div className="flex gap-2">

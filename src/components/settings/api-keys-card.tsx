@@ -212,22 +212,22 @@ export function ApiKeysCard() {
           </p>
         ) : (
           <div className="space-y-2">
-            {keys.map((k) => (
+            {keys.map((apiKey) => (
               <div
-                key={k.id}
+                key={apiKey.id}
                 className="flex items-center justify-between rounded-md border px-3 py-2"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate">{k.name}</span>
+                    <span className="text-sm font-medium truncate">{apiKey.name}</span>
                     <code className="text-xs text-muted-foreground font-mono">
-                      {k.prefix}
+                      {apiKey.prefix}
                     </code>
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    Created {new Date(k.createdAt).toLocaleDateString()}
-                    {k.lastUsed && (
-                      <> &middot; Last used {new Date(k.lastUsed).toLocaleDateString()}</>
+                    Created {new Date(apiKey.createdAt).toLocaleDateString()}
+                    {apiKey.lastUsed && (
+                      <> &middot; Last used {new Date(apiKey.lastUsed).toLocaleDateString()}</>
                     )}
                   </div>
                 </div>
@@ -235,8 +235,8 @@ export function ApiKeysCard() {
                   variant="ghost"
                   size="sm"
                   className="text-destructive hover:text-destructive shrink-0"
-                  disabled={revoking === k.id}
-                  onClick={() => handleRevoke(k.id)}
+                  disabled={revoking === apiKey.id}
+                  onClick={() => handleRevoke(apiKey.id)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>

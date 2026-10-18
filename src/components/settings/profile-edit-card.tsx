@@ -25,7 +25,6 @@ export function ProfileEditCard() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Edit state
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("#722F37");
   const [editPhoto, setEditPhoto] = useState<string | null>(null);
@@ -125,7 +124,6 @@ export function ProfileEditCard() {
       <CardContent>
         {editing ? (
           <div className="space-y-4">
-            {/* Avatar picker */}
             <AvatarPicker
               initials={
                 editName
@@ -146,7 +144,6 @@ export function ProfileEditCard() {
               onPhotoSelect={(dataUrl) => setEditPhoto(dataUrl)}
             />
 
-            {/* Name input */}
             <div className="space-y-1.5">
               <Label htmlFor="profile-name" className="text-xs">
                 Display Name
@@ -160,13 +157,11 @@ export function ProfileEditCard() {
               />
             </div>
 
-            {/* Email (read-only) */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Email</Label>
               <p className="text-sm text-muted-foreground">{profile.email}</p>
             </div>
 
-            {/* Actions */}
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSave} disabled={saving}>
                 {saving ? "Saving..." : "Save"}
