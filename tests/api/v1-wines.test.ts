@@ -121,6 +121,35 @@ describe("/api/v1/wines POST", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("400 when the placement falls outside the cabinet grid (orphaned slots never render)", async () => {
+    authMock.mockResolvedValue(okUser);
+    prismaMock.cabinet.findFirst.mockResolvedValue({ id: "c1", rows: 8, cols: 8, depth: 1 });
+    const res = await POST(
+      req("http://localhost/api/v1/wines", {
+        method: "POST",
+        headers: { Authorization: "Bearer cd_xxx", "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Pinot", cabinetId: "c1", row: 8, col: 3 }),
+      })
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Row 8 is outside/);
+    expect(prismaMock.wine.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a wine on the edge slot of the grid (8×8×1 cabinet)", async () => {
+    authMock.mockResolvedValue(okUser);
+    prismaMock.cabinet.findFirst.mockResolvedValue({ id: "c1", rows: 8, cols: 8, depth: 1 });
+    prismaMock.wine.create.mockResolvedValue({ id: "w_new", name: "Pinot", addedAt: new Date() });
+    const res = await POST(
+      req("http://localhost/api/v1/wines", {
+        method: "POST",
+        headers: { Authorization: "Bearer cd_xxx", "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Pinot", cabinetId: "c1", row: 7, col: 7, depth: 0 }),
+      })
+    );
+    expect(res.status).toBe(201);
+  });
 });
 
 describe("/api/v1/wines/[id] GET", () => {
@@ -224,6 +253,74 @@ describe("/api/v1/wines/[id] PUT", () => {
         data: expect.objectContaining({ aiRatings: null, tastingNotes: null }),
       })
     );
+  });
+
+  it("400 when an in-place move targets a slot outside the wine's current cabinet", async () => {
+    authMock.mockResolvedValue(okUser);
+    prismaMock.wine.findFirst.mockResolvedValue({
+      id: "w1",
+      userId: "user_1",
+      name: "Estate",
+      cabinetId: "c1",
+    });
+    prismaMock.cabinet.findFirst.mockResolvedValue({ id: "c1", rows: 8, cols: 8, depth: 1 });
+    const res = await PUT(
+      req("http://localhost/api/v1/wines/w1", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ col: 8 }),
+      }),
+      { params: Promise.resolve({ id: "w1" }) }
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Column 8 is outside/);
+    expect(prismaMock.wine.update).not.toHaveBeenCalled();
+  });
+
+  it("400 when moving to a new cabinet with out-of-bounds depth", async () => {
+    authMock.mockResolvedValue(okUser);
+    prismaMock.wine.findFirst.mockResolvedValue({
+      id: "w1",
+      userId: "user_1",
+      name: "Estate",
+      cabinetId: null,
+    });
+    prismaMock.cabinet.findFirst.mockResolvedValue({ id: "c2", rows: 8, cols: 8, depth: 1 });
+    const res = await PUT(
+      req("http://localhost/api/v1/wines/w1", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cabinetId: "c2", depth: 1 }),
+      }),
+      { params: Promise.resolve({ id: "w1" }) }
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Depth 1 is outside/);
+    expect(prismaMock.wine.update).not.toHaveBeenCalled();
+  });
+
+  it("allows in-bounds moves and coordinate clears inside a cabinet", async () => {
+    authMock.mockResolvedValue(okUser);
+    prismaMock.wine.findFirst.mockResolvedValue({
+      id: "w1",
+      userId: "user_1",
+      name: "Estate",
+      winery: "Kanon",
+      vintage: 2019,
+      cabinetId: "c1",
+    });
+    prismaMock.cabinet.findFirst.mockResolvedValue({ id: "c1", rows: 8, cols: 8, depth: 1 });
+    prismaMock.wine.update.mockResolvedValue({ id: "w1" });
+    const res = await PUT(
+      req("http://localhost/api/v1/wines/w1", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ row: 3, col: null }),
+      }),
+      { params: Promise.resolve({ id: "w1" }) }
+    );
+    expect(res.status).toBe(200);
+    expect(prismaMock.wine.update).toHaveBeenCalled();
   });
 });
 

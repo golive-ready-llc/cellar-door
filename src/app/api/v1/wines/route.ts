@@ -8,6 +8,7 @@ import {
   corsHeaders,
 } from "@/lib/api-auth";
 import { serializeWine } from "@/lib/api-serialize";
+import { slotBoundsError } from "@/server/wine-shared";
 import { SPARKLING_VARIANTS, isSparklingType } from "@/types/wine";
 
 /** Handle CORS preflight */
@@ -97,6 +98,15 @@ export async function POST(request: NextRequest) {
       if (!cabinet) {
         return apiError("Cabinet not found or not owned by you.", 403);
       }
+      // Same placement-bounds rule as the addWine server action, so an API
+      // write can't park a bottle outside the grid where it never renders.
+      const boundsError = slotBoundsError(
+        cabinet,
+        body.row != null ? Number(body.row) : null,
+        body.col != null ? Number(body.col) : null,
+        body.depth != null ? Number(body.depth) : 0
+      );
+      if (boundsError) return apiError(boundsError, 400);
     }
 
     const wine = await prisma.wine.create({
