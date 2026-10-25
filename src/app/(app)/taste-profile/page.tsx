@@ -37,39 +37,39 @@ const MIN_RATED_FOR_PREF = 2;
 function splitGrapes(raw: string): string[] {
   return raw
     .split(/[,/&]| and /i)
-    .map((g) => g.trim())
-    .filter((g) => g.length > 1);
+    .map((grape) => grape.trim())
+    .filter((grape) => grape.length > 1);
 }
 
-function labelFor(dim: Dimension, e: { type: string; region: string; country: string; grapeVariety: string }): string[] {
+function labelFor(dim: Dimension, row: { type: string; region: string; country: string; grapeVariety: string }): string[] {
   if (dim === "style") {
-    return [WINE_TYPE_LABELS[e.type as keyof typeof WINE_TYPE_LABELS] || e.type || "Unknown"];
+    return [WINE_TYPE_LABELS[row.type as keyof typeof WINE_TYPE_LABELS] || row.type || "Unknown"];
   }
   if (dim === "region") {
-    const r = e.region?.trim();
-    if (r) return [r];
-    const c = e.country?.trim();
-    return c ? [c] : [];
+    const region = row.region?.trim();
+    if (region) return [region];
+    const country = row.country?.trim();
+    return country ? [country] : [];
   }
-  return splitGrapes(e.grapeVariety || "");
+  return splitGrapes(row.grapeVariety || "");
 }
 
 function aggregate(entries: Entry[]): Bucket[] {
   const map = new Map<string, { count: number; sum: number; rated: number }>();
-  for (const e of entries) {
-    const cur = map.get(e.label) ?? { count: 0, sum: 0, rated: 0 };
-    cur.count += 1;
-    if (e.rating != null && e.rating > 0) {
-      cur.sum += e.rating;
-      cur.rated += 1;
+  for (const entry of entries) {
+    const totals = map.get(entry.label) ?? { count: 0, sum: 0, rated: 0 };
+    totals.count += 1;
+    if (entry.rating != null && entry.rating > 0) {
+      totals.sum += entry.rating;
+      totals.rated += 1;
     }
-    map.set(e.label, cur);
+    map.set(entry.label, totals);
   }
-  return [...map.entries()].map(([label, v]) => ({
+  return [...map.entries()].map(([label, totals]) => ({
     label,
-    count: v.count,
-    rated: v.rated,
-    avg: v.rated > 0 ? v.sum / v.rated : null,
+    count: totals.count,
+    rated: totals.rated,
+    avg: totals.rated > 0 ? totals.sum / totals.rated : null,
   }));
 }
 
@@ -121,8 +121,8 @@ function Section({
           <p className="text-xs text-muted-foreground italic py-2">{empty}</p>
         ) : (
           <div className="divide-y divide-border/60">
-            {buckets.map((b) => (
-              <PrefRow key={b.label} bucket={b} max={max} />
+            {buckets.map((bucket) => (
+              <PrefRow key={bucket.label} bucket={bucket} max={max} />
             ))}
           </div>
         )}
@@ -163,9 +163,9 @@ export default function TasteProfilePage() {
   // dimension. History rows arrive with consumeRating already preferred.
   const entries = useMemo<Entry[]>(() => {
     const out: Entry[] = [];
-    for (const r of rows) {
-      for (const label of labelFor(dim, r)) {
-        out.push({ label, rating: r.rating });
+    for (const row of rows) {
+      for (const label of labelFor(dim, row)) {
+        out.push({ label, rating: row.rating });
       }
     }
     return out;
@@ -173,33 +173,31 @@ export default function TasteProfilePage() {
 
   const { liked, disliked, tried, max, totalRated } = useMemo(() => {
     const buckets = aggregate(entries);
-    const totalRated = buckets.reduce((s, b) => s + b.rated, 0);
-    const max = buckets.reduce((m, b) => Math.max(m, b.count), 0);
-    const rateable = buckets.filter((b) => b.rated >= MIN_RATED_FOR_PREF && b.avg != null);
+    const totalRated = buckets.reduce((sum, bucket) => sum + bucket.rated, 0);
+    const max = buckets.reduce((highest, bucket) => Math.max(highest, bucket.count), 0);
+    const rateable = buckets.filter((bucket) => bucket.rated >= MIN_RATED_FOR_PREF && bucket.avg != null);
     // "Like" is relative to the owner's own generosity: a rater whose whole
     // cellar averages 3.8★ never crosses an absolute 4.0 cutoff and saw
     // "rate more 4★+" after 700+ rated bottles (2026-09-12). Above the
     // owner's personal average (floored at 3.0 so rounding noise near a
     // low mean can't crown a mediocre style) counts as a like.
-    const ratedEntries = entries.filter((e) => e.rating != null && e.rating > 0);
+    const ratedEntries = entries.filter((entry) => entry.rating != null && entry.rating > 0);
     const personalMean =
       ratedEntries.length > 0
-        ? ratedEntries.reduce((s, e) => s + (e.rating as number), 0) / ratedEntries.length
+        ? ratedEntries.reduce((sum, entry) => sum + (entry.rating as number), 0) / ratedEntries.length
         : 0;
     const likeCutoff = Math.max(3.0, personalMean);
     const liked = rateable
-      .filter((b) => (b.avg as number) >= likeCutoff)
+      .filter((bucket) => (bucket.avg as number) >= likeCutoff)
       .sort((a, b) => (b.avg as number) - (a.avg as number) || b.count - a.count)
       .slice(0, 6);
     const disliked = rateable
-      .filter((b) => (b.avg as number) <= DISLIKE_THRESHOLD)
+      .filter((bucket) => (bucket.avg as number) <= DISLIKE_THRESHOLD)
       .sort((a, b) => (a.avg as number) - (b.avg as number) || b.count - a.count)
       .slice(0, 6);
     const tried = [...buckets].sort((a, b) => b.count - a.count).slice(0, 8);
     return { liked, disliked, tried, max, totalRated };
   }, [entries]);
-
-  const dimLabel = dim === "style" ? "style" : dim === "region" ? "region" : "grape";
 
   if (loading) {
     return (
@@ -218,7 +216,7 @@ export default function TasteProfilePage() {
       <PageHeader
         title="Taste Profile"
         icon={Sparkles}
-        subtitle={`What you like, what you don't, and what you've explored — by ${dimLabel}.`}
+        subtitle={`What you like, what you don't, and what you've explored — by ${dim}.`}
       />
 
       {/* Dimension switch */}
@@ -250,7 +248,7 @@ export default function TasteProfilePage() {
         <EmptyState
           icon={WineIcon}
           title="Rate some wines first"
-          description={`Your taste profile is built from the bottles you rate. Rate a few wines and your likes, dislikes, and most-explored ${dimLabel}s will appear here.`}
+          description={`Your taste profile is built from the bottles you rate. Rate a few wines and your likes, dislikes, and most-explored ${dim}s will appear here.`}
           action={{ label: "Go to your cellar", href: "/cellar" }}
         />
       ) : (
@@ -261,7 +259,7 @@ export default function TasteProfilePage() {
             accent="text-green-500"
             buckets={liked}
             max={max}
-            empty={`Rate more ${dimLabel}s to see your favorites.`}
+            empty={`Rate more ${dim}s to see your favorites.`}
           />
           <Section
             title="Not your thing"
@@ -269,7 +267,7 @@ export default function TasteProfilePage() {
             accent="text-orange-500"
             buckets={disliked}
             max={max}
-            empty={`Nothing you've rated low yet — your ${dimLabel}s are landing well.`}
+            empty={`Nothing you've rated low yet — your ${dim}s are landing well.`}
           />
           <Section
             title="Most explored"

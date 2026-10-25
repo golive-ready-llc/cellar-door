@@ -60,8 +60,8 @@ export default function AppLayout({
   // hanging on a skeleton forever if Firebase truly never recovers.
   useEffect(() => {
     if (!handoff) return;
-    const t = setTimeout(() => setHandoff(false), JUST_SIGNED_IN_TTL_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setHandoff(false), JUST_SIGNED_IN_TTL_MS);
+    return () => clearTimeout(timer);
   }, [handoff]);
 
   useEffect(() => {
@@ -79,10 +79,10 @@ export default function AppLayout({
     // sign-in. The handoff state was set by the login/signup page
     // immediately before router.push("/cellar").
     if (!user && !devMode && !handoff) {
-      const t = setTimeout(() => {
+      const timer = setTimeout(() => {
         router.push("/login");
       }, 2000);
-      return () => clearTimeout(t);
+      return () => clearTimeout(timer);
     }
   }, [user, loading, devMode, router, handoff]);
 
