@@ -32,6 +32,10 @@ const STATUS_STYLES: Record<string, string> = {
   lost: "bg-muted text-muted-foreground",
 };
 
+// Constructing an Intl formatter per lead row per render costs ~50µs; a
+// cached one formats in ~1µs.
+const LEAD_DATE_FMT = new Intl.DateTimeFormat();
+
 export function BusinessLeadsCard() {
   const { getIdToken, loading: authLoading } = useAuth();
   const [leads, setLeads] = useState<BusinessLead[] | null>(null);
@@ -109,7 +113,7 @@ export function BusinessLeadsCard() {
                       <a href={`mailto:${lead.email}`} className="underline underline-offset-2">
                         {lead.email}
                       </a>{" "}
-                      · {new Date(lead.createdAt).toLocaleDateString()}
+                      · {LEAD_DATE_FMT.format(new Date(lead.createdAt))}
                     </p>
                   </div>
                   <select

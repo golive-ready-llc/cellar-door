@@ -13,6 +13,12 @@ import { Button } from "@/components/ui/button";
 import { WineDetailBody } from "@/components/wine/wine-detail-body";
 import type { BuyListItem } from "@/types/wine";
 
+const ADDED_DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
+
 interface BuyListDetailDialogProps {
   item: BuyListItem;
   open: boolean;
@@ -94,11 +100,7 @@ export function BuyListDetailDialog({
             item.addedAt ? (
               <p className="text-caption">
                 Added{" "}
-                {new Date(item.addedAt).toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {ADDED_DATE_FMT.format(new Date(item.addedAt))}
               </p>
             ) : null
           }

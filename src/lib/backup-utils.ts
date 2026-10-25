@@ -43,6 +43,10 @@ export function validateBackup(obj: unknown): obj is CellarBackup {
 // CSV helpers
 // ============================================================
 
+// Constructing an Intl formatter per exported wine row costs ~50µs; a cached
+// one formats in ~1µs.
+const CSV_DATE_FMT = new Intl.DateTimeFormat();
+
 export function escapeCSV(value: string): string {
   if (!value) return "";
   // Prevent CSV injection: if the value starts with =, +, -, @,
@@ -89,7 +93,7 @@ export function winesToCSV(
       escapeCSV(wine.description),
       escapeCSV(wine.foodPairings),
       wine.cabinetId ? cabinetMap.get(wine.cabinetId) || "" : "Unassigned",
-      wine.addedAt ? new Date(wine.addedAt).toLocaleDateString() : "",
+      wine.addedAt ? CSV_DATE_FMT.format(new Date(wine.addedAt)) : "",
     ];
     csvRows.push(row.join(","));
   }

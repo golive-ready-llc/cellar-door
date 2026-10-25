@@ -191,9 +191,14 @@ export async function reconcileWineNotifications(wines: Wine[]): Promise<void> {
  *  DEFAULT channel, which reliably plays the default notification sound. */
 const DECANT_PROGRESS_CHANNEL = "cd-decant-progress";
 
+const CLOCK_FMT = new Intl.DateTimeFormat([], {
+  hour: "numeric",
+  minute: "2-digit",
+});
+
 /** Local clock like "3:45 PM" for the notification body. */
 function formatClock(d: Date): string {
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return CLOCK_FMT.format(d);
 }
 
 /**

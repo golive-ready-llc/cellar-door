@@ -26,6 +26,13 @@ export interface BlogPost {
   body: string;
 }
 
+/** "March 5, 2026" post date, shared by the /blog card list and post header. */
+export const POST_DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+
 export const POSTS: BlogPost[] = [
   {
     slug: "science-of-wine-aging",
