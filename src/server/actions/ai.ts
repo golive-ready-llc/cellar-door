@@ -27,16 +27,11 @@ async function getProviderForRequest(): Promise<AIProvider> {
 }
 import type {
   WineIdentification,
-  AiTastingNotesResult,
-  AiFoodPairingsResult,
-  AiPriceEstimation,
-  AiDrinkWindowResult,
   AiCriticScoresResult,
   AiWineEnrichmentResult,
   AiWineImageResult,
   WineListExtractionResult,
   AiRecommendationResult,
-  BatchDispositionResult,
   WineDataInput,
   WineSuggestionsResult,
 } from "@/lib/ai";
@@ -417,50 +412,6 @@ export async function aiScanLabel(
   return result;
 }
 
-/** Generate tasting notes for a wine */
-export async function aiGenerateTastingNotes(
-  wine: WineDataInput,
-  _userId?: string
-): Promise<AIResult<AiTastingNotesResult>> {
-  return wrapAI(
-    async () => (await getProviderForRequest()).generateTastingNotes(wine),
-    () => buildGate("wineEnrichment", "enrich_text", 1, _userId)
-  );
-}
-
-/** Generate food pairing suggestions */
-export async function aiGenerateFoodPairings(
-  wine: WineDataInput,
-  _userId?: string
-): Promise<AIResult<AiFoodPairingsResult>> {
-  return wrapAI(
-    async () => (await getProviderForRequest()).generateFoodPairings(wine),
-    () => buildGate("wineEnrichment", "enrich_text", 1, _userId)
-  );
-}
-
-/** Estimate current market price */
-export async function aiEstimatePrice(
-  wine: WineDataInput,
-  _userId?: string
-): Promise<AIResult<AiPriceEstimation>> {
-  return wrapAI(
-    async () => (await getProviderForRequest()).estimatePrice(wine),
-    () => buildGate("wineEnrichment", "enrich_text", 1, _userId)
-  );
-}
-
-/** Suggest drink window and disposition */
-export async function aiSuggestDrinkWindow(
-  wine: WineDataInput,
-  _userId?: string
-): Promise<AIResult<AiDrinkWindowResult>> {
-  return wrapAI(
-    async () => (await getProviderForRequest()).suggestDrinkWindow(wine),
-    () => buildGate("wineEnrichment", "enrich_text", 1, _userId)
-  );
-}
-
 /** Estimate critic scores */
 export async function aiEstimateCriticScores(
   wine: WineDataInput,
@@ -581,25 +532,6 @@ export async function aiRecommend(
   );
 }
 
-/** Batch analyze dispositions */
-export async function aiBatchDisposition(
-  wines: Array<{
-    id: string;
-    name: string;
-    winery: string;
-    vintage: number | null;
-    type: string;
-    region: string;
-    drinkBy: string;
-  }>,
-  _userId?: string
-): Promise<AIResult<BatchDispositionResult>> {
-  return wrapAI(
-    async () => (await getProviderForRequest()).batchDisposition(wines),
-    () => buildGate("wineEnrichment", "enrich_text", 1, _userId)
-  );
-}
-
 /** Personalized recommendation based on user's rating history */
 export async function aiPersonalizedRecommend(
   ratedWines: Array<{
@@ -696,28 +628,6 @@ export async function aiVintageStory(
   }
 
   return result;
-}
-
-/** Check if real AI is available */
-export async function aiCheckAvailability(): Promise<{
-  available: boolean;
-  provider: string;
-}> {
-  const available = await isAIAvailable();
-  if (!available) return { available: false, provider: "mock" };
-
-  // Determine which provider is actually configured — don't hardcode "gemini".
-  try {
-    const { getAIConfig } = await import("@/lib/ai/config");
-    const config = await getAIConfig();
-    const provider = config.text.provider
-      || config.textFailover.provider
-      || config.vision.provider
-      || (process.env.GEMINI_API_KEY ? "gemini" : "unknown");
-    return { available: true, provider };
-  } catch {
-    return { available: true, provider: process.env.GEMINI_API_KEY ? "gemini" : "unknown" };
-  }
 }
 
 /** Get remaining AI credits for the current user (for UI display) */

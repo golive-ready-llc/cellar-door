@@ -196,21 +196,6 @@ export async function getActiveChallenges(
   return challenges as unknown as ChallengeData[];
 }
 
-// ─── Get all challenges (active + completed) ──────────────────
-
-export async function getAllChallenges(
-  userId?: string
-): Promise<ChallengeData[]> {
-  const uid = await resolveServerUserId(userId);
-  const challenges = await prisma.challenge.findMany({
-    where: { userId: uid },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
-
-  return challenges as unknown as ChallengeData[];
-}
-
 // ─── Complete a challenge ─────────────────────────────────────
 
 const BADGE_MILESTONES: Record<number, { name: string; icon: string }> = {

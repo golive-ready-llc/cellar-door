@@ -138,22 +138,6 @@ describe("syncUser", () => {
   });
 });
 
-describe("getCurrentUser", () => {
-  it("returns the Prisma user when token verifies", async () => {
-    verifyIdTokenSpy.mockResolvedValue({ uid: "fb-1" });
-    userFindUnique.mockResolvedValue({ id: "p1", firebaseUid: "fb-1" });
-    const { getCurrentUser } = await import("@/server/actions/auth");
-    const u = await getCurrentUser("idtoken");
-    expect(u?.id).toBe("p1");
-  });
-
-  it("returns null on token verification failure", async () => {
-    verifyIdTokenSpy.mockRejectedValue(new Error("bad"));
-    const { getCurrentUser } = await import("@/server/actions/auth");
-    expect(await getCurrentUser("bad")).toBeNull();
-  });
-});
-
 describe("getUserProfile", () => {
   it("returns id+tier and mints the __session cookie when the email is verified", async () => {
     verifyIdTokenSpy.mockResolvedValue({

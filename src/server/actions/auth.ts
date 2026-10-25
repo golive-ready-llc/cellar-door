@@ -192,33 +192,6 @@ export async function syncUser(idToken: string) {
 }
 
 /**
- * Get the current user from a Firebase ID token.
- * Used by server components / API routes.
- */
-export async function getCurrentUser(idToken: string) {
-  if (isDev) {
-    return {
-      id: "dev-user-001",
-      email: "dev@cellardoor.app",
-      displayName: "Dev User",
-      avatarUrl: "",
-      tier: "FREE",
-      firebaseUid: "dev-user-001",
-    };
-  }
-
-  try {
-    const decoded = await getAdminAuth()!.verifyIdToken(idToken);
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decoded.uid },
-    });
-    return user;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Permanently delete a user account and ALL associated data.
  * This is irreversible. Deletes: user, wines, cabinets, walls, history,
  * buy list, community ratings, and Firebase auth record.

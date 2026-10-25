@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { metadataWhere } from "@/lib/wine-metadata-key";
-import type { WineIdentification, AiWineEnrichmentResult } from "@/lib/ai/types";
+import type { WineIdentification } from "@/lib/ai/types";
 import type { AiRatings } from "@/types/wine";
 
 /**
@@ -43,47 +43,6 @@ export async function findWineMetadata(
     drinkBy: row.drinkBy,
     drinkWindow: row.drinkWindow,
     ratings: (row.aiRatings as AiRatings) ?? null,
-  };
-}
-
-/**
- * Check if cached metadata has enough enrichment data to skip an AI call.
- * Returns an AiWineEnrichmentResult if the cached data is "complete enough".
- */
-export async function findEnrichmentMetadata(
-  winery: string,
-  name: string,
-  vintage: number | null
-): Promise<AiWineEnrichmentResult | null> {
-  if (!winery || !name) return null;
-
-  const row = await prisma.wineMetadata.findFirst({
-    where: metadataWhere(winery, name, vintage ?? null),
-  });
-
-  if (!row) return null;
-
-  // Need at least description + one of (foodPairings, drinkWindow, ratings) to be useful
-  if (!row.description) return null;
-  if (!row.drinkWindow && !row.aiRatings) return null;
-
-  // Increment hit count (fire-and-forget)
-  prisma.wineMetadata.update({
-    where: { id: row.id },
-    data: { hitCount: { increment: 1 } },
-  }).catch(() => {});
-
-  return {
-    description: row.description,
-    foodPairings: row.foodPairings,
-    pairingNotes: "",
-    estimatedPrice: row.estimatedPrice ?? 0,
-    priceRange: { low: 0, high: 0 },
-    disposition: row.disposition,
-    drinkBy: row.drinkBy,
-    drinkWindow: row.drinkWindow,
-    ratings: (row.aiRatings as AiRatings) ?? { rating_ws: undefined, rating_rp: undefined, rating_jd: undefined, rating_ag: undefined },
-    confidence: "high",
   };
 }
 
