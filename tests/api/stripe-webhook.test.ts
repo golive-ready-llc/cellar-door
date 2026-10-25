@@ -309,6 +309,81 @@ describe("Stripe webhook", () => {
     });
   });
 
+  it("checkout.session.async_payment_succeeded ai_credits → grants the deferred credits", async () => {
+    constructEventMock.mockReturnValue({
+      id: "evt_async_1",
+      type: "checkout.session.async_payment_succeeded",
+      data: {
+        object: {
+          metadata: { userId: "u1", type: "ai_credits", credits: "100" },
+          payment_status: "paid",
+        },
+      },
+    });
+    const res = await POST(makeReq("{}", "sig"));
+    expect(res.status).toBe(200);
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: { extraCredits: { increment: 100 } },
+    });
+  });
+
+  it("checkout.session.async_payment_succeeded with a credits amount not matching any pack → refuses to grant", async () => {
+    constructEventMock.mockReturnValue({
+      id: "evt_async_2",
+      type: "checkout.session.async_payment_succeeded",
+      data: {
+        object: {
+          metadata: { userId: "u1", type: "ai_credits", credits: "999999" },
+          payment_status: "paid",
+        },
+      },
+    });
+    const res = await POST(makeReq("{}", "sig"));
+    expect(res.status).toBe(200);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it("checkout.session.async_payment_succeeded for subscription → promotes the now-active sub", async () => {
+    constructEventMock.mockReturnValue({
+      id: "evt_async_3",
+      type: "checkout.session.async_payment_succeeded",
+      data: { object: { metadata: { userId: "u1" }, subscription: "sub_1", customer: "cus_1" } },
+    });
+    subscriptionsRetrieveMock.mockResolvedValue({
+      status: "active",
+      items: { data: [{ price: { id: "price_pro" } }] },
+    });
+    const res = await POST(makeReq("{}", "sig"));
+    expect(res.status).toBe(200);
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "u1" },
+        data: expect.objectContaining({ tier: "PRO", stripeSubId: "sub_1" }),
+      })
+    );
+  });
+
+  it("checkout.session.async_payment_failed → warns, grants nothing, no tier change", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    constructEventMock.mockReturnValue({
+      id: "evt_async_4",
+      type: "checkout.session.async_payment_failed",
+      data: {
+        object: {
+          id: "cs_fail_1",
+          metadata: { userId: "u1", type: "ai_credits", credits: "100" },
+          payment_status: "unpaid",
+        },
+      },
+    });
+    const res = await POST(makeReq("{}", "sig"));
+    expect(res.status).toBe(200);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringMatching(/Delayed payment failed.*cs_fail_1/));
+    warnSpy.mockRestore();
+  });
+
   it("invoice.payment_failed → logs warning", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     constructEventMock.mockReturnValue({
