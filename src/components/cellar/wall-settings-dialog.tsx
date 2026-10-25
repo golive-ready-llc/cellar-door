@@ -126,23 +126,21 @@ export function WallSettingsDialog({
     );
   };
 
+  // A saved wall is dirty when its name moved; new and soft-deleted walls
+  // count separately below.
+  const wallDirty = (w: EditableWall) =>
+    !w.isNew && !w.markedForDelete && w.name !== w.originalName;
+
   const handleSave = async () => {
     setSaving(true);
     const changes: WallChanges = {
       created: editableWalls
         .filter((w) => w.isNew && !w.markedForDelete)
         .map((w) => ({ name: w.name, sortOrder: w.sortOrder })),
-      updated: editableWalls
-        .filter(
-          (w) =>
-            !w.isNew &&
-            !w.markedForDelete &&
-            w.name !== w.originalName
-        )
-        .map((w) => ({
-          id: w.id,
-          ...(w.name !== w.originalName && { name: w.name }),
-        })),
+      updated: editableWalls.filter(wallDirty).map((w) => ({
+        id: w.id,
+        name: w.name,
+      })),
       deleted: editableWalls
         .filter((w) => !w.isNew && w.markedForDelete)
         .map((w) => w.id),
@@ -170,9 +168,7 @@ export function WallSettingsDialog({
 
   const hasChanges =
     editableWalls.some((w) => w.isNew && !w.markedForDelete) ||
-    editableWalls.some(
-      (w) => !w.isNew && !w.markedForDelete && w.name !== w.originalName
-    ) ||
+    editableWalls.some(wallDirty) ||
     editableWalls.some((w) => !w.isNew && w.markedForDelete);
 
   const visibleWalls = editableWalls.filter((w) => !w.markedForDelete);

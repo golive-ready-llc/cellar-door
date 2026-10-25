@@ -35,8 +35,18 @@ import {
   type SectionTemplate,
 } from "@/components/cellar/storage-type-picker";
 import { GridPreview } from "@/components/cellar/grid-preview";
+import {
+  buildSectionChanges,
+  sectionsHaveChanges,
+  type SectionChanges,
+  type SectionEntry,
+} from "@/components/cellar/section-changes";
 import { BOX_SIZES } from "@/types/constants";
 import type { Cabinet, Wine, StorageRow, StorageRowType, RowSize } from "@/types/wine";
+
+// Re-exported for historical importers (use-cellar imports SectionChanges
+// from this file).
+export type { SectionChanges };
 
 // ============================================================
 // Types
@@ -51,30 +61,6 @@ interface SectionSettingsDialogProps {
   trigger?: React.ReactElement;
 }
 
-export interface SectionChanges {
-  created: Array<{
-    name: string;
-    rows: number;
-    cols: number;
-    depth: number;
-    storageRows: StorageRow[];
-    rowSizes?: RowSize[];
-    wallId: string;
-    sortOrder: number;
-  }>;
-  updated: Array<{
-    id: string;
-    name?: string;
-    rows?: number;
-    cols?: number;
-    depth?: number;
-    storageRows?: StorageRow[];
-    rowSizes?: RowSize[];
-    sortOrder?: number;
-  }>;
-  deleted: string[];
-}
-
 interface EditableSection {
   id: string;
   name: string;
@@ -82,6 +68,11 @@ interface EditableSection {
   cols: number;
   depth: number;
   storageRows: StorageRow[];
+  // Tracked so the shared diff covers the full canonical field set; this
+  // dialog's UI never edits row sizes, so current and original stay equal and
+  // the builder never emits a rowSizes update from here (the in-grid editor
+  // owns that field).
+  rowSizes: RowSize[];
   sortOrder: number;
   isNew: boolean;
   markedForDelete: boolean;
@@ -90,6 +81,7 @@ interface EditableSection {
   originalCols: number;
   originalDepth: number;
   originalStorageRows: StorageRow[];
+  originalRowSizes: RowSize[];
   originalSortOrder: number;
 }
 
@@ -126,6 +118,7 @@ export function SectionSettingsDialog({
             cols: c.cols,
             depth: c.depth,
             storageRows: c.storageRows.map((sr) => ({ ...sr })),
+            rowSizes: c.rowSizes ?? [],
             sortOrder: c.sortOrder,
             isNew: false,
             markedForDelete: false,
@@ -134,6 +127,7 @@ export function SectionSettingsDialog({
             originalCols: c.cols,
             originalDepth: c.depth,
             originalStorageRows: c.storageRows.map((sr) => ({ ...sr })),
+            originalRowSizes: c.rowSizes ?? [],
             originalSortOrder: c.sortOrder,
           }))
         );
@@ -175,6 +169,7 @@ export function SectionSettingsDialog({
       cols: template.cols,
       depth: template.depth,
       storageRows: template.storageRows.map((sr) => ({ ...sr })),
+      rowSizes: [],
       sortOrder: visibleCount,
       isNew: true,
       markedForDelete: false,
@@ -183,6 +178,7 @@ export function SectionSettingsDialog({
       originalCols: 0,
       originalDepth: 0,
       originalStorageRows: [],
+      originalRowSizes: [],
       originalSortOrder: 0,
     };
     setEditSection(newSection);
@@ -214,37 +210,25 @@ export function SectionSettingsDialog({
     setMode("list");
   };
 
-  const handleMoveUp = (section: EditableSection) => {
-    setSections((prev) => {
-      const sorted = [...prev]
-        .filter((s) => !s.markedForDelete)
-        .sort((a, b) => a.sortOrder - b.sortOrder);
-      const idx = sorted.findIndex((s) => s.id === section.id);
-      if (idx <= 0) return prev;
-      const prevSection = sorted[idx - 1];
-      return prev.map((s) => {
-        if (s.id === section.id) return { ...s, sortOrder: prevSection.sortOrder };
-        if (s.id === prevSection.id) return { ...s, sortOrder: section.sortOrder };
-        return s;
-      });
-    });
-  };
+  const handleMoveUp = (section: EditableSection) => moveSection(section, -1);
+  const handleMoveDown = (section: EditableSection) => moveSection(section, 1);
 
-  const handleMoveDown = (section: EditableSection) => {
+  function moveSection(section: EditableSection, delta: -1 | 1) {
     setSections((prev) => {
       const sorted = [...prev]
         .filter((s) => !s.markedForDelete)
         .sort((a, b) => a.sortOrder - b.sortOrder);
       const idx = sorted.findIndex((s) => s.id === section.id);
-      if (idx < 0 || idx >= sorted.length - 1) return prev;
-      const nextSection = sorted[idx + 1];
+      const neighborIdx = idx + delta;
+      if (idx < 0 || neighborIdx < 0 || neighborIdx >= sorted.length) return prev;
+      const neighbor = sorted[neighborIdx];
       return prev.map((s) => {
-        if (s.id === section.id) return { ...s, sortOrder: nextSection.sortOrder };
-        if (s.id === nextSection.id) return { ...s, sortOrder: section.sortOrder };
+        if (s.id === section.id) return { ...s, sortOrder: neighbor.sortOrder };
+        if (s.id === neighbor.id) return { ...s, sortOrder: section.sortOrder };
         return s;
       });
     });
-  };
+  }
 
   // ---- Edit form save ----
 
@@ -269,70 +253,41 @@ export function SectionSettingsDialog({
 
   // ---- Dialog-level save ----
 
-  const hasChanges = useMemo(() => {
-    return (
-      sections.some((s) => s.isNew && !s.markedForDelete) ||
-      sections.some(
-        (s) =>
-          !s.isNew &&
-          !s.markedForDelete &&
-          (s.name !== s.originalName ||
-            s.rows !== s.originalRows ||
-            s.cols !== s.originalCols ||
-            s.depth !== s.originalDepth ||
-            s.sortOrder !== s.originalSortOrder ||
-            JSON.stringify(s.storageRows) !==
-              JSON.stringify(s.originalStorageRows))
-      ) ||
-      sections.some((s) => !s.isNew && s.markedForDelete)
-    );
-  }, [sections]);
+  const toEntry = (s: EditableSection): SectionEntry => ({
+    id: s.id,
+    isNew: s.isNew,
+    markedForDelete: s.markedForDelete,
+    current: {
+      name: s.name,
+      rows: s.rows,
+      cols: s.cols,
+      depth: s.depth,
+      storageRows: s.storageRows,
+      rowSizes: s.rowSizes,
+      sortOrder: s.sortOrder,
+    },
+    original: s.isNew
+      ? null
+      : {
+          name: s.originalName,
+          rows: s.originalRows,
+          cols: s.originalCols,
+          depth: s.originalDepth,
+          storageRows: s.originalStorageRows,
+          rowSizes: s.originalRowSizes,
+          sortOrder: s.originalSortOrder,
+        },
+  });
+
+  const hasChanges = useMemo(
+    () => sectionsHaveChanges(sections.map(toEntry)),
+    [sections]
+  );
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const changes: SectionChanges = {
-        created: sections
-          .filter((s) => s.isNew && !s.markedForDelete)
-          .map((s) => ({
-            name: s.name,
-            rows: s.rows,
-            cols: s.cols,
-            depth: s.depth,
-            storageRows: s.storageRows,
-            wallId,
-            sortOrder: s.sortOrder,
-          })),
-        updated: sections
-          .filter((s) => !s.isNew && !s.markedForDelete)
-          .filter(
-            (s) =>
-              s.name !== s.originalName ||
-              s.rows !== s.originalRows ||
-              s.cols !== s.originalCols ||
-              s.depth !== s.originalDepth ||
-              s.sortOrder !== s.originalSortOrder ||
-              JSON.stringify(s.storageRows) !==
-                JSON.stringify(s.originalStorageRows)
-          )
-          .map((s) => ({
-            id: s.id,
-            ...(s.name !== s.originalName && { name: s.name }),
-            ...(s.rows !== s.originalRows && { rows: s.rows }),
-            ...(s.cols !== s.originalCols && { cols: s.cols }),
-            ...(s.depth !== s.originalDepth && { depth: s.depth }),
-            ...(s.sortOrder !== s.originalSortOrder && {
-              sortOrder: s.sortOrder,
-            }),
-            ...(JSON.stringify(s.storageRows) !==
-              JSON.stringify(s.originalStorageRows) && {
-              storageRows: s.storageRows,
-            }),
-          })),
-        deleted: sections
-          .filter((s) => !s.isNew && s.markedForDelete)
-          .map((s) => s.id),
-      };
+      const changes = buildSectionChanges(sections.map(toEntry), wallId);
       await onSave(changes);
       setOpen(false);
     } finally {
