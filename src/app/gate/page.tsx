@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Wine } from "lucide-react";
+import { safeNextPath } from "@/lib/safe-redirect";
 
 function GateForm() {
   const router = useRouter();
@@ -24,8 +25,7 @@ function GateForm() {
       });
 
       if (res.ok) {
-        const nextParam = searchParams.get("next");
-        const next = nextParam && !/^(?:https?:)?\/\//i.test(nextParam) && nextParam.startsWith("/") ? nextParam : "/";
+        const next = safeNextPath(searchParams.get("next"));
         router.push(next);
         router.refresh();
       } else {
