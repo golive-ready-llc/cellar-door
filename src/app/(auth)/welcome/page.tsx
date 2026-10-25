@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Wine, Camera, MessageCircle, ArrowRight } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 /**
  * Mobile-first welcome / onboarding screen.
@@ -40,10 +41,13 @@ export default function WelcomePage() {
     <div className="flex flex-col items-center text-center pt-4 pb-8 gap-8 max-w-sm mx-auto">
       {/* Logo + brand */}
       <div className="flex flex-col items-center gap-3 mt-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src="/logo.png"
           alt="Cellar Door"
+          width={609}
+          height={480}
+          sizes="102px"
+          priority
           className="h-20 w-auto rounded-2xl shadow-lg"
         />
         <h1 className="text-3xl font-bold">Cellar Door</h1>
