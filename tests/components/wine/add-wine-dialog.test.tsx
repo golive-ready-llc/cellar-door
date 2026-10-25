@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import type { Cabinet } from "@/types/wine";
 
@@ -46,6 +46,18 @@ vi.mock("@/hooks/use-ai-wine-fill", () => ({
 
 vi.mock("@/server/actions/ai", () => ({
   aiExtractWineList: vi.fn(),
+}));
+
+vi.mock("@/server/actions/buy-list", () => ({
+  addBuyListItem: vi.fn(),
+}));
+
+vi.mock("@/components/ui/custom-toast", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock("@/lib/data", () => ({
+  invalidateReadCache: vi.fn(),
 }));
 
 vi.mock("@/components/wine/image-capture", () => ({
@@ -110,13 +122,71 @@ vi.mock("@/components/wine/ai-search-dialog", () => ({
 }));
 
 vi.mock("@/components/wine/wine-list-results", () => ({
-  WineListResults: () => <div data-testid="wine-list-results" />,
+  // Minimal mirror of the real contract: the Add button only renders when
+  // onAddToBuyList is passed, and flips to the disabled "Added" state when
+  // the parent reports the wine in addedWines.
+  WineListResults: ({
+    onAddToBuyList,
+    addedWines,
+  }: {
+    onAddToBuyList?: (wine: {
+      name: string;
+      winery: string;
+      vintage: number | null;
+      type: string;
+      region: string;
+      country: string;
+    }) => void;
+    addedWines: Set<string>;
+  }) => (
+    <div data-testid="wine-list-results">
+      {onAddToBuyList && (
+        <button
+          type="button"
+          disabled={addedWines.size > 0}
+          onClick={() =>
+            onAddToBuyList({
+              name: "Scan Wine",
+              winery: "Scan Winery",
+              vintage: 2021,
+              type: "red",
+              region: "R",
+              country: "C",
+            })
+          }
+        >
+          {addedWines.size > 0 ? "Added to Buy List" : "Add to Buy List"}
+        </button>
+      )}
+    </div>
+  ),
   WineListResultsFooter: () => <div data-testid="wine-list-results-footer" />,
 }));
 
 import { AddWineDialog } from "@/components/wine/add-wine-dialog";
+import { aiExtractWineList } from "@/server/actions/ai";
+import { addBuyListItem } from "@/server/actions/buy-list";
+import { toast } from "@/components/ui/custom-toast";
+import { invalidateReadCache } from "@/lib/data";
 
 const cabinets: Cabinet[] = [];
+
+const extractedWine = {
+  name: "Scan Wine",
+  winery: "Scan Winery",
+  vintage: 2021,
+  type: "red" as const,
+  region: "R",
+  country: "C",
+  grapeVariety: "",
+  description: "",
+  estimatedPrice: null,
+  alcohol: "",
+  disposition: "",
+  drinkBy: "",
+  drinkWindow: "",
+  ratings: null,
+};
 
 describe("AddWineDialog — auto-jump from pick → label-capture (didAutoOpenRef)", () => {
   it("opening the dialog auto-jumps directly to label-capture (camera stub renders)", async () => {
@@ -287,5 +357,75 @@ describe("AddWineDialog — auto-jump from pick → label-capture (didAutoOpenRe
     expect(
       screen.queryByRole("button", { name: /scan wine/i })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("AddWineDialog — wine-list Add to Buy List wiring", () => {
+  beforeEach(() => {
+    vi.mocked(aiExtractWineList).mockReset();
+    vi.mocked(addBuyListItem).mockReset();
+    vi.mocked(toast.success).mockReset();
+    vi.mocked(toast.error).mockReset();
+    vi.mocked(invalidateReadCache).mockReset();
+  });
+
+  async function renderThroughWineListScan() {
+    vi.mocked(aiExtractWineList).mockResolvedValue({
+      success: true,
+      isMock: false,
+      data: { wines: [extractedWine], sourceName: "Stub Bistro", currency: "USD" },
+    });
+    render(
+      <AddWineDialog
+        cabinets={cabinets}
+        onAdd={vi.fn()}
+        open={true}
+        onOpenChange={vi.fn()}
+      />
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("image-capture-stub")).toBeInTheDocument()
+    );
+    // Switch the shared camera session to wine-list mode via the real tab.
+    fireEvent.click(screen.getByRole("button", { name: "Wine List" }));
+    fireEvent.click(screen.getByTestId("stub-capture"));
+    return screen.findByRole("button", { name: /Add to Buy List/i });
+  }
+
+  it("Add to Buy List writes through addBuyListItem and marks the wine added", async () => {
+    vi.mocked(addBuyListItem).mockResolvedValue({} as Awaited<ReturnType<typeof addBuyListItem>>);
+
+    const addBtn = await renderThroughWineListScan();
+    fireEvent.click(addBtn);
+
+    await waitFor(() =>
+      expect(addBuyListItem).toHaveBeenCalledWith(
+        "u1",
+        expect.objectContaining({
+          name: "Scan Wine",
+          winery: "Scan Winery",
+          vintage: 2021,
+          status: "wanted",
+        })
+      )
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Added to Buy List/i })).toBeDisabled()
+    );
+    expect(toast.success).toHaveBeenCalledWith("Added Scan Wine to buy list");
+    expect(invalidateReadCache).toHaveBeenCalled();
+  });
+
+  it("a failed add toasts an error and leaves the button in its add state", async () => {
+    vi.mocked(addBuyListItem).mockRejectedValue(new Error("boom"));
+
+    const addBtn = await renderThroughWineListScan();
+    fireEvent.click(addBtn);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Failed to add to buy list")
+    );
+    expect(addBtn).toBeEnabled();
+    expect(invalidateReadCache).not.toHaveBeenCalled();
   });
 });

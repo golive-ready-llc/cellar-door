@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import {
   WineListResults,
   WineListResultsFooter,
+  fuzzyMatch,
   type UserWineForScan,
 } from "@/components/wine/wine-list-results";
 import type { WineIdentification } from "@/lib/ai/types";
@@ -64,9 +65,9 @@ describe("WineListResults", () => {
     expect(screen.getByText("Test Bistro")).toBeInTheDocument();
   });
 
-  it("renders an 'In your cellar!' badge when the wine name matches a user wine", () => {
+  it("renders an 'In your cellar!' badge when name and winery match a user wine", () => {
     const extracted = [makeExtracted({ name: "Match Wine", winery: "X" })];
-    const userWines = [makeUserWine({ id: "u1", name: "Match Wine" })];
+    const userWines = [makeUserWine({ id: "u1", name: "Match Wine", winery: "X" })];
     render(
       <WineListResults
         extractedWines={extracted}
@@ -134,5 +135,117 @@ describe("WineListResults", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Done$/i }));
     expect(onScan).toHaveBeenCalledTimes(1);
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("fuzzyMatch", () => {
+  it("matches exactly through punctuation and case noise when name and winery align", () => {
+    const extracted = makeExtracted({
+      name: "Opus -- One!!",
+      winery: "Opus",
+      region: "Napa",
+      grapeVariety: "Cabernet Franc",
+    });
+    const cellar = makeUserWine({
+      name: "Opus One",
+      winery: "Opus Winery",
+      region: "Bordeaux",
+      grapeVariety: "Merlot",
+    });
+    expect(fuzzyMatch(extracted, [cellar]).type).toBe("exact");
+  });
+
+  it("an extraction with no name matches nothing — not the first cellar wine", () => {
+    const extracted = makeExtracted({
+      name: "",
+      winery: "",
+      region: "Nowhere",
+      grapeVariety: "Chardonnay",
+    });
+    const cellar = [
+      makeUserWine({ name: "First Wine", winery: "W1" }),
+      makeUserWine({ name: "Second Wine", winery: "W2" }),
+    ];
+    expect(fuzzyMatch(extracted, cellar).type).toBe("none");
+  });
+
+  it("a name that is a substring of an unrelated cellar wine, with a different winery, is not an exact match", () => {
+    const extracted = makeExtracted({
+      name: "One",
+      winery: "Z Winery",
+      region: "R1",
+      grapeVariety: "G1",
+    });
+    const cellar = makeUserWine({
+      name: "Opus One",
+      winery: "Opus Winery",
+      region: "R2",
+      grapeVariety: "G2",
+    });
+    expect(fuzzyMatch(extracted, [cellar]).type).toBe("none");
+  });
+
+  it("same name but a different winery is not an exact match", () => {
+    const extracted = makeExtracted({
+      name: "Reserve",
+      winery: "Alpha Winery",
+      region: "R1",
+      grapeVariety: "G1",
+    });
+    const cellar = makeUserWine({
+      name: "Reserve",
+      winery: "Beta Winery",
+      region: "R2",
+      grapeVariety: "G2",
+    });
+    expect(fuzzyMatch(extracted, [cellar]).type).toBe("none");
+  });
+
+  it("a cellar wine with an empty name matches nothing", () => {
+    const extracted = makeExtracted({
+      name: "Anything",
+      winery: "W",
+      region: "R1",
+      grapeVariety: "G1",
+    });
+    const cellar = makeUserWine({
+      name: "",
+      winery: "W",
+      region: "R2",
+      grapeVariety: "G2",
+    });
+    expect(fuzzyMatch(extracted, [cellar]).type).toBe("none");
+  });
+
+  it("similar requires a shared name word plus the same grape or region", () => {
+    const extracted = makeExtracted({
+      name: "Caymus Special Selection",
+      winery: "Caymus",
+      region: "Napa",
+      grapeVariety: "Cabernet Sauvignon",
+    });
+    const cellar = makeUserWine({
+      name: "Caymus Reserve",
+      winery: "Caymus Vineyards",
+      region: "Napa",
+      grapeVariety: "Cabernet Sauvignon",
+    });
+    expect(fuzzyMatch(extracted, [cellar]).type).toBe("similar");
+  });
+
+  it("the same grape alone, with no name overlap, is not similar", () => {
+    const extracted = makeExtracted({
+      name: "Mystery Blend",
+      winery: "Caymus",
+      region: "Napa",
+      grapeVariety: "Cabernet Sauvignon",
+    });
+    const cellar = makeUserWine({
+      name: "Totally Different",
+      winery: "Other Winery",
+      region: "Napa",
+      grapeVariety: "Cabernet Sauvignon",
+    });
+    expect(fuzzyMatch(extracted, [cellar]).type).toBe("none");
   });
 });
