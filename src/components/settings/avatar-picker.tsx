@@ -60,19 +60,19 @@ export function AvatarPicker({
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground font-medium">Avatar Color</p>
       <div className="flex gap-2 flex-wrap">
-        {PRESET_COLORS.map((c) => (
+        {PRESET_COLORS.map((color) => (
           <button
-            key={c.value}
+            key={color.value}
             type="button"
             className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold transition-all",
-              currentColor === c.value && !currentPhoto
+              currentColor === color.value && !currentPhoto
                 ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110"
                 : "hover:scale-105"
             )}
-            style={{ backgroundColor: c.value }}
-            onClick={() => onColorSelect(c.value)}
-            title={c.name}
+            style={{ backgroundColor: color.value }}
+            onClick={() => onColorSelect(color.value)}
+            title={color.name}
           >
             {initials}
           </button>
