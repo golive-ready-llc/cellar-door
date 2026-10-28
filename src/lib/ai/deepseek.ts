@@ -122,6 +122,15 @@ export class OpenAICompatibleProvider implements AIProvider {
     return this.config.model || "deepseek-chat";
   }
 
+  /** Provider-specific request fields. MiniMax M3+ reasons before answering
+   *  and, on a real camera label, spent the whole 4096-token budget reasoning:
+   *  `content` came back empty (first live scan, 2026-10-28). "low" cut
+   *  reasoning ~10x (12s → 3s on a label scan) with the same fields read.
+   *  MiniMax rejects "none" and `thinking: disabled`. */
+  private get providerParams(): Record<string, unknown> {
+    return this.config.provider === "minimax" ? { reasoning_effort: "low" } : {};
+  }
+
   private async chatCompletion(
     systemPrompt: string, userPrompt: string,
     temperature = 0.1, jsonMode = true
@@ -133,6 +142,7 @@ export class OpenAICompatibleProvider implements AIProvider {
         { role: "user", content: userPrompt },
       ],
       temperature, max_tokens: 4096,
+      ...this.providerParams,
     };
     if (jsonMode) body.response_format = { type: "json_object" };
 
@@ -185,6 +195,7 @@ export class OpenAICompatibleProvider implements AIProvider {
         },
       ],
       temperature, max_tokens: 4096,
+      ...this.providerParams,
     };
     if (jsonMode) body.response_format = { type: "json_object" };
 
@@ -433,6 +444,7 @@ export class OpenAICompatibleProvider implements AIProvider {
         temperature: 0.7,
         max_tokens: 4096,
         stream: true,
+        ...this.providerParams,
       }),
       signal: AbortSignal.timeout(60000),
     });

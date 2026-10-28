@@ -41,6 +41,8 @@ describe("MiniMax provider", () => {
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe("MiniMax-M3.1-Flash");
     expect(body.messages[1].content[0].image_url.url).toBe("data:image/jpeg;base64,AAAA");
+    // Default reasoning spent the whole token budget on a real label photo.
+    expect(body.reasoning_effort).toBe("low");
   });
 
   it("strips inline <think> reasoning before parsing JSON", async () => {
@@ -77,6 +79,8 @@ describe("MiniMax provider", () => {
   it("still defaults Deepseek to its own endpoint", async () => {
     const p = new OpenAICompatibleProvider({ config: slot("deepseek", { model: "deepseek-flash" }), label: "deepseek" });
     await p.searchWine("anything");
-    expect((fetchMock.mock.calls[0] as [string])[0]).toBe("https://api.deepseek.com/v1/chat/completions");
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.deepseek.com/v1/chat/completions");
+    expect(JSON.parse(init.body as string).reasoning_effort).toBeUndefined();
   });
 });
