@@ -56,6 +56,57 @@ import { submitCdRating } from "@/lib/data";
 import { getEffectiveDisposition } from "@/lib/drink-window";
 import { useWineData } from "@/contexts/wine-data-context";
 import { getWineStorageInfo } from "@/lib/cellar-utils";
+import { buildWineInput, buildWineUpdates } from "./bulk-enrich-utils";
+import type { WineDataInput } from "@/lib/ai/types";
+
+// ── AI label-image search ──────────────────────────────────────────
+// One implementation of the search call shared by the detail view, the
+// inline edit form, and the post-enrichment backfill. It owns the call,
+// the 20s race, and the data:/http: URL validation; callers decide what
+// (if anything) to show for each outcome.
+
+type LabelImageOutcome =
+  | { status: "found"; imageUrl: string }
+  | { status: "invalid" } // provider returned a URL we can't render
+  | { status: "empty" } // provider found nothing
+  | { status: "timeout" }
+  | { status: "failed"; error?: string };
+
+async function searchWineLabelImage(
+  input: WineDataInput,
+  userId?: string
+): Promise<LabelImageOutcome> {
+  const { aiFetchWineImage } = await import("@/server/actions/ai");
+  try {
+    // Race against 20s — image search + server-side download can take time
+    const result = await Promise.race([
+      aiFetchWineImage(input, userId),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 20000)
+      ),
+    ]);
+    if (result.success && result.data.imageUrl) {
+      // Accept both data URLs and http URLs
+      return result.data.imageUrl.startsWith("data:") ||
+        result.data.imageUrl.startsWith("http")
+        ? { status: "found", imageUrl: result.data.imageUrl }
+        : { status: "invalid" };
+    }
+    if (result.success) return { status: "empty" };
+    return { status: "failed", error: result.error };
+  } catch {
+    return { status: "timeout" };
+  }
+}
+
+// 429/quota failures arrive as raw provider strings; map them to one
+// consistent user-facing message, falling back per call site.
+function friendlyAiError(error: string | undefined, fallback: string): string {
+  if (error?.includes("429") || error?.includes("quota")) {
+    return "AI service quota exceeded — please try again later";
+  }
+  return error || fallback;
+}
 
 interface WineDetailDialogProps {
   wine: Wine;
@@ -332,22 +383,9 @@ function DetailView({
 
   // Memoize so useCallback deps that include wineInput don't thrash on every
   // render (eslint-react flags this at the consumer sites).
-  const wineInput = useMemo(() => ({
-    name: wine.name,
-    winery: wine.winery,
-    vintage: wine.vintage,
-    type: wine.type,
-    region: wine.region,
-    country: wine.country,
-    grapeVariety: wine.grapeVariety,
-    description: wine.description,
-    drinkBy: wine.drinkBy,
-    price: wine.price,
-  }), [wine.name, wine.winery, wine.vintage, wine.type, wine.region, wine.country, wine.grapeVariety, wine.description, wine.drinkBy, wine.price]);
+  const wineInput = useMemo(() => buildWineInput(wine), [wine]);
 
   // ── Single unified AI enrichment handler ──
-  // NOTE: Image fetch removed — it was blocking enrichment and returning garbage.
-  // Users can still fetch images via the "Find with AI" button on the thumbnail.
   // Once a wine has been AI-enriched (aiEnrichedAt set), the enrich button is
   // hidden entirely — re-enriching is not allowed.
   const handleEnrich = useCallback(async () => {
@@ -357,47 +395,27 @@ function DetailView({
     try {
       const result = await aiEnrichWine(wineInput, userId ?? undefined);
       if (result.success) {
-        // Only fill fields that are currently empty — never overwrite user-entered data
-        const updates: Partial<Wine> = {};
-        if (!wine.description && result.data.description) updates.description = result.data.description;
-        if (!wine.foodPairings && result.data.foodPairings) updates.foodPairings = result.data.foodPairings;
-        if (!wine.retailPrice && result.data.estimatedPrice) updates.retailPrice = result.data.estimatedPrice;
-        if (!wine.disposition && result.data.disposition) updates.disposition = result.data.disposition;
-        if (!wine.drinkBy && result.data.drinkBy) updates.drinkBy = result.data.drinkBy;
-        if (!wine.drinkWindow && result.data.drinkWindow) updates.drinkWindow = result.data.drinkWindow;
-        // AI ratings are always additive (won't overwrite user ratings)
+        // Shared non-overwriting merge from the bulk-enrichment builder
+        // (never overwrites user-entered fields), with one deliberate
+        // difference: single-wine enrich refreshes the AI rating estimate
+        // even when one already exists; bulk keeps the first estimate.
+        const updates = buildWineUpdates(wine, result.data);
         if (result.data.ratings) updates.aiRatings = result.data.ratings;
-        // Stamp the enrichment timestamp so bulk-enrich knows this wine was
-        // already processed — even if AI returned empty fields for it.
-        updates.aiEnrichedAt = new Date().toISOString();
 
         // Also fetch a label image if the wine doesn't have one (PREMIUM only — uses expensive grounding)
         if (!wine.imageUrl && canFindImage) {
-          try {
-            const { aiFetchWineImage } = await import("@/server/actions/ai");
-            const imgResult = await Promise.race([
-              aiFetchWineImage(wineInput, userId ?? undefined),
-              new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 20000)),
-            ]);
-            if (imgResult.success && imgResult.data.imageUrl &&
-                (imgResult.data.imageUrl.startsWith("data:") || imgResult.data.imageUrl.startsWith("http"))) {
-              updates.imageUrl = imgResult.data.imageUrl;
-            }
-          } catch {
-            // Image fetch is best-effort — don't block enrichment
-          }
+          const outcome = await searchWineLabelImage(wineInput, userId ?? undefined);
+          if (outcome.status === "found") updates.imageUrl = outcome.imageUrl;
         }
 
         onUpdate(updates);
         toast.success("Wine enriched with AI data");
       } else {
-        // Simplify error messages for the user
-        const msg = result.error?.includes("429") || result.error?.includes("quota")
-          ? "AI service quota exceeded — please try again later"
-          : result.error?.includes("UPGRADE_REQUIRED")
+        toast.error(
+          result.error?.includes("UPGRADE_REQUIRED")
             ? "Upgrade required for AI enrichment"
-            : result.error || "AI enrichment failed";
-        toast.error(msg);
+            : friendlyAiError(result.error, "AI enrichment failed")
+        );
       }
     } catch {
       toast.error("AI enrichment failed — check your connection");
@@ -407,35 +425,21 @@ function DetailView({
   }, [wine, onUpdate, userId, canFindImage, wineInput]);
 
   const handleAiFetchImage = useCallback(async () => {
-    const { aiFetchWineImage } = await import("@/server/actions/ai");
-    try {
-      // Race against 20s timeout — image search + server-side download can take time
-      const result = await Promise.race([
-        aiFetchWineImage(wineInput, userId ?? undefined),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("timeout")), 20000)
-        ),
-      ]);
-      if (result.success && result.data.imageUrl) {
-        // Accept both data URLs and http URLs
-        if (result.data.imageUrl.startsWith("data:") || result.data.imageUrl.startsWith("http")) {
-          return result.data.imageUrl;
-        }
+    const outcome = await searchWineLabelImage(wineInput, userId ?? undefined);
+    if (outcome.status === "found") return outcome.imageUrl;
+    switch (outcome.status) {
+      case "invalid":
         toast.error("AI couldn't find a label image — try uploading a photo");
-        return "";
-      }
-      if (result.success && !result.data.imageUrl) {
+        break;
+      case "empty":
         toast.error("No label image found — try uploading a photo");
-        return "";
-      }
-      if (!result.success) {
-        const msg = result.error?.includes("429") || result.error?.includes("quota")
-          ? "AI service quota exceeded — please try again later"
-          : result.error || "Could not find a label image";
-        toast.error(msg);
-      }
-    } catch {
-      toast.error("Image search timed out — try uploading a photo instead");
+        break;
+      case "failed":
+        toast.error(friendlyAiError(outcome.error, "Could not find a label image"));
+        break;
+      case "timeout":
+        toast.error("Image search timed out — try uploading a photo instead");
+        break;
     }
     return "";
   }, [wineInput, userId]);
@@ -876,36 +880,10 @@ function InlineEditForm({
     }
   };
 
+  // Silent variant — the edit form just falls back to the existing image.
   const handleAiFetchImage = useCallback(async () => {
-    const { aiFetchWineImage } = await import("@/server/actions/ai");
-    try {
-      const result = await Promise.race([
-        aiFetchWineImage({
-          name: wine.name,
-          winery: wine.winery,
-          vintage: wine.vintage,
-          type: wine.type,
-          region: wine.region,
-          country: wine.country,
-          grapeVariety: wine.grapeVariety,
-          description: wine.description,
-          drinkBy: wine.drinkBy,
-          price: wine.price,
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("timeout")), 20000)
-        ),
-      ]);
-      if (result.success && result.data.imageUrl) {
-        if (result.data.imageUrl.startsWith("data:") || result.data.imageUrl.startsWith("http")) {
-          return result.data.imageUrl;
-        }
-        return "";
-      }
-    } catch {
-      // Timed out — return empty
-    }
-    return "";
+    const outcome = await searchWineLabelImage(buildWineInput(wine));
+    return outcome.status === "found" ? outcome.imageUrl : "";
   }, [wine]);
 
   return (
