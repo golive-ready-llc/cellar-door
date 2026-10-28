@@ -46,21 +46,38 @@ import {
 type SortField = "displayName" | "email" | "tier" | "wineCount" | "createdAt";
 type SortDir = "asc" | "desc";
 
+// Constructing an Intl formatter per call costs ~50µs; a cached .format()
+// call is ~1µs, and these format one value per row on every table render.
+const USD_FMT = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+const DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+// Stripe charges can carry any currency, so the formatters cache per code.
+const chargeFormatters = new Map<string, Intl.NumberFormat>();
+
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+  return USD_FMT.format(value);
 }
 
 function formatDate(date: Date | string) {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return DATE_FMT.format(new Date(date));
+}
+
+function formatChargeAmount(amountCents: number, currency: string) {
+  const code = currency.toUpperCase();
+  let fmt = chargeFormatters.get(code);
+  if (!fmt) {
+    fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: code });
+    chargeFormatters.set(code, fmt);
+  }
+  return fmt.format(amountCents / 100);
 }
 
 export default function AdminPage() {
@@ -404,10 +421,7 @@ export default function AdminPage() {
                             {charge.customerEmail || "—"}
                           </td>
                           <td className="py-2 pr-4 font-medium">
-                            {new Intl.NumberFormat("en-US", {
-                              style: "currency",
-                              currency: charge.currency.toUpperCase(),
-                            }).format(charge.amount / 100)}
+                            {formatChargeAmount(charge.amount, charge.currency)}
                           </td>
                           <td className="py-2 pr-4">
                             <span

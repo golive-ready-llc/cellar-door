@@ -183,7 +183,7 @@ export async function addWine(input: AddWineInput): Promise<Wine | DuplicateWine
     }));
   }
 
-  return mapPrismaWine(wine);
+  return mapWrittenWine(wine);
 }
 
 /** Prisma create data for one wine, shared by addWine and importWines. */
@@ -289,7 +289,7 @@ export async function importWines(
     },
     { timeout: 30_000 }
   );
-  return created.map(mapPrismaWine);
+  return created.map(mapWrittenWine);
 }
 
 export async function getWines(
@@ -373,9 +373,13 @@ export async function updateWine(
 ): Promise<Wine> {
   await assertNotDemo("edit wines");
   const uid = await resolveServerUserId(userId);
-  // Verify ownership BEFORE mutating
+  // Verify ownership BEFORE mutating. Only identity + location columns are
+  // read: sibling propagation matches on name/winery/vintage and the bounds
+  // check needs cabinetId. Selecting the whole row pulled the stored label
+  // (avg ~63 KB) out of Postgres on every edit, move, and place.
   const existing = await prisma.wine.findFirst({
     where: { id: wineId, userId: uid },
+    select: { id: true, cabinetId: true, name: true, winery: true, vintage: true },
   });
   if (!existing) {
     throw new Error("Unauthorized");
@@ -493,7 +497,7 @@ export async function updateWine(
     }).catch(() => { /* best-effort baseline seeding */ });
   }
 
-  return mapPrismaWine(wine);
+  return mapWrittenWine(wine);
 }
 
 export async function moveWine(
@@ -944,7 +948,7 @@ export async function restoreWineFromHistory(
     return created;
   });
 
-  return mapPrismaWine(wine);
+  return mapWrittenWine(wine);
 }
 
 // ============================================================
@@ -1002,6 +1006,17 @@ function mapListWine(wine: PrismaWineRow, storedUrl?: string): Wine {
         ? listImageUrl("wine", wine.id, storedUrl)
         : wineImageUrlAt("wine", wine.id, wine.updatedAt),
   };
+}
+
+/**
+ * A row leaving the server after a write (create, update, import) carries its
+ * image the same way list queries do: as a cacheable route URL. Returning the
+ * stored base64 shipped an average ~63 KB label to the client on every add,
+ * edit, and move — and once merged into client state, the raw data URL
+ * silently replaced the versioned URL scheme until the next full reload.
+ */
+function mapWrittenWine(wine: PrismaWineRow): Wine {
+  return mapListWine(wine, wine.imageUrl);
 }
 
 function mapPrismaWine(wine: PrismaWineRow): Wine {
