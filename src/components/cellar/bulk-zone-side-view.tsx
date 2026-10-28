@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useCallback, useRef, useEffect, useState } from "react";
-import { Archive, Package, X, Wine as WineIcon, GripVertical, CheckSquare, Square, Trash2 } from "lucide-react";
+import { useMemo, useCallback, useRef, useEffect } from "react";
+import { Archive, Package, X, Wine as WineIcon, GripVertical, CheckSquare, Square } from "lucide-react";
 import { useTouchDrag } from "@/hooks/use-touch-drag";
 import { useDropTarget } from "@/hooks/use-drop-target";
 import { useLongPress } from "@/hooks/use-long-press";
@@ -12,18 +12,17 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WINE_TYPE_COLORS, WINE_TYPE_LABELS } from "@/types/constants";
 import { isLightWineType, type Wine, type StorageRow } from "@/types/wine";
+import {
+  useBatchSelection,
+  SelectModeToggle,
+  SelectAllBar,
+  BatchRemoveBar,
+  BatchRemoveDialog,
+} from "./batch-selection";
 
 interface BulkZoneSideViewProps {
   open: boolean;
@@ -60,51 +59,8 @@ export function BulkZoneSideView({
     if (open) openedAtRef.current = Date.now();
   }, [open]);
 
-  // ── Multi-select state ──────────────────────────────────────
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  // Reset selection when the sheet closes or wines change
-  useEffect(() => {
-    if (!open) {
-      setSelectMode(false);
-      setSelectedIds(new Set());
-    }
-  }, [open]);
-
-  const toggleSelection = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const selectAll = useCallback(() => {
-    setSelectedIds(new Set(wines.map((w) => w.id)));
-  }, [wines]);
-
-  const deselectAll = useCallback(() => {
-    setSelectedIds(new Set());
-  }, []);
-
-  const handleBatchRemove = useCallback(async () => {
-    if (!onBatchRemove || selectedIds.size === 0) return;
-    setDeleting(true);
-    try {
-      await onBatchRemove(Array.from(selectedIds));
-      setDeleteConfirmOpen(false);
-      setSelectMode(false);
-      setSelectedIds(new Set());
-    } finally {
-      setDeleting(false);
-    }
-  }, [onBatchRemove, selectedIds]);
-
-  // ── End multi-select state ──────────────────────────────────
+  const selection = useBatchSelection(wines, open, onBatchRemove);
+  const { selectMode, selectedIds, toggleSelection } = selection;
 
   const boxes = storageRow.boxes;
   const hasBoxes = boxes && boxes.length > 0;
@@ -172,53 +128,12 @@ export function BulkZoneSideView({
             </SheetTitle>
             <SheetDescription className="flex items-center justify-between">
               <span>{sectionName}</span>
-              {/* Select mode toggle */}
-              {wines.length > 0 && (
-                <button
-                  onClick={() => {
-                    if (selectMode) {
-                      deselectAll();
-                      setSelectMode(false);
-                    } else {
-                      setSelectMode(true);
-                    }
-                  }}
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  {selectMode ? "Cancel" : "Select"}
-                </button>
-              )}
+              <SelectModeToggle wines={wines} selection={selection} />
             </SheetDescription>
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-5">
-            {/* Select All / Deselect All bar */}
-            {selectMode && (
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs gap-1.5 h-7"
-                  onClick={() => {
-                    if (selectedIds.size === wines.length) {
-                      deselectAll();
-                    } else {
-                      selectAll();
-                    }
-                  }}
-                >
-                  <CheckSquare className="h-3.5 w-3.5" />
-                  {selectedIds.size === wines.length
-                    ? "Deselect All"
-                    : `Select All (${wines.length})`}
-                </Button>
-                {selectedIds.size > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {selectedIds.size} selected
-                  </span>
-                )}
-              </div>
-            )}
+            <SelectAllBar wines={wines} selection={selection} />
 
             {/* Capacity bar */}
             <div className="space-y-1.5">
@@ -331,63 +246,11 @@ export function BulkZoneSideView({
           </div>
 
           {/* Batch actions floating bar */}
-          {selectMode && selectedIds.size > 0 && (
-            <div className="sticky bottom-0 px-4 pb-4 pt-2 bg-card border-t border-border">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{selectedIds.size} selected</span>
-                <div className="flex gap-2">
-                  <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setDeleteConfirmOpen(true)}
-          className="hover:bg-destructive/10 gap-1.5"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+          <BatchRemoveBar selection={selection} />
         </SheetContent>
       </Sheet>
 
-      {/* Batch Remove Confirmation Dialog */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <Trash2 className="h-5 w-5" />
-              Remove {selectedIds.size} Wines
-            </DialogTitle>
-            <DialogDescription>
-              This will remove selected wines from your cellar and move them to
-              your history. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-2 max-h-48 overflow-y-auto space-y-1">
-            {wines
-              .filter((w) => selectedIds.has(w.id))
-              .map((wine) => (
-                <div
-                  key={wine.id}
-                  className="text-sm text-muted-foreground truncate"
-                >
-                  {wine.name}
-                  {wine.vintage ? ` (${wine.vintage})` : ""}
-                </div>
-              ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleBatchRemove} disabled={deleting}>
-              {deleting ? "Removing..." : "Remove All"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BatchRemoveDialog wines={wines} selection={selection} />
     </>
   );
 }
