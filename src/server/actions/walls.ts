@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
-import { encrypt, decrypt } from "@/lib/encryption";
+import { encrypt } from "@/lib/encryption";
 import { hasFeature } from "@/lib/tier";
 import type { Wall, HaConfig } from "@/types/wine";
 import { resolveServerUserId } from "@/server/auth-guard";
@@ -269,35 +269,4 @@ export async function testHaConnection(
     }
     return { success: false, error: msg };
   }
-}
-
-/** Server-only: get decrypted HA config for proxy use */
-export async function getWallHaConfigDecrypted(
-  userId: string,
-  wallId: string
-): Promise<{
-  haUrl: string;
-  token: string;
-  tempEntityId: string;
-  humidityEntityId: string;
-} | null> {
-  const uid = await resolveServerUserId(userId);
-
-  const wall = await prisma.wall.findFirst({
-    where: { id: wallId, userId: uid },
-  });
-  if (!wall) return null;
-
-  await requirePremium(uid);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = (wall as any).haConfig as Record<string, string> | null;
-  if (!raw?.encryptedToken) return null;
-
-  return {
-    haUrl: raw.haUrl,
-    token: decrypt(raw.encryptedToken),
-    tempEntityId: raw.tempEntityId,
-    humidityEntityId: raw.humidityEntityId,
-  };
 }
