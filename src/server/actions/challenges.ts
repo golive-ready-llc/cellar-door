@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
-import { getAIProvider, isAIAvailable } from "@/lib/ai";
+import { getAIProvider, isTextAIAvailable } from "@/lib/ai";
 import { challengePrompt } from "@/lib/ai/prompts";
 import { resolveServerUserId } from "@/server/auth-guard";
 import { isDemoRequest } from "@/lib/demo";
@@ -116,7 +116,7 @@ export async function generateWeeklyChallenge(
   // deterministic fallback below (no AI cost); refunded if the AI call fails.
   let refund: (() => Promise<void>) | null = null;
   try {
-    if (!(await isAIAvailable())) throw new Error("AI not available");
+    if (!(await isTextAIAvailable())) throw new Error("AI not available");
     const reservation = await reserveAiCredits(uid, "enrich_text", 1);
     if (!reservation.ok) throw new Error(reservation.message);
     refund = reservation.refundOnFailure;

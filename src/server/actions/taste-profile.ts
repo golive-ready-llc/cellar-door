@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
-import { getAIProvider, isAIAvailable } from "@/lib/ai";
+import { getAIProvider, isAIAvailable, isTextAIAvailable } from "@/lib/ai";
 import type { TasteProfileResult, TasteProfileBundle } from "@/lib/ai";
 import { tasteProfilePrompt } from "@/lib/ai/prompts";
 import {
@@ -267,8 +267,9 @@ export async function generateTasteProfile(
 
     const prompt = tasteProfilePrompt(allInputs, redInputs, whiteInputs);
 
-    if (!(await isAIAvailable())) {
-      // No AI provider configured — return mock bundle. Zero credit charge for mock.
+    if (!(await isTextAIAvailable())) {
+      // No text provider configured (a vision-only config counts as none) —
+      // return mock bundle. Zero credit charge for mock.
       const mockSlice: TasteProfileResult = {
         body: 7,
         tannin: 6,

@@ -20,6 +20,7 @@ const reserveAiCreditsSpy = vi.fn();
 const refundOnFailureSpy = vi.fn().mockResolvedValue(undefined);
 const completeJSONSpy = vi.fn();
 const isAIAvailableSpy = vi.fn();
+const isTextAIAvailableSpy = vi.fn();
 
 class MockTierError extends Error {
   code: string;
@@ -59,6 +60,7 @@ vi.mock("@/lib/ai", () => ({
     completeJSON: (...a: unknown[]) => completeJSONSpy(...a),
   }),
   isAIAvailable: () => isAIAvailableSpy(),
+  isTextAIAvailable: () => isTextAIAvailableSpy(),
 }));
 
 vi.mock("@/lib/ai/prompts", () => ({
@@ -86,6 +88,7 @@ beforeEach(() => {
   cacheFindUnique.mockResolvedValue(null);
   wineHistoryFindMany.mockResolvedValue([]);
   isAIAvailableSpy.mockResolvedValue(true);
+  isTextAIAvailableSpy.mockResolvedValue(true);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -258,8 +261,8 @@ describe("generateTasteProfile", () => {
     expect(refundOnFailureSpy).not.toHaveBeenCalled();
   });
 
-  it("no AI provider configured → mock bundle, zero credit charge", async () => {
-    isAIAvailableSpy.mockResolvedValue(false);
+  it("no text provider configured (e.g. vision-only) → mock bundle, zero credit charge", async () => {
+    isTextAIAvailableSpy.mockResolvedValue(false);
     wineFindMany.mockResolvedValueOnce(makeWines(5));
     const { generateTasteProfile } = await import(
       "@/server/actions/taste-profile"

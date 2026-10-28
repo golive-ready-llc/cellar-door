@@ -33,7 +33,7 @@ vi.mock("@/server/tier-check", () => ({
   reserveAiCredits: (...a: unknown[]) => reserveAiCreditsSpy(...a),
 }));
 vi.mock("@/lib/ai", () => ({
-  isAIAvailable: () => Promise.resolve(true),
+  isTextAIAvailable: () => Promise.resolve(true),
   getAIProvider: async () => ({ completeJSON: (...a: unknown[]) => completeJSONSpy(...a) }),
 }));
 vi.mock("@/lib/ai/prompts", () => ({ challengePrompt: () => "prompt" }));
