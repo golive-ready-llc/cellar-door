@@ -68,6 +68,31 @@ export function sharedFieldPatch(source: Record<string, unknown>): Record<string
 }
 
 /**
+ * Reject a (row, col, depth) placement that falls outside a cabinet's grid.
+ * Without this, a write can persist a wine at, say, row=100 in an 8×8
+ * cabinet — orphaned data that never renders in the grid. Coordinates are
+ * 0-indexed; `null`/`undefined` means "not being set" → skip. Returns the
+ * rejection message, or null when the placement is valid.
+ */
+export function slotBoundsError(
+  cabinet: { rows: number; cols: number; depth: number },
+  row?: number | null,
+  col?: number | null,
+  depth?: number | null
+): string | null {
+  if (row != null && (row < 0 || row >= cabinet.rows)) {
+    return `Row ${row} is outside this section (0–${cabinet.rows - 1})`;
+  }
+  if (col != null && (col < 0 || col >= cabinet.cols)) {
+    return `Column ${col} is outside this section (0–${cabinet.cols - 1})`;
+  }
+  if (depth != null && (depth < 0 || depth >= cabinet.depth)) {
+    return `Depth ${depth} is outside this section (0–${cabinet.depth - 1})`;
+  }
+  return null;
+}
+
+/**
  * Fire-and-forget copy of `patch` onto the user's other bottles of the same
  * wine. A wine with no name or winery has no identity to match on, so there is
  * nothing to propagate. Failures are swallowed by design: propagation is

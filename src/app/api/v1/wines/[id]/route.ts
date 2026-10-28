@@ -7,7 +7,7 @@ import {
   corsHeaders,
 } from "@/lib/api-auth";
 import { serializeWine } from "@/lib/api-serialize";
-import { propagateSharedFields, sharedFieldPatch } from "@/server/wine-shared";
+import { propagateSharedFields, sharedFieldPatch, slotBoundsError } from "@/server/wine-shared";
 import { wineHistoryData } from "@/server/wine-history-store";
 
 /** Handle CORS preflight */
@@ -69,14 +69,33 @@ export async function PUT(
   }
 
   try {
-    // Validate cabinetId ownership if changing it
-    if (body.cabinetId !== undefined && body.cabinetId !== null) {
-      const cabinet = await prisma.cabinet.findFirst({
-        where: { id: body.cabinetId as string, userId: user.id },
-      });
-      if (!cabinet) {
-        return apiError("Cabinet not found or not owned by you.", 403);
-      }
+    // Resolve the cabinet this update targets: the new one if cabinetId is
+    // being set, otherwise the wine's current cabinet (for in-place row/col
+    // moves) — the same rule updateWine applies. Ownership is enforced only
+    // when the cabinet is CHANGING; the current cabinet of an owned wine is
+    // trusted, and a missing one just skips the bounds check.
+    const changingCabinet = body.cabinetId !== undefined && body.cabinetId !== null;
+    const effectiveCabinetId = changingCabinet
+      ? (body.cabinetId as string)
+      : existing.cabinetId;
+    const cabinet = effectiveCabinetId
+      ? await prisma.cabinet.findFirst({
+          where: { id: effectiveCabinetId, userId: user.id },
+        })
+      : null;
+    if (changingCabinet && !cabinet) {
+      return apiError("Cabinet not found or not owned by you.", 403);
+    }
+    // Same placement-bounds rule as updateWine, so an API write can't park a
+    // bottle outside the grid where it never renders.
+    if (cabinet) {
+      const boundsError = slotBoundsError(
+        cabinet,
+        body.row != null ? Number(body.row) : null,
+        body.col != null ? Number(body.col) : null,
+        body.depth != null ? Number(body.depth) : null
+      );
+      if (boundsError) return apiError(boundsError, 400);
     }
 
     // AI enrichment fields: coerced once here so the addressed bottle and its
