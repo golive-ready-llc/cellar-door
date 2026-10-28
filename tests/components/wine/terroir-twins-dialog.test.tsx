@@ -182,4 +182,32 @@ describe("TerroirTwinDialog", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("surfaces a failed AI call as an error banner instead of silently resetting the form", async () => {
+    aiTerroirTwins.mockResolvedValue({
+      success: false,
+      error: "AI service is busy or rate-limited. Please wait a moment and try again.",
+    });
+
+    render(
+      <TerroirTwinDialog
+        open
+        onOpenChange={vi.fn()}
+        wine={makeWine()}
+        cellarWines={[]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Find Terroir Twins/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/AI service is busy or rate-limited/i)
+      ).toBeInTheDocument();
+    });
+    // The Find button stays up so it is its own retry.
+    expect(
+      screen.getByRole("button", { name: /Find Terroir Twins/i })
+    ).toBeInTheDocument();
+  });
 });
