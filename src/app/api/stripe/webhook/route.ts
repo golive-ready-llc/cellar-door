@@ -62,6 +62,23 @@ export async function POST(request: NextRequest) {
         await handleCheckoutCompleted(session);
         break;
       }
+      case "checkout.session.async_payment_succeeded": {
+        // Delayed payment method (SEPA/Klarna-class) settled after
+        // checkout.session.completed arrived with payment_status "unpaid" —
+        // run the same grant/promote path that event deferred.
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleCheckoutCompleted(session);
+        break;
+      }
+      case "checkout.session.async_payment_failed": {
+        // Nothing was granted (the unpaid guard held); a failed subscription
+        // payment unwinds via customer.subscription.updated. Log for support.
+        const session = event.data.object as Stripe.Checkout.Session;
+        console.warn(
+          `[Stripe] Delayed payment failed for checkout session ${session.id} (user ${session.metadata?.userId ?? "unknown"}) — no credits granted, no tier change`
+        );
+        break;
+      }
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscriptionUpdated(subscription);
