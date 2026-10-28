@@ -158,7 +158,13 @@ export function generateWineCard(wine: WineShareData): HTMLCanvasElement {
   return canvas;
 }
 
-export function generateStatsCard(stats: StatsShareData): HTMLCanvasElement {
+/** Stored values are USD — the caller injects its display formatter
+ *  (useCurrency's formatPrice) so the card shows the same converted,
+ *  localized amount the user sees on the Stats page. */
+export function generateStatsCard(
+  stats: StatsShareData,
+  formatValue: (amountUsd: number) => string
+): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = 600;
   canvas.height = 400;
@@ -190,7 +196,7 @@ export function generateStatsCard(stats: StatsShareData): HTMLCanvasElement {
   ctx.fillText("COLLECTION VALUE", 250, 85);
   ctx.fillStyle = "#22c55e";
   ctx.font = "bold 48px -apple-system, sans-serif";
-  ctx.fillText(`$${stats.totalValue.toLocaleString()}`, 250, 135);
+  ctx.fillText(formatValue(stats.totalValue), 250, 135);
 
   // Type distribution
   let xPos = 30;
