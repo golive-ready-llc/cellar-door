@@ -72,14 +72,11 @@ function rowToConfig(row: {
   visionFailoverBaseUrl: string | null;
   enabled: boolean;
 }): AIConfigData {
-  const orDefault = (val: string | null) =>
-    val && val.length > 0 ? val : "";
-
   return {
     text: {
       provider: (row.textProvider as ProviderSlot["provider"]) || "",
       apiKey: tryDecrypt(row.textApiKey),
-      model: orDefault(row.textModel),
+      model: row.textModel ?? "",
       baseUrl: row.textBaseUrl ?? "",
     },
     textFailover: {
@@ -91,7 +88,7 @@ function rowToConfig(row: {
     vision: {
       provider: (row.visionProvider as ProviderSlot["provider"]) || "",
       apiKey: tryDecrypt(row.visionApiKey),
-      model: orDefault(row.visionModel),
+      model: row.visionModel ?? "",
       baseUrl: row.visionBaseUrl ?? "",
     },
     visionFailover: {

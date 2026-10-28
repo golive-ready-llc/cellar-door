@@ -1,5 +1,5 @@
 // AI enrichment cache layer
-// Wraps WineMetadata table with TTL checking and normalized key generation
+// Wraps WineMetadata table with TTL checking
 
 import { metadataKey, metadataWhere } from "@/lib/wine-metadata-key";
 import { prisma } from "@/lib/db";
@@ -16,20 +16,6 @@ export interface CachedEnrichment {
 }
 
 /**
- * Normalize a cache key: lowercase + trim whitespace.
- */
-export function generateCacheKey(
-  winery: string,
-  name: string,
-  vintage: number | null
-): string {
-  const w = winery.toLowerCase().trim();
-  const n = name.toLowerCase().trim();
-  const v = vintage != null ? String(vintage) : "nv";
-  return `${w}::${n}::${v}`;
-}
-
-/**
  * Look up a cached enrichment result by winery + name + vintage.
  * Returns null if not found or if the cached data is older than 30 days.
  * Increments hitCount on a valid cache hit.
@@ -42,7 +28,7 @@ export async function getEnrichmentCache(
   if (!winery || !name) return null;
 
   const row = await prisma.wineMetadata.findFirst({
-    where: metadataWhere(winery, name, vintage ?? null),
+    where: metadataWhere(winery, name, vintage),
   });
 
   if (!row) return null;
@@ -106,11 +92,10 @@ export async function setEnrichmentCache(
 
   const trimmedWinery = winery.trim();
   const trimmedName = name.trim();
-  const v = vintage ?? null;
 
   try {
     const existing = await prisma.wineMetadata.findFirst({
-      where: metadataWhere(trimmedWinery, trimmedName, v),
+      where: metadataWhere(trimmedWinery, trimmedName, vintage),
     });
 
     const fields = {
@@ -138,7 +123,7 @@ export async function setEnrichmentCache(
           name: trimmedName,
           wineryKey: metadataKey(trimmedWinery),
           nameKey: metadataKey(trimmedName),
-          vintage: v,
+          vintage,
           ...fields,
         },
       });

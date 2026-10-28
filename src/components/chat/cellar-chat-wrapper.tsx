@@ -87,7 +87,6 @@ export function CellarChatWrapper() {
         wines={wines}
         onWineClick={handleWineClick}
         hasAI={hasAI}
-        userId={userId}
         onOpen={refreshWines}
       />
       {selectedWine && (

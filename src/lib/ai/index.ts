@@ -12,7 +12,6 @@ import type { AIConfigData } from "./config";
 
 let _router: ProviderRouter | null = null;
 let _configHash: string = "";
-let _lastConfig: AIConfigData | null = null;
 
 /** Deterministic hash of the relevant config fields for cache invalidation. */
 function hashConfig(config: AIConfigData): string {
@@ -46,7 +45,6 @@ export async function getAIProvider(): Promise<AIProvider> {
     if (config.enabled && hasAnyProvider(config)) {
       _router = new ProviderRouter(config);
       _configHash = hash;
-      _lastConfig = config;
       return _router;
     }
   } catch {
@@ -55,7 +53,7 @@ export async function getAIProvider(): Promise<AIProvider> {
 
   // Fall back to GEMINI_API_KEY env var (only when no DB provider configured)
   const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey && apiKey.length > 0) {
+  if (apiKey) {
     const { GeminiProvider } = await import("./gemini");
     return new GeminiProvider(apiKey);
   }
@@ -68,7 +66,6 @@ export async function getAIProvider(): Promise<AIProvider> {
 export function resetAIProvider(): void {
   _router = null;
   _configHash = "";
-  _lastConfig = null;
 }
 
 /**
