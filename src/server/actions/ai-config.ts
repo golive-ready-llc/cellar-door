@@ -3,6 +3,7 @@
 import { requireAdmin } from "@/server/auth-guard";
 import { getAIConfig, setAIConfig } from "@/lib/ai/config";
 import type { AIConfigData, ProviderSlot } from "@/lib/ai/config";
+import { openAIDefaultBaseUrl } from "@/lib/ai/deepseek";
 
 /** Sentinels used in the admin UI for API keys that are already set and should be preserved. */
 const API_KEY_PLACEHOLDER = "••••••••••••••••";
@@ -42,24 +43,20 @@ export async function getAdminAIConfig(
   }
 }
 
-/** The provider's official endpoint, used when no base URL is configured. */
-function providerDefaultUrl(provider: string): string {
-  return provider === "alibaba"
-    ? "https://dashscope.aliyuncs.com/compatible-mode"
-    : "https://api.deepseek.com";
-}
-
 /** Normalise a base URL the way the request builder does, so two spellings of
  *  the same endpoint (trailing slash, trailing /v1) compare equal. */
 function normalizeBaseUrl(url: string | undefined, provider: string): string {
-  return (url || providerDefaultUrl(provider))
+  return (url || openAIDefaultBaseUrl(provider))
     .replace(/\/+$/, "")
     .replace(/\/v1$/, "");
 }
 
 /** Providers whose key travels to a configurable base URL. Gemini always goes
  *  to Google's fixed host, so its key cannot be redirected. */
-const SENDS_KEY_TO_BASE_URL = new Set(["deepseek", "alibaba"]);
+const SENDS_KEY_TO_BASE_URL = new Set(["deepseek", "alibaba", "minimax"]);
+
+type OpenAICompatProvider = "deepseek" | "alibaba" | "minimax";
+const isOpenAICompat = (p: string): p is OpenAICompatProvider => SENDS_KEY_TO_BASE_URL.has(p);
 
 /**
  * Resolve the key and endpoint for a test/model-fetch call. The UI shows
@@ -186,7 +183,7 @@ function sortModels(models: ModelInfo[]): ModelInfo[] {
  */
 export async function fetchAvailableModels(
   idToken: string,
-  provider: "gemini" | "deepseek" | "alibaba",
+  provider: "gemini" | OpenAICompatProvider,
   apiKey?: string,
   baseUrl?: string
 ): Promise<{ error?: string; data?: ModelInfo[] }> {
@@ -199,7 +196,7 @@ export async function fetchAvailableModels(
     apiKey = resolved.key;
     baseUrl = resolved.baseUrl;
 
-    if (provider === "deepseek" || provider === "alibaba") {
+    if (isOpenAICompat(provider)) {
       if (!apiKey) return { error: "API key is required" };
       const url = normalizeBaseUrl(baseUrl, provider) + "/v1/models";
       const res = await fetch(url, {
@@ -211,11 +208,14 @@ export async function fetchAvailableModels(
         return { error: `API returned ${res.status}: ${body.substring(0, 300)}` };
       }
       const json = await res.json();
-      // Alibaba models like qwen-vl-* support vision; flag them
+      // Alibaba qwen-vl-* and MiniMax M3+ support vision; flag them. (MiniMax
+      // M2.x is text-only — verified 2026-10-27: it can't see the image.)
       const models: ModelInfo[] = (json.data || []).map((m: { id: string }) => ({
         id: m.id,
         displayName: m.id,
-        supportsVision: provider === "alibaba" && /vl|vision|multimodal/i.test(m.id),
+        supportsVision:
+          (provider === "alibaba" && /vl|vision|multimodal/i.test(m.id)) ||
+          (provider === "minimax" && /^MiniMax-M([3-9]|\d{2})/i.test(m.id)),
         isReasoning: isReasoningModel(m.id),
       }));
       return { data: sortModels(models) };
@@ -254,7 +254,7 @@ export async function fetchAvailableModels(
  */
 export async function testProviderConnection(
   idToken: string,
-  provider: "gemini" | "deepseek" | "alibaba" | "mock",
+  provider: "gemini" | OpenAICompatProvider | "mock",
   apiKey?: string,
   baseUrl?: string
 ): Promise<{ error?: string; data?: { success: boolean; latency: number } }> {
@@ -269,7 +269,7 @@ export async function testProviderConnection(
     apiKey = resolved.key;
     baseUrl = resolved.baseUrl;
 
-    if (provider === "deepseek" || provider === "alibaba") {
+    if (isOpenAICompat(provider)) {
       if (!apiKey) return { error: "API key is not configured" };
       const url = normalizeBaseUrl(baseUrl, provider) + "/v1/models";
       const start = Date.now();

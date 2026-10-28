@@ -1,5 +1,5 @@
 /**
- * OpenAI-compatible AI provider (Deepseek, Alibaba Qwen, OpenRouter, etc.).
+ * OpenAI-compatible AI provider (Deepseek, Alibaba Qwen, MiniMax, etc.).
  * Text-only by default; set supportsVision=true to enable multimodal vision.
  */
 
@@ -24,6 +24,73 @@ import {
   vintageStoryPrompt,
 } from "./prompts";
 
+/** Each provider's official endpoint, used when no base URL is configured.
+ *  Without this an empty MiniMax/Alibaba base URL silently sent their key to
+ *  api.deepseek.com. */
+const DEFAULT_BASE_URLS: Record<string, string> = {
+  deepseek: "https://api.deepseek.com",
+  alibaba: "https://dashscope.aliyuncs.com/compatible-mode",
+  minimax: "https://api.minimax.io",
+};
+
+export function openAIDefaultBaseUrl(provider: string): string {
+  return DEFAULT_BASE_URLS[provider] ?? DEFAULT_BASE_URLS.deepseek;
+}
+
+/** Some models (MiniMax-M3) return their reasoning inline as a leading
+ *  <think>…</think> block in `content`. The reasoning often quotes draft JSON,
+ *  which breaks parseJSON's {...} fallback, and it must never reach chat. */
+function stripThinking(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+}
+
+const THINK_OPEN = "<think>";
+const THINK_CLOSE = "</think>";
+
+/** Streaming twin of stripThinking: swallow a leading <think> block, which
+ *  can arrive split across any chunk boundary, then pass the rest through. */
+async function* stripThinkingStream(source: AsyncIterable<string>): AsyncGenerator<string> {
+  let state: "undecided" | "thinking" | "answer" = "undecided";
+  let buf = "";
+  let trimLead = false;
+  for await (const chunk of source) {
+    if (state === "answer") {
+      if (trimLead) {
+        const rest = chunk.replace(/^\s+/, "");
+        if (!rest) continue;
+        trimLead = false;
+        yield rest;
+      } else {
+        yield chunk;
+      }
+      continue;
+    }
+    buf += chunk;
+    if (state === "undecided") {
+      const head = buf.trimStart();
+      if (head.startsWith(THINK_OPEN)) {
+        state = "thinking";
+      } else if (THINK_OPEN.startsWith(head)) {
+        continue; // could still become "<think>" — wait for more
+      } else {
+        state = "answer";
+        yield buf;
+        buf = "";
+        continue;
+      }
+    }
+    const end = buf.indexOf(THINK_CLOSE);
+    if (end < 0) continue;
+    const rest = buf.slice(end + THINK_CLOSE.length).replace(/^\s+/, "");
+    state = "answer";
+    buf = "";
+    trimLead = !rest;
+    if (rest) yield rest;
+  }
+  // A stream that ended mid-"<thi" was never reasoning; don't drop it.
+  if (state === "undecided" && buf) yield buf;
+}
+
 export interface OpenAIProviderOptions {
   config: ProviderSlot;
   /** Label used in error messages */
@@ -46,7 +113,7 @@ export class OpenAICompatibleProvider implements AIProvider {
   private get baseUrl() {
     // Normalise: strip trailing slashes and any /v1 suffix so users can paste
     // the full endpoint URL (e.g. Alibaba Cloud provides ".../compatible-mode/v1").
-    return (this.config.baseUrl || "https://api.deepseek.com")
+    return (this.config.baseUrl || openAIDefaultBaseUrl(this.config.provider))
       .replace(/\/+$/, "")       // trailing slashes
       .replace(/\/v1$/, "");     // /v1 suffix
   }
@@ -83,7 +150,7 @@ export class OpenAICompatibleProvider implements AIProvider {
       throw new Error(`${this.label} API error ${res.status}: ${text.substring(0, 500)}`);
     }
     const json = await res.json();
-    const content: string = json.choices?.[0]?.message?.content ?? "";
+    const content = stripThinking(json.choices?.[0]?.message?.content ?? "");
     if (!content) throw new Error(`Empty response from ${this.label}`);
     return content;
   }
@@ -135,7 +202,7 @@ export class OpenAICompatibleProvider implements AIProvider {
       throw new Error(`${this.label} vision API error ${res.status}: ${text.substring(0, 500)}`);
     }
     const json = await res.json();
-    const content: string = json.choices?.[0]?.message?.content ?? "";
+    const content = stripThinking(json.choices?.[0]?.message?.content ?? "");
     if (!content) throw new Error(`Empty vision response from ${this.label}`);
     return content;
   }
@@ -336,7 +403,14 @@ export class OpenAICompatibleProvider implements AIProvider {
     return this.chatCompletion("You are a friendly sommelier. Be conversational.", prompt, 0.7, false);
   }
 
-  async *chatStream(
+  chatStream(
+    systemPrompt: string,
+    messages: Array<{ role: string; content: string }>
+  ): AsyncGenerator<string> {
+    return stripThinkingStream(this.rawChatStream(systemPrompt, messages));
+  }
+
+  private async *rawChatStream(
     systemPrompt: string,
     messages: Array<{ role: string; content: string }>
   ): AsyncGenerator<string> {

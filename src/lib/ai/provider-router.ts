@@ -27,9 +27,9 @@ function buildProvider(slot: ProviderSlot): AIProvider | null {
     if (!key) return null;
     return new GeminiProvider(key);
   }
-  if (slot.provider === "deepseek" || slot.provider === "alibaba") {
+  if (slot.provider === "deepseek" || slot.provider === "alibaba" || slot.provider === "minimax") {
     if (!slot.apiKey) return null;
-    const supportsVision = slot.provider === "alibaba";
+    const supportsVision = slot.provider === "alibaba" || slot.provider === "minimax";
     return new OpenAICompatibleProvider({
       config: slot,
       label: slot.provider,
@@ -73,10 +73,10 @@ async function tryWithFailover<T>(
 }
 
 /** Whether a provider slot's model can handle image (vision) operations.
- *  Gemini is multimodal; Alibaba is configured with supportsVision=true (see
- *  buildProvider). Deepseek and others are text-only. */
+ *  Gemini is multimodal; Alibaba and MiniMax are configured with
+ *  supportsVision=true (see buildProvider). Deepseek and others are text-only. */
 function isVisionCapableSlot(slot: ProviderSlot): boolean {
-  return slot.provider === "gemini" || slot.provider === "alibaba";
+  return slot.provider === "gemini" || slot.provider === "alibaba" || slot.provider === "minimax";
 }
 
 /** Wrap a text-only provider's vision methods to throw a clear error */

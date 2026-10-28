@@ -21,12 +21,12 @@ interface Props {
   config: AIConfigData;
   onSave: (updates: Partial<AIConfigData>) => Promise<{ error?: string; data?: AIConfigData }>;
   onTestConnection: (
-    provider: "gemini" | "deepseek" | "alibaba" | "mock",
+    provider: "gemini" | "deepseek" | "alibaba" | "minimax" | "mock",
     apiKey?: string,
     baseUrl?: string
   ) => Promise<{ error?: string; data?: { success: boolean; latency: number } }>;
   onFetchModels: (
-    provider: "gemini" | "deepseek" | "alibaba",
+    provider: "gemini" | "deepseek" | "alibaba" | "minimax",
     apiKey?: string,
     baseUrl?: string
   ) => Promise<{ error?: string; data?: ModelInfo[] }>;
@@ -44,8 +44,8 @@ function ProviderSlotEditor({
   description: string;
   slot: ProviderSlot;
   onChange: (updated: ProviderSlot) => void;
-  onFetchModels: (provider: "gemini" | "deepseek" | "alibaba", apiKey?: string, baseUrl?: string) => Promise<{ error?: string; data?: ModelInfo[] }>;
-  onTest: (provider: "gemini" | "deepseek" | "alibaba" | "mock", apiKey?: string, baseUrl?: string) => Promise<{ error?: string; data?: { success: boolean; latency: number } }>;
+  onFetchModels: (provider: "gemini" | "deepseek" | "alibaba" | "minimax", apiKey?: string, baseUrl?: string) => Promise<{ error?: string; data?: ModelInfo[] }>;
+  onTest: (provider: "gemini" | "deepseek" | "alibaba" | "minimax" | "mock", apiKey?: string, baseUrl?: string) => Promise<{ error?: string; data?: { success: boolean; latency: number } }>;
 }) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [fetching, setFetching] = useState(false);
@@ -65,7 +65,7 @@ function ProviderSlotEditor({
     if (!slot.provider || slot.provider === "mock") return;
     setFetching(true); setFetchError(null); setTestResult(null);
     try {
-      const result = await onFetchModels(slot.provider as "gemini" | "deepseek" | "alibaba", slot.apiKey || undefined, slot.baseUrl || undefined);
+      const result = await onFetchModels(slot.provider as "gemini" | "deepseek" | "alibaba" | "minimax", slot.apiKey || undefined, slot.baseUrl || undefined);
       if (result.error) setFetchError(result.error);
       else if (result.data) {
         setModels(result.data);
@@ -78,7 +78,7 @@ function ProviderSlotEditor({
     if (!slot.provider || slot.provider === "mock") return;
     setTesting(true); setTestResult(null);
     try {
-      const result = await onTest(slot.provider as "gemini" | "deepseek" | "alibaba" | "mock", slot.apiKey || undefined, slot.baseUrl || undefined);
+      const result = await onTest(slot.provider as "gemini" | "deepseek" | "alibaba" | "minimax" | "mock", slot.apiKey || undefined, slot.baseUrl || undefined);
       if (result.error) setTestResult({ ok: false, message: result.error });
       else if (result.data?.success) setTestResult({ ok: true, message: `OK (${result.data.latency}ms)` });
     } finally { setTesting(false); }
@@ -125,6 +125,7 @@ function ProviderSlotEditor({
               <SelectItem value="gemini">Gemini</SelectItem>
               <SelectItem value="deepseek">Deepseek</SelectItem>
               <SelectItem value="alibaba">Alibaba</SelectItem>
+              <SelectItem value="minimax">MiniMax</SelectItem>
               <SelectItem value="">None</SelectItem>
             </SelectContent>
           </Select>
@@ -204,7 +205,7 @@ function ProviderSlotEditor({
         <div className="space-y-1">
           <Label className="text-xs">API Endpoint</Label>
           <Input value={slot.baseUrl} onChange={(e) => onChange({ ...slot, baseUrl: e.target.value })}
-            placeholder={isGemini ? "https://generativelanguage.googleapis.com" : isDeepseek ? "https://api.deepseek.com" : "https://dashscope.aliyuncs.com/compatible-mode"}
+            placeholder={isGemini ? "https://generativelanguage.googleapis.com" : isDeepseek ? "https://api.deepseek.com" : slot.provider === "minimax" ? "https://api.minimax.io" : "https://dashscope.aliyuncs.com/compatible-mode"}
           />
           <p className="text-[10px] text-muted-foreground">
             {isGemini ? "Leave empty for default Google API." : "Base URL for the OpenAI-compatible API endpoint."}
@@ -306,7 +307,7 @@ export function AIConfigCard({ config: initialConfig, onSave, onTestConnection, 
           <ProviderSlotEditor
             label="Primary"
             icon={<ImageIcon className="h-4 w-4 text-primary" />}
-            description="Handles image-based AI operations. Only Gemini supports images."
+            description="Handles image-based AI operations. Use Gemini, Alibaba (qwen-vl), or MiniMax (M3 or newer)."
             slot={config.vision}
             onChange={(s) => updateSlot("vision", s)}
             onFetchModels={onFetchModels}

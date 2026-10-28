@@ -16,7 +16,7 @@ import { encrypt, decrypt } from "@/lib/encryption";
 // the clear. One log line on the write path makes the misconfig visible.
 let warnedPlaintextStore = false;
 
-export type AIProviderType = "gemini" | "deepseek" | "alibaba" | "mock" | "";
+export type AIProviderType = "gemini" | "deepseek" | "alibaba" | "minimax" | "mock" | "";
 
 export interface ProviderSlot {
   provider: AIProviderType;
