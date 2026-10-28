@@ -133,7 +133,7 @@ export class OpenAICompatibleProvider implements AIProvider {
 
   private async chatCompletion(
     systemPrompt: string, userPrompt: string,
-    temperature = 0.1, jsonMode = true
+    temperature = 0.1, jsonMode = true, timeoutMs = 30000
   ): Promise<string> {
     const body: Record<string, unknown> = {
       model: this.model,
@@ -153,7 +153,7 @@ export class OpenAICompatibleProvider implements AIProvider {
         Authorization: `Bearer ${this.config.apiKey}`,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "unknown");
@@ -412,6 +412,11 @@ export class OpenAICompatibleProvider implements AIProvider {
       .join("\n");
     const prompt = `${systemPrompt}\n\nCONVERSATION:\n${conversation}\n\nRespond as the Assistant.`;
     return this.chatCompletion("You are a friendly sommelier. Be conversational.", prompt, 0.7, false);
+  }
+  async completeJSON(prompt: string, temperature = 0.2): Promise<string> {
+    // 60s, not the 30s of the per-wine ops: the taste profile scores a whole
+    // collection in one call (the Gemini call it replaced allowed 60s too).
+    return this.chatCompletion("Return JSON only.", prompt, temperature, true, 60000);
   }
 
   chatStream(

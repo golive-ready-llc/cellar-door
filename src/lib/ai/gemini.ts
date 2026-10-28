@@ -481,6 +481,22 @@ export class GeminiProvider implements AIProvider {
     return response.text ?? "I'm not sure how to respond to that.";
   }
 
+  async completeJSON(prompt: string, temperature = 0.2): Promise<string> {
+    // gemini-2.5-flash "thinks" by default. Thinking is what pushed the
+    // three-slice taste profile past Gemini's server deadline (production
+    // logged 504 DEADLINE_EXCEEDED on 2026-09-12). Budget 0 skips it.
+    const response = await this.client.models.generateContent({
+      model: FAST_MODEL,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    });
+    return response.text ?? "";
+  }
+
   async *chatStream(
     systemPrompt: string,
     messages: Array<{ role: string; content: string }>

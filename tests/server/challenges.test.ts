@@ -7,13 +7,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
  */
 
 process.env.DATABASE_URL = "postgresql://stub";
-process.env.GEMINI_API_KEY = "test-key";
 
 const resolveServerUserIdSpy = vi.fn();
 const requireFeatureSpy = vi.fn();
 const reserveAiCreditsSpy = vi.fn();
 const refundSpy = vi.fn();
-const generateContentSpy = vi.fn();
+const completeJSONSpy = vi.fn();
 const challengeCreateSpy = vi.fn();
 
 vi.mock("@/lib/db", () => ({
@@ -33,14 +32,12 @@ vi.mock("@/server/tier-check", () => ({
   requireFeature: (...a: unknown[]) => requireFeatureSpy(...a),
   reserveAiCredits: (...a: unknown[]) => reserveAiCreditsSpy(...a),
 }));
-vi.mock("@/lib/ai", () => ({ isAIAvailable: () => Promise.resolve(true) }));
+vi.mock("@/lib/ai", () => ({
+  isAIAvailable: () => Promise.resolve(true),
+  getAIProvider: async () => ({ completeJSON: (...a: unknown[]) => completeJSONSpy(...a) }),
+}));
 vi.mock("@/lib/ai/prompts", () => ({ challengePrompt: () => "prompt" }));
 vi.mock("@/lib/demo", () => ({ isDemoRequest: () => Promise.resolve(false) }));
-vi.mock("@google/genai", () => ({
-  GoogleGenAI: class {
-    models = { generateContent: (...a: unknown[]) => generateContentSpy(...a) };
-  },
-}));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -56,9 +53,9 @@ beforeEach(() => {
     chargedExtra: 0,
     refundOnFailure: refundSpy,
   });
-  generateContentSpy.mockResolvedValue({
-    text: JSON.stringify({ title: "AI title", description: "AI desc", type: "explore", criteria: {} }),
-  });
+  completeJSONSpy.mockResolvedValue(
+    JSON.stringify({ title: "AI title", description: "AI desc", type: "explore", criteria: {} })
+  );
   challengeCreateSpy.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
     id: "c1",
     ...data,
@@ -72,7 +69,7 @@ describe("generateWeeklyChallenge", () => {
     await expect(generateWeeklyChallenge("u1")).rejects.toThrow("UPGRADE_REQUIRED");
     expect(requireFeatureSpy).toHaveBeenCalledWith("u1", "aiEnabled");
     expect(reserveAiCreditsSpy).not.toHaveBeenCalled();
-    expect(generateContentSpy).not.toHaveBeenCalled();
+    expect(completeJSONSpy).not.toHaveBeenCalled();
     expect(challengeCreateSpy).not.toHaveBeenCalled();
   });
 
@@ -80,7 +77,8 @@ describe("generateWeeklyChallenge", () => {
     const { generateWeeklyChallenge } = await import("@/server/actions/challenges");
     const challenge = await generateWeeklyChallenge("u1");
     expect(reserveAiCreditsSpy).toHaveBeenCalledWith("u1", "enrich_text", 1);
-    expect(generateContentSpy).toHaveBeenCalledTimes(1);
+    // Through the configured provider, not Gemini directly (spend cap, 2026-10-27).
+    expect(completeJSONSpy).toHaveBeenCalledWith("prompt", 0.8);
     expect(challenge.title).toBe("AI title");
     expect(refundSpy).not.toHaveBeenCalled();
   });
@@ -95,14 +93,14 @@ describe("generateWeeklyChallenge", () => {
     });
     const { generateWeeklyChallenge } = await import("@/server/actions/challenges");
     const challenge = await generateWeeklyChallenge("u1");
-    expect(generateContentSpy).not.toHaveBeenCalled();
+    expect(completeJSONSpy).not.toHaveBeenCalled();
     expect(challenge.title).toBeTruthy();
     expect(challenge.title).not.toBe("AI title");
     expect(refundSpy).not.toHaveBeenCalled();
   });
 
   it("refunds the credit when the AI call fails", async () => {
-    generateContentSpy.mockRejectedValue(new Error("Gemini down"));
+    completeJSONSpy.mockRejectedValue(new Error("Provider down"));
     const { generateWeeklyChallenge } = await import("@/server/actions/challenges");
     const challenge = await generateWeeklyChallenge("u1");
     expect(refundSpy).toHaveBeenCalledTimes(1);

@@ -205,6 +205,7 @@ export class ProviderRouter implements AIProvider {
   pourCostCalculation(params: { guestCount: number; duration: number; budget?: number; courseCount: number; style: "casual" | "formal" | "mixed" }, wines: PourCostWineInput[]): Promise<AiPourCostResult> { return this.textProvider().pourCostCalculation(params, wines); }
   vintageStory(region: string, country: string, vintage: number): Promise<VintageStoryResult> { return this.textProvider().vintageStory(region, country, vintage); }
   chat(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string> { return this.textProvider().chat(systemPrompt, messages); }
+  completeJSON(prompt: string, temperature?: number): Promise<string> { return this.textProvider().completeJSON(prompt, temperature); }
 
   /** Streamed chat with failover: the failover provider is tried only if the
    *  primary fails before producing any text (a half-sent reply can't be retried). */

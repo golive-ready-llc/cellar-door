@@ -138,6 +138,14 @@ export interface AIProvider {
   chat(systemPrompt: string, messages: Array<{ role: string; content: string }>): Promise<string>;
 
   /**
+   * One-shot JSON completion for callers that build their own prompt and
+   * validate the result themselves (taste profile, weekly challenges).
+   * Returns the raw response text; the caller parses it. Routed through the
+   * text slots like every other text op, so /admin decides the provider.
+   */
+  completeJSON(prompt: string, temperature?: number): Promise<string>;
+
+  /**
    * Streaming variant of chat(): yields the reply in chunks as it's written.
    * Optional; callers fall back to chat() when a provider doesn't have it.
    */

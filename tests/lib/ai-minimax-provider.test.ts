@@ -76,6 +76,27 @@ describe("MiniMax provider", () => {
     expect(out).toBe("Try a Barolo.");
   });
 
+  it("answers the taste profile / challenge JSON prompt through the text slot", async () => {
+    fetchMock.mockResolvedValueOnce(okJson('<think>Score the axes.</think>\n{"all":{"body":7}}'));
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    const router = new ProviderRouter({
+      text: slot("minimax", { model: "MiniMax-M3.1-Flash" }), textFailover: emptySlot,
+      vision: emptySlot, visionFailover: emptySlot,
+      enabled: true,
+    } as never);
+    expect(await router.completeJSON("PROMPT", 0.2)).toBe('{"all":{"body":7}}');
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.minimax.io/v1/chat/completions");
+    const body = JSON.parse(init.body as string);
+    expect(body.messages[1].content).toBe("PROMPT");
+    expect(body.temperature).toBe(0.2);
+    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(body.reasoning_effort).toBe("low");
+    // A whole collection in one call: the 60s the Gemini call had, not 30s.
+    expect(timeoutSpy).toHaveBeenCalledWith(60000);
+  });
+
   it("still defaults Deepseek to its own endpoint", async () => {
     const p = new OpenAICompatibleProvider({ config: slot("deepseek", { model: "deepseek-flash" }), label: "deepseek" });
     await p.searchWine("anything");

@@ -3,9 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 /**
  * Tests for `@/server/actions/taste-profile` — generateTasteProfile.
  *
- * Mocks Prisma, tier-check, the auth resolver, the prompt helper, and the
- * dynamically-imported Gemini SDK. The action does a `await import()` of
- * `@google/genai` and `@/generated/prisma/client` so we mock those too.
+ * Mocks Prisma, tier-check, the auth resolver, the prompt helper, and the AI
+ * provider (the action goes through the /admin-configured router). The action
+ * does an `await import()` of `@/generated/prisma/client` so we mock that too.
  */
 
 process.env.DATABASE_URL = "postgresql://stub";
@@ -18,7 +18,8 @@ const resolveServerUserIdSpy = vi.fn();
 const requireFeatureSpy = vi.fn().mockResolvedValue("PRO");
 const reserveAiCreditsSpy = vi.fn();
 const refundOnFailureSpy = vi.fn().mockResolvedValue(undefined);
-const generateContentSpy = vi.fn();
+const completeJSONSpy = vi.fn();
+const isAIAvailableSpy = vi.fn();
 
 class MockTierError extends Error {
   code: string;
@@ -54,21 +55,15 @@ vi.mock("@/server/tier-check", () => ({
 }));
 
 vi.mock("@/lib/ai", () => ({
-  getAIProvider: () => ({}),
-  isAIAvailable: () => true,
+  getAIProvider: async () => ({
+    completeJSON: (...a: unknown[]) => completeJSONSpy(...a),
+  }),
+  isAIAvailable: () => isAIAvailableSpy(),
 }));
 
 vi.mock("@/lib/ai/prompts", () => ({
   tasteProfilePrompt: () => "PROMPT",
   vintageStoryPrompt: () => "STORY",
-}));
-
-vi.mock("@google/genai", () => ({
-  GoogleGenAI: class {
-    models = {
-      generateContent: (...a: unknown[]) => generateContentSpy(...a),
-    };
-  },
 }));
 
 vi.mock("@/generated/prisma/client", () => ({
@@ -90,7 +85,7 @@ beforeEach(() => {
   refundOnFailureSpy.mockResolvedValue(undefined);
   cacheFindUnique.mockResolvedValue(null);
   wineHistoryFindMany.mockResolvedValue([]);
-  process.env.GEMINI_API_KEY = "test-key";
+  isAIAvailableSpy.mockResolvedValue(true);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -129,7 +124,7 @@ describe("generateTasteProfile", () => {
       expect(result.error).toMatch(/at least 3 wines/i);
     }
     expect(reserveAiCreditsSpy).not.toHaveBeenCalled();
-    expect(generateContentSpy).not.toHaveBeenCalled();
+    expect(completeJSONSpy).not.toHaveBeenCalled();
   });
 
   it("cache hit (matching fingerprint) → cached bundle, no reservation, no AI", async () => {
@@ -142,9 +137,7 @@ describe("generateTasteProfile", () => {
     // Instead, run once with no cache to capture the fingerprint, then
     // re-run with cache returning that fingerprint.
     cacheFindUnique.mockResolvedValueOnce(null);
-    generateContentSpy.mockResolvedValueOnce({
-      text: JSON.stringify({ all: fullSlice, red: fullSlice, white: null }),
-    });
+    completeJSONSpy.mockResolvedValueOnce(JSON.stringify({ all: fullSlice, red: fullSlice, white: null }));
     const mod = await import("@/server/actions/taste-profile");
     await mod.generateTasteProfile("u1");
     const fp = cacheUpsert.mock.calls[0][0].create.collectionFingerprint;
@@ -158,11 +151,24 @@ describe("generateTasteProfile", () => {
       white: null,
     });
     reserveAiCreditsSpy.mockClear();
-    generateContentSpy.mockClear();
+    completeJSONSpy.mockClear();
     const result = await mod.generateTasteProfile("u1");
     expect(result.success).toBe(true);
     expect(reserveAiCreditsSpy).not.toHaveBeenCalled();
-    expect(generateContentSpy).not.toHaveBeenCalled();
+    expect(completeJSONSpy).not.toHaveBeenCalled();
+  });
+
+  it("calls the configured provider, not Gemini directly (Gemini spend cap, 2026-10-27)", async () => {
+    wineFindMany.mockResolvedValueOnce(makeWines(5));
+    completeJSONSpy.mockResolvedValueOnce(
+      JSON.stringify({ all: fullSlice, red: fullSlice, white: null })
+    );
+    const { generateTasteProfile } = await import(
+      "@/server/actions/taste-profile"
+    );
+    const result = await generateTasteProfile("u1");
+    expect(result.success).toBe(true);
+    expect(completeJSONSpy).toHaveBeenCalledWith("PROMPT", 0.2);
   });
 
   it("cache miss + force=true → bypasses cache, calls AI, writes new fingerprint", async () => {
@@ -173,26 +179,24 @@ describe("generateTasteProfile", () => {
       red: null,
       white: null,
     });
-    generateContentSpy.mockResolvedValueOnce({
-      text: JSON.stringify({ all: fullSlice, red: fullSlice, white: null }),
-    });
+    completeJSONSpy.mockResolvedValueOnce(JSON.stringify({ all: fullSlice, red: fullSlice, white: null }));
     const { generateTasteProfile } = await import(
       "@/server/actions/taste-profile"
     );
     const result = await generateTasteProfile("u1", { force: true });
     expect(result.success).toBe(true);
-    expect(generateContentSpy).toHaveBeenCalledTimes(1);
+    expect(completeJSONSpy).toHaveBeenCalledTimes(1);
     expect(reserveAiCreditsSpy).toHaveBeenCalledWith("u1", "enrich_text", 1);
     expect(cacheUpsert).toHaveBeenCalled();
   });
 
   it("malformed AI JSON wrapped in fenced block → fenced extraction works", async () => {
     wineFindMany.mockResolvedValueOnce(makeWines(5));
-    generateContentSpy.mockResolvedValueOnce({
-      text: "Here is your profile:\n```json\n" +
+    completeJSONSpy.mockResolvedValueOnce(
+      "Here is your profile:\n```json\n" +
         JSON.stringify({ all: fullSlice, red: null, white: null }) +
-        "\n```\n",
-    });
+        "\n```\n"
+    );
     const { generateTasteProfile } = await import(
       "@/server/actions/taste-profile"
     );
@@ -206,13 +210,13 @@ describe("generateTasteProfile", () => {
   it("AI returns red/white slices but inputs <3 → action force-nulls those slices", async () => {
     // 5 reds, 0 whites → red slice should be present, white must be nulled.
     wineFindMany.mockResolvedValueOnce(makeWines(5, "red"));
-    generateContentSpy.mockResolvedValueOnce({
-      text: JSON.stringify({
+    completeJSONSpy.mockResolvedValueOnce(
+      JSON.stringify({
         all: fullSlice,
         red: fullSlice,
         white: fullSlice, // model lied — only 0 whites in input
-      }),
-    });
+      })
+    );
     const { generateTasteProfile } = await import(
       "@/server/actions/taste-profile"
     );
@@ -226,7 +230,7 @@ describe("generateTasteProfile", () => {
 
   it("reservation refunded if AI throws", async () => {
     wineFindMany.mockResolvedValueOnce(makeWines(5));
-    generateContentSpy.mockRejectedValueOnce(new Error("Gemini 500"));
+    completeJSONSpy.mockRejectedValueOnce(new Error("Gemini 500"));
     const { generateTasteProfile } = await import(
       "@/server/actions/taste-profile"
     );
@@ -250,12 +254,12 @@ describe("generateTasteProfile", () => {
     const result = await generateTasteProfile("u1");
     expect(result.success).toBe(false);
     if (!result.success) expect(result.code).toBe("CREDITS_EXHAUSTED");
-    expect(generateContentSpy).not.toHaveBeenCalled();
+    expect(completeJSONSpy).not.toHaveBeenCalled();
     expect(refundOnFailureSpy).not.toHaveBeenCalled();
   });
 
-  it("no GEMINI_API_KEY → mock bundle, zero credit charge", async () => {
-    delete process.env.GEMINI_API_KEY;
+  it("no AI provider configured → mock bundle, zero credit charge", async () => {
+    isAIAvailableSpy.mockResolvedValue(false);
     wineFindMany.mockResolvedValueOnce(makeWines(5));
     const { generateTasteProfile } = await import(
       "@/server/actions/taste-profile"
@@ -264,56 +268,58 @@ describe("generateTasteProfile", () => {
     expect(result.success).toBe(true);
     if (result.success) expect(result.isMock).toBe(true);
     expect(reserveAiCreditsSpy).not.toHaveBeenCalled();
-    expect(generateContentSpy).not.toHaveBeenCalled();
+    expect(completeJSONSpy).not.toHaveBeenCalled();
   });
 });
 
-describe("generateTasteProfile — Gemini 504 resilience (2026-09-12 production fix)", () => {
+describe("generateTasteProfile — timeout resilience (2026-09-12 production fix)", () => {
   const GEMINI_504 = JSON.stringify({
     error: { code: 504, message: "The request timed out. Please try again.", status: "DEADLINE_EXCEEDED" },
   });
-  const goodResponse = { text: JSON.stringify({ all: fullSlice, red: fullSlice, white: null }) };
-
-  it("disables Gemini thinking — deterministic scoring must not pay the thinking deadline", async () => {
-    wineFindMany.mockResolvedValueOnce(makeWines(5));
-    generateContentSpy.mockResolvedValueOnce(goodResponse);
-    const { generateTasteProfile } = await import("@/server/actions/taste-profile");
-    await generateTasteProfile("u1");
-    const cfg = generateContentSpy.mock.calls[0][0].config;
-    expect(cfg.thinkingConfig).toEqual({ thinkingBudget: 0 });
-  });
+  const goodResponse = JSON.stringify({ all: fullSlice, red: fullSlice, white: null });
 
   it("retries once on a 504 DEADLINE_EXCEEDED and succeeds on the second attempt", async () => {
     wineFindMany.mockResolvedValueOnce(makeWines(5));
-    generateContentSpy
+    completeJSONSpy
       .mockRejectedValueOnce(new Error(GEMINI_504))
       .mockResolvedValueOnce(goodResponse);
     const { generateTasteProfile } = await import("@/server/actions/taste-profile");
     const result = await generateTasteProfile("u1");
     expect(result.success).toBe(true);
-    expect(generateContentSpy).toHaveBeenCalledTimes(2);
+    expect(completeJSONSpy).toHaveBeenCalledTimes(2);
     expect(refundOnFailureSpy).not.toHaveBeenCalled();
   });
 
   it("gives the friendly error (and refunds) after a second consecutive 504", async () => {
     wineFindMany.mockResolvedValueOnce(makeWines(5));
-    generateContentSpy
+    completeJSONSpy
       .mockRejectedValueOnce(new Error(GEMINI_504))
       .mockRejectedValueOnce(new Error(GEMINI_504));
     const { generateTasteProfile } = await import("@/server/actions/taste-profile");
     const result = await generateTasteProfile("u1");
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toMatch(/try again/i);
-    expect(generateContentSpy).toHaveBeenCalledTimes(2);
+    expect(completeJSONSpy).toHaveBeenCalledTimes(2);
     expect(refundOnFailureSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries once when an OpenAI-compatible provider's request times out", async () => {
+    wineFindMany.mockResolvedValueOnce(makeWines(5));
+    completeJSONSpy
+      .mockRejectedValueOnce(new Error("The operation was aborted due to timeout"))
+      .mockResolvedValueOnce(goodResponse);
+    const { generateTasteProfile } = await import("@/server/actions/taste-profile");
+    const result = await generateTasteProfile("u1");
+    expect(result.success).toBe(true);
+    expect(completeJSONSpy).toHaveBeenCalledTimes(2);
   });
 
   it("does NOT retry a 400 (bad request is not transient)", async () => {
     wineFindMany.mockResolvedValueOnce(makeWines(5));
-    generateContentSpy.mockRejectedValueOnce(new Error('{"error":{"code":400,"message":"Bad"}}'));
+    completeJSONSpy.mockRejectedValueOnce(new Error('{"error":{"code":400,"message":"Bad"}}'));
     const { generateTasteProfile } = await import("@/server/actions/taste-profile");
     const result = await generateTasteProfile("u1");
     expect(result.success).toBe(false);
-    expect(generateContentSpy).toHaveBeenCalledTimes(1);
+    expect(completeJSONSpy).toHaveBeenCalledTimes(1);
   });
 });
