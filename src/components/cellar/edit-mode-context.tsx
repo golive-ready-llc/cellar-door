@@ -8,7 +8,12 @@ import {
   type ReactNode,
 } from "react";
 import type { Cabinet, StorageRow, RowSize } from "@/types/wine";
-import type { SectionChanges } from "./section-settings-dialog";
+import {
+  buildSectionChanges,
+  sectionsHaveChanges,
+  type SectionChanges,
+  type SectionEntry,
+} from "./section-changes";
 
 interface DraftSection {
   id: string; // temp id for new sections
@@ -125,100 +130,74 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Draft → canonical diff entry. New drafts have no saved original; drafts
+  // whose saved cabinet vanished mid-edit have nothing to diff against, so
+  // they drop out entirely (the previous inline diff skipped them too).
+  const toEntries = useCallback(
+    (originalCabinets: Cabinet[], drafts: DraftSection[]): SectionEntry[] => {
+      const entries: SectionEntry[] = [];
+      for (const draft of drafts) {
+        const current = {
+          name: draft.name,
+          rows: draft.rows,
+          cols: draft.cols,
+          depth: draft.depth,
+          storageRows: draft.storageRows,
+          rowSizes: draft.rowSizes,
+          sortOrder: draft.sortOrder,
+        };
+        if (draft.isNew) {
+          entries.push({
+            id: draft.id,
+            current,
+            original: null,
+            isNew: true,
+            markedForDelete: false,
+          });
+          continue;
+        }
+        const orig = originalCabinets.find((c) => c.id === draft.id);
+        if (!orig) continue;
+        entries.push({
+          id: draft.id,
+          current,
+          original: {
+            name: orig.name,
+            rows: orig.rows,
+            cols: orig.cols,
+            depth: orig.depth,
+            storageRows: orig.storageRows,
+            rowSizes: orig.rowSizes ?? [],
+            sortOrder: orig.sortOrder,
+          },
+          isNew: false,
+          markedForDelete: false,
+        });
+      }
+      return entries;
+    },
+    []
+  );
+
   const buildChanges = useCallback(
     (originalCabinets: Cabinet[], wallId: string): SectionChanges => {
-      const changes: SectionChanges = {
-        created: [],
-        updated: [],
-        deleted: [...deletedIds],
-      };
-
-      for (const draft of draftSections) {
-        if (draft.isNew) {
-          changes.created.push({
-            name: draft.name,
-            rows: draft.rows,
-            cols: draft.cols,
-            depth: draft.depth,
-            storageRows: draft.storageRows,
-            rowSizes: draft.rowSizes,
-            wallId,
-            sortOrder: draft.sortOrder,
-          });
-        } else {
-          const orig = originalCabinets.find((c) => c.id === draft.id);
-          if (!orig) continue;
-          const updates: Record<string, unknown> = { id: draft.id };
-          let hasChange = false;
-          if (draft.name !== orig.name) {
-            updates.name = draft.name;
-            hasChange = true;
-          }
-          if (draft.rows !== orig.rows) {
-            updates.rows = draft.rows;
-            hasChange = true;
-          }
-          if (draft.cols !== orig.cols) {
-            updates.cols = draft.cols;
-            hasChange = true;
-          }
-          if (draft.depth !== orig.depth) {
-            updates.depth = draft.depth;
-            hasChange = true;
-          }
-          if (
-            JSON.stringify(draft.storageRows) !==
-            JSON.stringify(orig.storageRows)
-          ) {
-            updates.storageRows = draft.storageRows;
-            hasChange = true;
-          }
-          if (
-            JSON.stringify(draft.rowSizes) !==
-            JSON.stringify(orig.rowSizes ?? [])
-          ) {
-            updates.rowSizes = draft.rowSizes;
-            hasChange = true;
-          }
-          if (draft.sortOrder !== orig.sortOrder) {
-            updates.sortOrder = draft.sortOrder;
-            hasChange = true;
-          }
-          if (hasChange) {
-            changes.updated.push(
-              updates as SectionChanges["updated"][number]
-            );
-          }
-        }
-      }
-
-      return changes;
+      return buildSectionChanges(
+        toEntries(originalCabinets, draftSections),
+        wallId,
+        deletedIds
+      );
     },
-    [draftSections, deletedIds]
+    [draftSections, deletedIds, toEntries]
   );
 
   const hasPendingChanges = useCallback(
     (originalCabinets: Cabinet[]): boolean => {
-      if (deletedIds.length > 0) return true;
-      if (draftSections.some((s) => s.isNew)) return true;
-      for (const draft of draftSections) {
-        const orig = originalCabinets.find((c) => c.id === draft.id);
-        if (!orig) continue;
-        if (
-          draft.name !== orig.name ||
-          draft.rows !== orig.rows ||
-          draft.cols !== orig.cols ||
-          draft.depth !== orig.depth ||
-          draft.sortOrder !== orig.sortOrder ||
-          JSON.stringify(draft.storageRows) !==
-            JSON.stringify(orig.storageRows) ||
-          JSON.stringify(draft.rowSizes) !== JSON.stringify(orig.rowSizes ?? [])
-        )
-          return true;
-      }
-      return false;
+      return sectionsHaveChanges(
+        toEntries(originalCabinets, draftSections),
+        deletedIds
+      );
     },
-    [draftSections, deletedIds]
+    [draftSections, deletedIds, toEntries]
   );
 
   return (
