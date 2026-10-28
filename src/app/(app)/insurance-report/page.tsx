@@ -9,6 +9,26 @@ import { useTier } from "@/hooks/use-tier";
 import { fetchWines, fetchWalls } from "@/lib/data";
 import type { Wine, Wall } from "@/types/wine";
 
+// The inventory table formats a money value per bottle row, so the report's
+// formatters are built once here instead of per call — the measured cost of
+// per-call construction is documented in use-currency.ts. USD on purpose:
+// this report does not follow the in-app currency selector.
+const MONEY_MIN_2_FMT = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2 });
+const MONEY_FIXED_2_FMT = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const PLAIN_NUMBER_FMT = new Intl.NumberFormat();
+const PURCHASE_DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "short",
+});
+const REPORT_DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+
 export default function InsuranceReportPage() {
   const router = useRouter();
   const { user, userId } = useAuth();
@@ -34,11 +54,7 @@ export default function InsuranceReportPage() {
   }, [userId]);
 
   const now = new Date();
-  const reportDate = now.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const reportDate = REPORT_DATE_FMT.format(now);
 
   const stats = useMemo(() => {
     const totalBottles = wines.length;
@@ -220,7 +236,7 @@ export default function InsuranceReportPage() {
             <span className="whitespace-nowrap">
               <strong>Total Estimated Value:</strong>{" "}
               <span className="text-foreground font-semibold">
-                ${stats.totalValue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                ${MONEY_MIN_2_FMT.format(stats.totalValue)}
               </span>
             </span>
           </div>
@@ -233,17 +249,17 @@ export default function InsuranceReportPage() {
             <SummaryCard label="Total Bottles" value={stats.totalBottles.toString()} />
             <SummaryCard
               label="Total Estimated Value"
-              value={`$${stats.totalValue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+              value={`$${MONEY_MIN_2_FMT.format(stats.totalValue)}`}
             />
             <SummaryCard
               label="Average Bottle Value"
-              value={`$${stats.avgValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              value={`$${MONEY_FIXED_2_FMT.format(stats.avgValue)}`}
             />
             <SummaryCard
               label="Most Valuable"
               value={
                 stats.mostValuable
-                  ? `${stats.mostValuable.name} ($${(stats.mostValuable.retailPrice ?? stats.mostValuable.price ?? 0).toLocaleString()})`
+                  ? `${stats.mostValuable.name} ($${PLAIN_NUMBER_FMT.format(stats.mostValuable.retailPrice ?? stats.mostValuable.price ?? 0)})`
                   : "N/A"
               }
             />
@@ -251,7 +267,7 @@ export default function InsuranceReportPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
             <SummaryCard
               label="Total Purchase Cost"
-              value={`$${stats.totalCost.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+              value={`$${MONEY_MIN_2_FMT.format(stats.totalCost)}`}
             />
             <SummaryCard
               label="Appreciation"
@@ -294,19 +310,16 @@ export default function InsuranceReportPage() {
                     <td className="py-1.5 pr-2">{wine.winery}</td>
                     <td className="py-1.5 pr-2">{wine.vintage ?? "NV"}</td>
                     <td className="py-1.5 pr-2 text-right">
-                      {wine.price ? `$${wine.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}
+                      {wine.price ? `$${MONEY_MIN_2_FMT.format(wine.price)}` : "—"}
                     </td>
                     <td className="py-1.5 pr-2 text-right font-medium">
                       {(wine.retailPrice ?? wine.price)
-                        ? `$${(wine.retailPrice ?? wine.price ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+                        ? `$${MONEY_MIN_2_FMT.format(wine.retailPrice ?? wine.price ?? 0)}`
                         : "—"}
                     </td>
                     <td className="py-1.5 pr-2">
                       {wine.purchaseDate
-                        ? new Date(wine.purchaseDate).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                          })
+                        ? PURCHASE_DATE_FMT.format(new Date(wine.purchaseDate))
                         : "—"}
                     </td>
                     <td className="py-1.5 text-xs">
@@ -321,10 +334,10 @@ export default function InsuranceReportPage() {
                     Total ({wines.length} bottles)
                   </td>
                   <td className="py-2 pr-2 text-right">
-                    ${stats.totalCost.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    ${MONEY_MIN_2_FMT.format(stats.totalCost)}
                   </td>
                   <td className="py-2 pr-2 text-right">
-                    ${stats.totalValue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    ${MONEY_MIN_2_FMT.format(stats.totalValue)}
                   </td>
                   <td colSpan={2} />
                 </tr>
