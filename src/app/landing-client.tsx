@@ -532,8 +532,15 @@ export default function LandingPage() {
             "mb-6 transition-all duration-700",
             mounted ? "opacity-100 scale-100" : "opacity-0 scale-90"
           )}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Cellar Door" width={609} height={480} className="h-32 sm:h-40 w-auto mx-auto drop-shadow-2xl object-contain" />
+            <Image
+              src="/logo.png"
+              alt="Cellar Door"
+              width={609}
+              height={480}
+              sizes="(min-width: 640px) 203px, 163px"
+              priority
+              className="h-32 sm:h-40 w-auto mx-auto drop-shadow-2xl object-contain"
+            />
           </div>
 
           {/* Badge */}

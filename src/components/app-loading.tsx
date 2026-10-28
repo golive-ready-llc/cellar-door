@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 /**
  * Branded loading screen for app boot. Two phases share one visual so the
  * progress bar reads as a single continuous load:
@@ -30,10 +32,13 @@ export function AppLoading({
       }
     >
       <style>{`@keyframes cd-progress { from { width: ${from}%; } to { width: ${to}%; } }`}</style>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src="/logo.png"
         alt="Cellar Door"
+        width={609}
+        height={480}
+        sizes="82px"
+        priority
         className="h-16 w-auto rounded-2xl shadow-lg"
       />
       <h1 className="text-xl font-bold tracking-tight">Cellar Door</h1>
