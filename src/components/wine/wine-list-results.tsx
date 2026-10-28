@@ -48,40 +48,77 @@ export function fuzzyMatch(
   listWine: WineIdentification,
   cellarWines: UserWineForScan[]
 ): MatchResult {
-  const exact = cellarWines.find(
-    (cw) =>
-      cw.name.toLowerCase().includes(listWine.name.toLowerCase()) ||
-      listWine.name.toLowerCase().includes(cw.name.toLowerCase())
-  );
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const listName = normalize(listWine.name);
+  const listWinery = listWine.winery ? normalize(listWine.winery) : "";
+
+  // Exact: normalized name AND winery must overlap (either direction, since
+  // extraction can append " - description" suffixes). A name alone is not
+  // enough — every cellar wine containing that word would light up. Both
+  // names must be non-empty: "".includes(x)-style substring tests let an
+  // extraction with a blank name claim the first cellar wine as a match.
+  const exact = cellarWines.find((cw) => {
+    const cellarName = normalize(cw.name);
+    const cellarWinery = cw.winery ? normalize(cw.winery) : "";
+    const nameMatch =
+      listName.length > 0 &&
+      cellarName.length > 0 &&
+      (cellarName.includes(listName) || listName.includes(cellarName));
+    const wineryMatch =
+      listWinery.length > 0 &&
+      cellarWinery.length > 0 &&
+      (cellarWinery.includes(listWinery) || listWinery.includes(cellarWinery));
+    return nameMatch && wineryMatch;
+  });
   if (exact) return { type: "exact", wine: exact };
 
-  const similar = cellarWines.find(
-    (cw) =>
+  // Similar: a shared significant name word AND the same grape or region.
+  // Grape/region equality alone matched nearly every wine on a list.
+  const listWords = listName
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+  const similar = cellarWines.find((cw) => {
+    const cellarWords = normalize(cw.name)
+      .split(/\s+/)
+      .filter((w) => w.length > 2);
+    if (!listWords.some((w) => cellarWords.includes(w))) return false;
+    return (
       (listWine.grapeVariety &&
         cw.grapeVariety &&
-        cw.grapeVariety.toLowerCase() === listWine.grapeVariety.toLowerCase()) ||
+        cw.grapeVariety.toLowerCase() ===
+          listWine.grapeVariety.toLowerCase()) ||
       (listWine.region &&
         cw.region &&
         cw.region.toLowerCase() === listWine.region.toLowerCase())
-  );
+    );
+  });
   if (similar) return { type: "similar", wine: similar };
 
   return { type: "none" };
 }
+
+/** Shape handed to onAddToBuyList — the extracted fields worth keeping
+ * when saving a not-in-cellar wine to the buy list. */
+export type WineListBuyListInput = {
+  name: string;
+  winery: string;
+  vintage: number | null;
+  type: WineType;
+  region: string;
+  country: string;
+};
 
 interface WineListResultsProps {
   extractedWines: WineIdentification[];
   sourceName: string | null;
   userWines: UserWineForScan[];
   addedWines: Set<string>;
-  onAddToBuyList?: (wine: {
-    name: string;
-    winery: string;
-    vintage: number | null;
-    type: string;
-    region: string;
-    country: string;
-  }) => void;
+  onAddToBuyList?: (wine: WineListBuyListInput) => void;
   /** Optional footer slot — typically holds "Scan Another" + "Done" buttons.
    * Rendered after the results list so consumers can use whatever close
    * gesture fits their dialog (Done, Cancel, Back, etc.). */

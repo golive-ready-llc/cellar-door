@@ -18,6 +18,8 @@ import { useAIWineFill } from "@/hooks/use-ai-wine-fill";
 import { useWineData } from "@/contexts/wine-data-context";
 import { useAddWine } from "@/components/add-wine-context";
 import { aiExtractWineList } from "@/server/actions/ai";
+import { addBuyListItem } from "@/server/actions/buy-list";
+import { toast } from "@/components/ui/custom-toast";
 import type { WineIdentification } from "@/lib/ai/types";
 import {
   MethodPicker,
@@ -33,6 +35,7 @@ import {
   WineListResults,
   WineListResultsFooter,
   type UserWineForScan,
+  type WineListBuyListInput,
 } from "@/components/wine/wine-list-results";
 
 // ─── Types ────────────────────────────────────────────────────
@@ -204,6 +207,47 @@ export function AddWineDialog({
     [form, userId]
   );
 
+  // Wine-list results "Add to Buy List" — same shape as the terroir-twin
+  // dialog: await the write, mark the row added only on success, and drop
+  // the read cache so the Buy List page doesn't serve a pre-add snapshot.
+  const handleWineListAddToBuyList = useCallback(
+    async (wine: WineListBuyListInput) => {
+      if (!userId) return;
+      try {
+        await addBuyListItem(userId, {
+          barcode: "",
+          name: wine.name,
+          winery: wine.winery,
+          region: wine.region,
+          country: wine.country,
+          vintage: wine.vintage,
+          type: wine.type,
+          grapeVariety: "",
+          imageUrl: "",
+          retailPrice: null,
+          notes: "",
+          description: "",
+          foodPairings: "",
+          alcohol: "",
+          disposition: "",
+          drinkWindow: "",
+          aiRatings: null,
+          status: "wanted",
+          orderDate: null,
+          expectedDelivery: null,
+          store: "",
+        });
+        setWineListAdded((prev) => new Set(prev).add(`${wine.name}-${wine.winery}`));
+        const { invalidateReadCache } = await import("@/lib/data");
+        invalidateReadCache();
+        toast.success(`Added ${wine.name} to buy list`);
+      } catch {
+        toast.error("Failed to add to buy list");
+      }
+    },
+    [userId]
+  );
+
   // Camera-first default: the moment the dialog opens, skip the
   // MethodPicker and jump straight into the label-capture camera. Users
   // reach barcode / wine-list / invoice / manual entry via the tabs and
@@ -365,6 +409,7 @@ export function AddWineDialog({
             sourceName={wineListSource}
             userWines={userWinesForScan}
             addedWines={wineListAdded}
+            onAddToBuyList={handleWineListAddToBuyList}
             footer={
               <WineListResultsFooter
                 onScanAnother={() => {
