@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SITE_URL } from "@/lib/site-url";
 import type { Metadata } from "next";
 import { ArrowRight, Clock, Wine } from "lucide-react";
-import { POSTS } from "@/lib/blog-posts";
+import { POST_DATE_FMT, POSTS } from "@/lib/blog-posts";
 
 export const metadata: Metadata = {
   title: "Wine Cellar Blog — Storage, Tasting, and Collecting | Cellar Door",
@@ -72,11 +72,7 @@ export default function BlogIndex() {
                 </span>
                 <span>·</span>
                 <time dateTime={post.date}>
-                  {new Date(post.date).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {POST_DATE_FMT.format(new Date(post.date))}
                 </time>
               </div>
               <h2 className="text-2xl font-bold mb-2 group-hover:text-primary transition-colors">

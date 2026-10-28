@@ -57,6 +57,13 @@ export function computeCoreStats(wines: Wine[], history: WineHistoryItem[]): Cor
 
 // ============ Chart Data ============
 
+// Constructing an Intl formatter per month bucket costs ~50µs; a cached one
+// formats in ~1µs.
+const MONTH_LABEL_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  year: "2-digit",
+});
+
 export interface TypeDataItem {
   name: string;
   value: number;
@@ -149,10 +156,7 @@ export function computeConsumptionData(history: WineHistoryItem[]): ConsumptionD
       const [year, m] = month.split("-");
       const date = new Date(Number(year), Number(m) - 1);
       return {
-        month: date.toLocaleDateString("en-US", {
-          month: "short",
-          year: "2-digit",
-        }),
+        month: MONTH_LABEL_FMT.format(date),
         count,
         sortKey: month,
       };

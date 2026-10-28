@@ -48,6 +48,11 @@ const DURATION_OPTIONS = [
 
 const BASE_URL = SITE_URL;
 
+const EXPIRES_TIME_FMT = new Intl.DateTimeFormat([], {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 // ─── Component ──────────────────────────────────────────────
 
 export function SommelierModeDialog({
@@ -285,10 +290,7 @@ export function SommelierModeDialog({
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
                   Expires{" "}
-                  {new Date(selectedSession.expiresAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {EXPIRES_TIME_FMT.format(new Date(selectedSession.expiresAt))}
                 </span>
               </div>
             </div>

@@ -41,6 +41,14 @@ export const getScoreColor = (s: number) => {
   return "bg-red-500 text-white";
 };
 
+// Constructing an Intl formatter per rating row per render costs ~50µs; a
+// cached one formats in ~1µs.
+const RATING_DATE_FMT = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
 /**
  * CD Score badge — shows the community rating.
  * Compact mode: small inline badge
@@ -407,11 +415,7 @@ function RatingCard({ rating }: { rating: CommunityRating }) {
           <StarRating value={rating.rating} size={12} />
         </div>
         <span className="text-[10px] text-muted-foreground">
-          {new Date(rating.createdAt).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
+          {RATING_DATE_FMT.format(new Date(rating.createdAt))}
         </span>
       </div>
 

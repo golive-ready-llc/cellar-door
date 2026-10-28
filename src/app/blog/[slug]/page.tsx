@@ -3,7 +3,7 @@ import { SITE_URL } from "@/lib/site-url";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight, Clock, Wine } from "lucide-react";
-import { getAllSlugs, getPost } from "@/lib/blog-posts";
+import { POST_DATE_FMT, getAllSlugs, getPost } from "@/lib/blog-posts";
 
 export async function generateStaticParams() {
   return getAllSlugs().map((slug) => ({ slug }));
@@ -116,11 +116,7 @@ export default async function BlogPostPage({ params }: Props) {
           </span>
           <span>·</span>
           <time dateTime={post.date}>
-            {new Date(post.date).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+            {POST_DATE_FMT.format(new Date(post.date))}
           </time>
         </div>
 

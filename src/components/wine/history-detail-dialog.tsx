@@ -57,6 +57,12 @@ const REASON_META: Record<
   other: { label: "Other", icon: HelpCircle, color: "#6B7280" },
 };
 
+const REMOVED_DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
+
 interface HistoryDetailDialogProps {
   item: WineHistoryItem;
   open: boolean;
@@ -253,7 +259,7 @@ export function HistoryDetailDialog({
   const displayRating = item.consumeRating ?? item.rating;
 
   const removedDate = new Date(item.removedAt);
-  const removedDateStr = removedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const removedDateStr = REMOVED_DATE_FMT.format(removedDate);
 
   return (
     <Dialog
