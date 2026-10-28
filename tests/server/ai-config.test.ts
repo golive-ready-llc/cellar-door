@@ -13,9 +13,10 @@ vi.mock("@/lib/firebase-admin", () => ({
 vi.mock("@/lib/admin", () => ({ isAdmin: () => true }));
 
 const getAIConfig = vi.fn();
+const setAIConfig = vi.fn();
 vi.mock("@/lib/ai/config", () => ({
   getAIConfig: (...args: unknown[]) => getAIConfig(...args),
-  setAIConfig: vi.fn(),
+  setAIConfig: (...args: unknown[]) => setAIConfig(...args),
 }));
 
 const PLACEHOLDER = "••••••••••••••••";
@@ -194,5 +195,72 @@ describe("stored keys are pinned to their stored endpoint", () => {
     );
     expect(result.data?.success).toBe(true);
     expect(fetchSpy.mock.calls[0][0]).toContain("generativelanguage.googleapis.com");
+  });
+});
+
+/**
+ * Saving a slot whose key field still shows the masked placeholder. The
+ * placeholder used to resolve to whatever key that SLOT had stored, even when
+ * the admin had just switched the slot to a different provider — so switching
+ * a slot from Alibaba to MiniMax silently sent the Alibaba key to MiniMax.
+ */
+describe("updateAdminAIConfig — placeholder keys after a provider switch", () => {
+  const minimaxVision = { provider: "minimax" as const, apiKey: "mm-stored-key", model: "MiniMax-M3.1-Flash", baseUrl: "" };
+  beforeEach(() => {
+    setAIConfig.mockImplementation(async (d: Record<string, unknown>) => ({ ...storedConfig(), ...d }));
+    getAIConfig.mockResolvedValue(storedConfig({
+      textFailover: { provider: "alibaba", apiKey: "ali-stored-key", model: "qwen3.8-max", baseUrl: "" },
+      vision: minimaxVision,
+    }));
+  });
+
+  it("reuses the key another slot stored for the new provider", async () => {
+    const { updateAdminAIConfig } = await import("@/server/actions/ai-config");
+    const result = await updateAdminAIConfig("tok", {
+      textFailover: { provider: "minimax", apiKey: PLACEHOLDER, model: "MiniMax-M3.1-Flash", baseUrl: "" },
+    });
+    expect(result.error).toBeUndefined();
+    expect(setAIConfig.mock.calls[0][0].textFailover.apiKey).toBe("mm-stored-key");
+  });
+
+  it("refuses to save another provider's key under the new provider", async () => {
+    const { updateAdminAIConfig } = await import("@/server/actions/ai-config");
+    getAIConfig.mockResolvedValue(storedConfig({
+      textFailover: { provider: "alibaba", apiKey: "ali-stored-key", model: "qwen3.8-max", baseUrl: "" },
+    }));
+    const result = await updateAdminAIConfig("tok", {
+      textFailover: { provider: "minimax", apiKey: PLACEHOLDER, model: "MiniMax-M3.1-Flash", baseUrl: "" },
+    });
+    expect(result.error).toMatch(/minimax/i);
+    expect(setAIConfig).not.toHaveBeenCalled();
+  });
+
+  it("won't borrow a key stored against a different endpoint", async () => {
+    const { updateAdminAIConfig } = await import("@/server/actions/ai-config");
+    const result = await updateAdminAIConfig("tok", {
+      textFailover: { provider: "minimax", apiKey: PLACEHOLDER, model: "MiniMax-M3.1-Flash", baseUrl: "https://evil.example" },
+    });
+    expect(result.error).toBeDefined();
+    expect(setAIConfig).not.toHaveBeenCalled();
+  });
+
+  it("drops the key when a slot is switched to None", async () => {
+    const { updateAdminAIConfig } = await import("@/server/actions/ai-config");
+    const result = await updateAdminAIConfig("tok", {
+      textFailover: { provider: "", apiKey: PLACEHOLDER, model: "", baseUrl: "" },
+    });
+    expect(result.error).toBeUndefined();
+    expect(setAIConfig.mock.calls[0][0].textFailover.apiKey).toBe("");
+  });
+
+  it("keeps a slot's own key when its provider is unchanged", async () => {
+    const { updateAdminAIConfig } = await import("@/server/actions/ai-config");
+    const result = await updateAdminAIConfig("tok", {
+      vision: { ...minimaxVision, apiKey: PLACEHOLDER },
+      textFailover: { provider: "alibaba", apiKey: PLACEHOLDER, model: "qwen3.8-max", baseUrl: "" },
+    });
+    expect(result.error).toBeUndefined();
+    expect(setAIConfig.mock.calls[0][0].vision.apiKey).toBe("mm-stored-key");
+    expect(setAIConfig.mock.calls[0][0].textFailover.apiKey).toBe("ali-stored-key");
   });
 });

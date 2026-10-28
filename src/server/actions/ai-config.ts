@@ -112,19 +112,44 @@ async function resolveTestApiKey(
 
 /**
  * If an incoming apiKey is still the placeholder sentinel, replace it with the
- * existing decrypted key from the current config so the key is preserved on write.
+ * existing decrypted key so the key is preserved on write.
+ *
+ * The placeholder only stands for "the key stored for THIS provider". It used
+ * to resolve to whatever key the slot held, so switching a slot from Alibaba
+ * to MiniMax without retyping the key saved the Alibaba key under MiniMax and
+ * sent it there. After a provider switch, borrow the key another slot stored
+ * for the new provider — only if that slot points at the same endpoint (the
+ * same rule as resolveTestApiKey) — else refuse and ask for the key.
  */
 function preserveUnchangedKeys(
   incoming: Partial<AIConfigData>,
   existing: AIConfigData
-): void {
+): string | undefined {
   const slotNames: Array<"text" | "textFailover" | "vision" | "visionFailover"> = ["text", "textFailover", "vision", "visionFailover"];
   for (const slot of slotNames) {
     const slotData = incoming[slot] as ProviderSlot | undefined;
-    if (slotData && slotData.apiKey === API_KEY_PLACEHOLDER) {
-      slotData.apiKey = (existing[slot] as ProviderSlot).apiKey;
+    if (!slotData || slotData.apiKey !== API_KEY_PLACEHOLDER) continue;
+    const own = existing[slot];
+    if (!slotData.provider || slotData.provider === "mock") {
+      slotData.apiKey = ""; // slot cleared — don't keep a key nothing uses
+      continue;
     }
+    if (own.provider === slotData.provider) {
+      slotData.apiKey = own.apiKey;
+      continue;
+    }
+    const donor = slotNames
+      .map((name) => existing[name])
+      .find((s) =>
+        s.provider === slotData.provider && s.apiKey &&
+        (!SENDS_KEY_TO_BASE_URL.has(s.provider) ||
+          normalizeBaseUrl(s.baseUrl, s.provider) === normalizeBaseUrl(slotData.baseUrl, s.provider)));
+    if (!donor) {
+      return `Enter the ${slotData.provider} API key for the ${slot} slot — no saved ${slotData.provider} key matches its endpoint.`;
+    }
+    slotData.apiKey = donor.apiKey;
   }
+  return undefined;
 }
 
 /**
@@ -143,7 +168,8 @@ export async function updateAdminAIConfig(
 
     // Resolve placeholder values to existing decrypted keys before saving
     const existing = await getAIConfig();
-    preserveUnchangedKeys(updates, existing);
+    const keyError = preserveUnchangedKeys(updates, existing);
+    if (keyError) return { error: keyError };
 
     const config = await setAIConfig({ ...updates, updatedBy: admin.uid });
     return { data: maskConfig(config) };
