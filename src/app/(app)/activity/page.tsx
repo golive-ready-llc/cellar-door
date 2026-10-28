@@ -30,7 +30,7 @@ import type { Wine, WineHistoryItem } from "@/types/wine";
 
 type Kind = "added" | RemovalReasonId;
 
-interface Event {
+interface ActivityEvent {
   id: string;
   kind: Kind;
   name: string;
@@ -48,24 +48,24 @@ interface Event {
 
 /** Build a read-only Wine from a history record so tapping a removed-wine
  *  event opens the same detail shell as everything else. */
-function historyToWine(h: WineHistoryItem): Wine {
+function historyToWine(item: WineHistoryItem): Wine {
   return {
-    id: `history-${h.id}`,
+    id: `history-${item.id}`,
     userId: "",
     cabinetId: null,
     barcode: "",
-    name: h.name,
-    winery: h.winery ?? "",
-    region: h.region ?? "",
-    country: h.country ?? "",
-    vintage: h.vintage ?? null,
-    type: ((h.type || "red").toLowerCase()) as Wine["type"],
+    name: item.name,
+    winery: item.winery ?? "",
+    region: item.region ?? "",
+    country: item.country ?? "",
+    vintage: item.vintage ?? null,
+    type: ((item.type || "red").toLowerCase()) as Wine["type"],
     sparkling: false,
-    grapeVariety: h.grapeVariety ?? "",
-    userRating: (h.consumeRating ?? h.rating) ?? null,
-    imageUrl: h.imageUrl ?? "",
-    price: h.price ?? null,
-    retailPrice: h.retailPrice ?? null,
+    grapeVariety: item.grapeVariety ?? "",
+    userRating: (item.consumeRating ?? item.rating) ?? null,
+    imageUrl: item.imageUrl ?? "",
+    price: item.price ?? null,
+    retailPrice: item.retailPrice ?? null,
     purchaseDate: "",
     drinkBy: "",
     notes: "",
@@ -76,7 +76,7 @@ function historyToWine(h: WineHistoryItem): Wine {
     col: null,
     depth: 0,
     zone: "",
-    tastingNotes: h.consumeNotes || null,
+    tastingNotes: item.consumeNotes || null,
     disposition: "",
     drinkWindow: "",
     aiRatings: null,
@@ -97,19 +97,19 @@ const KIND_META: Record<Kind, { verb: string; icon: typeof WineIcon; color: stri
 };
 
 function relativeTime(ms: number, now: number): string {
-  const s = Math.max(1, Math.round((now - ms) / 1000));
-  if (s < 60) return "just now";
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24);
-  if (d < 7) return `${d}d ago`;
-  const w = Math.round(d / 7);
-  if (w < 5) return `${w}w ago`;
-  const mo = Math.round(d / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  return `${Math.round(d / 365)}y ago`;
+  const seconds = Math.max(1, Math.round((now - ms) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.round(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  const months = Math.round(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.round(days / 365)}y ago`;
 }
 
 const PAGE = 30;
@@ -131,10 +131,10 @@ export default function ActivityPage() {
     let active = true;
     (async () => {
       try {
-        const [w, h] = await Promise.all([fetchWines(userId), fetchRecentHistory(userId, ACTIVITY_HISTORY_LIMIT)]);
+        const [fetchedWines, fetchedHistory] = await Promise.all([fetchWines(userId), fetchRecentHistory(userId, ACTIVITY_HISTORY_LIMIT)]);
         if (!active) return;
-        setWines(w);
-        setHistory(h);
+        setWines(fetchedWines);
+        setHistory(fetchedHistory);
       } finally {
         if (active) setLoading(false);
       }
@@ -144,44 +144,44 @@ export default function ActivityPage() {
     };
   }, [userId]);
 
-  const events = useMemo<Event[]>(() => {
-    const evs: Event[] = [];
-    for (const w of wines) {
-      const t = w.addedAt ? Date.parse(w.addedAt) : NaN;
-      if (Number.isNaN(t)) continue;
-      evs.push({
-        id: `add-${w.id}`,
+  const events = useMemo<ActivityEvent[]>(() => {
+    const timeline: ActivityEvent[] = [];
+    for (const wine of wines) {
+      const at = wine.addedAt ? Date.parse(wine.addedAt) : NaN;
+      if (Number.isNaN(at)) continue;
+      timeline.push({
+        id: `add-${wine.id}`,
         kind: "added",
-        name: w.name,
-        winery: w.winery,
-        vintage: w.vintage,
-        type: w.type,
-        rating: w.userRating ?? null,
+        name: wine.name,
+        winery: wine.winery,
+        vintage: wine.vintage,
+        type: wine.type,
+        rating: wine.userRating ?? null,
         notes: "",
-        imageUrl: w.imageUrl || null,
-        at: t,
-        wine: w,
+        imageUrl: wine.imageUrl || null,
+        at,
+        wine,
       });
     }
-    for (const h of history) {
-      const t = h.removedAt ? Date.parse(h.removedAt) : NaN;
-      if (Number.isNaN(t)) continue;
-      const kind = (KIND_META[h.reason as Kind] ? (h.reason as Kind) : "other");
-      evs.push({
-        id: `hist-${h.id}`,
+    for (const item of history) {
+      const at = item.removedAt ? Date.parse(item.removedAt) : NaN;
+      if (Number.isNaN(at)) continue;
+      const kind = (KIND_META[item.reason as Kind] ? (item.reason as Kind) : "other");
+      timeline.push({
+        id: `hist-${item.id}`,
         kind,
-        name: h.name,
-        winery: h.winery,
-        vintage: h.vintage,
-        type: h.type,
-        rating: (h.consumeRating ?? h.rating) ?? null,
-        notes: h.consumeNotes || "",
-        imageUrl: h.imageUrl || null,
-        at: t,
-        wine: historyToWine(h),
+        name: item.name,
+        winery: item.winery,
+        vintage: item.vintage,
+        type: item.type,
+        rating: (item.consumeRating ?? item.rating) ?? null,
+        notes: item.consumeNotes || "",
+        imageUrl: item.imageUrl || null,
+        at,
+        wine: historyToWine(item),
       });
     }
-    return evs.sort((a, b) => b.at - a.at);
+    return timeline.sort((a, b) => b.at - a.at);
   }, [wines, history]);
 
   const shown = events.slice(0, visible);
@@ -227,39 +227,39 @@ export default function ActivityPage() {
         />
       ) : (
         <div className="space-y-2">
-          {shown.map((e) => {
-            const meta = KIND_META[e.kind];
+          {shown.map((event) => {
+            const meta = KIND_META[event.kind];
             const Icon = meta.icon;
-            const typeColor = WINE_TYPE_COLORS[e.type as keyof typeof WINE_TYPE_COLORS] || "#666";
+            const typeColor = WINE_TYPE_COLORS[event.type as keyof typeof WINE_TYPE_COLORS] || "#666";
             return (
               <Card
-                key={e.id}
+                key={event.id}
                 className="surface-elevated press cursor-pointer"
                 role="button"
                 tabIndex={0}
-                onClick={() => setDetailWine(e.wine)}
+                onClick={() => setDetailWine(event.wine)}
                 onKeyDown={(ev) => {
                   if (ev.key === "Enter" || ev.key === " ") {
                     ev.preventDefault();
-                    setDetailWine(e.wine);
+                    setDetailWine(event.wine);
                   }
                 }}
               >
                 <CardContent className="p-3 flex gap-3 items-start">
                   {/* Avatar: label photo or type circle, with a kind badge */}
                   <div className="relative shrink-0">
-                    {e.imageUrl ? (
+                    {event.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- user label, base64/external
-                      <img src={e.imageUrl} alt="" className="w-11 h-11 rounded-full object-cover" />
+                      <img src={event.imageUrl} alt="" className="w-11 h-11 rounded-full object-cover" />
                     ) : (
                       <div
                         className={cn(
                           "w-11 h-11 rounded-full flex items-center justify-center",
-                          isLightWineType(e.type) && "border-2 border-border"
+                          isLightWineType(event.type) && "border-2 border-border"
                         )}
                         style={{ backgroundColor: typeColor }}
                       >
-                        <WineIcon className="h-5 w-5" style={{ color: isLightWineType(e.type) ? "#333" : "#fff" }} />
+                        <WineIcon className="h-5 w-5" style={{ color: isLightWineType(event.type) ? "#333" : "#fff" }} />
                       </div>
                     )}
                     <span
@@ -276,26 +276,26 @@ export default function ActivityPage() {
                       <span className="font-medium" style={{ color: meta.color }}>
                         {meta.verb}
                       </span>{" "}
-                      <span className="font-semibold">{e.name}</span>
-                      {e.vintage ? <span className="text-muted-foreground"> · {e.vintage}</span> : null}
+                      <span className="font-semibold">{event.name}</span>
+                      {event.vintage ? <span className="text-muted-foreground"> · {event.vintage}</span> : null}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {e.winery}
+                      {event.winery}
                     </p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        {WINE_TYPE_LABELS[e.type as keyof typeof WINE_TYPE_LABELS] || e.type}
+                        {WINE_TYPE_LABELS[event.type as keyof typeof WINE_TYPE_LABELS] || event.type}
                       </Badge>
-                      {e.rating != null && e.rating > 0 && (
-                        <StarRating value={e.rating} compact size={12} />
+                      {event.rating != null && event.rating > 0 && (
+                        <StarRating value={event.rating} compact size={12} />
                       )}
                       <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                        {relativeTime(e.at, now)}
+                        {relativeTime(event.at, now)}
                       </span>
                     </div>
-                    {e.notes && (
+                    {event.notes && (
                       <p className="text-[11px] text-muted-foreground/80 italic mt-1 line-clamp-2">
-                        &ldquo;{e.notes}&rdquo;
+                        &ldquo;{event.notes}&rdquo;
                       </p>
                     )}
                   </div>
@@ -323,8 +323,8 @@ export default function ActivityPage() {
         <WineDetailDialog
           wine={detailWine}
           open={!!detailWine}
-          onOpenChange={(o) => {
-            if (!o) setDetailWine(null);
+          onOpenChange={(open) => {
+            if (!open) setDetailWine(null);
           }}
         />
       )}

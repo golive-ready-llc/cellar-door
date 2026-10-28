@@ -46,17 +46,17 @@ const BROWSE: { label: string; query: string; kind: "region" | "grape" | "style"
   { label: "Orange wine", query: "skin-contact orange wine", kind: "style" },
 ];
 
-function suggestionToBuyListInput(s: Suggestion): Omit<BuyListItem, "id" | "addedAt" | "userId"> {
+function suggestionToBuyListInput(suggestion: Suggestion): Omit<BuyListItem, "id" | "addedAt" | "userId"> {
   return {
     barcode: "",
-    name: s.name,
-    winery: s.winery ?? "",
-    region: s.region ?? "",
-    country: s.country ?? "",
-    vintage: s.vintage ?? null,
-    type: (s.type || "red") as WineType,
+    name: suggestion.name,
+    winery: suggestion.winery ?? "",
+    region: suggestion.region ?? "",
+    country: suggestion.country ?? "",
+    vintage: suggestion.vintage ?? null,
+    type: (suggestion.type || "red") as WineType,
     sparkling: false,
-    grapeVariety: s.grapeVariety ?? "",
+    grapeVariety: suggestion.grapeVariety ?? "",
     imageUrl: "",
     retailPrice: null,
     notes: "",
@@ -73,26 +73,26 @@ function suggestionToBuyListInput(s: Suggestion): Omit<BuyListItem, "id" | "adde
   };
 }
 
-function key(s: Suggestion) {
-  return `${s.name}|${s.winery}|${s.vintage ?? ""}`.toLowerCase();
+function suggestionKey(suggestion: Suggestion) {
+  return `${suggestion.name}|${suggestion.winery}|${suggestion.vintage ?? ""}`.toLowerCase();
 }
 
 /** Build a read-only Wine from a discovery suggestion so the detail dialog can
  *  show it (community CD score, details). No owner/handlers → read-only. */
-function suggestionToWine(s: Suggestion): Wine {
+function suggestionToWine(suggestion: Suggestion): Wine {
   return {
-    id: `discover-${key(s)}`,
+    id: `discover-${suggestionKey(suggestion)}`,
     userId: "",
     cabinetId: null,
     barcode: "",
-    name: s.name,
-    winery: s.winery ?? "",
-    region: s.region ?? "",
-    country: s.country ?? "",
-    vintage: s.vintage ?? null,
-    type: ((s.type || "red").toLowerCase()) as WineType,
+    name: suggestion.name,
+    winery: suggestion.winery ?? "",
+    region: suggestion.region ?? "",
+    country: suggestion.country ?? "",
+    vintage: suggestion.vintage ?? null,
+    type: ((suggestion.type || "red").toLowerCase()) as WineType,
     sparkling: false,
-    grapeVariety: s.grapeVariety ?? "",
+    grapeVariety: suggestion.grapeVariety ?? "",
     userRating: null,
     imageUrl: "",
     price: null,
@@ -118,12 +118,12 @@ function suggestionToWine(s: Suggestion): Wine {
 }
 
 function ResultCard({
-  s,
+  suggestion,
   added,
   onAdd,
   onOpen,
 }: {
-  s: Suggestion;
+  suggestion: Suggestion;
   added: boolean;
   onAdd: () => void;
   onOpen: () => void;
@@ -131,14 +131,14 @@ function ResultCard({
   return (
     <WineListItem
       wine={{
-        name: s.name,
-        winery: s.winery ?? "",
-        vintage: s.vintage ?? null,
-        type: s.type,
+        name: suggestion.name,
+        winery: suggestion.winery ?? "",
+        vintage: suggestion.vintage ?? null,
+        type: suggestion.type,
         imageUrl: "",
-        grapeVariety: s.grapeVariety,
-        region: s.region,
-        country: s.country,
+        grapeVariety: suggestion.grapeVariety,
+        region: suggestion.region,
+        country: suggestion.country,
         price: null,
       }}
       onClick={onOpen}
@@ -185,8 +185,8 @@ export default function DiscoverPage() {
   const reqId = useRef(0);
 
   const runSearch = useCallback(
-    async (q: string, chip: string | null) => {
-      const trimmed = q.trim();
+    async (searchText: string, chip: string | null) => {
+      const trimmed = searchText.trim();
       if (trimmed.length < 2) return;
       const id = ++reqId.current;
       setLoading(true);
@@ -223,25 +223,25 @@ export default function DiscoverPage() {
         if (!active) return;
         const rated = wines.filter((w: Wine) => (w.userRating ?? 0) >= 4);
         const tally = (vals: string[]) => {
-          const m = new Map<string, number>();
-          for (const v of vals) {
-            const t = v.trim();
-            if (t) m.set(t, (m.get(t) ?? 0) + 1);
+          const counts = new Map<string, number>();
+          for (const value of vals) {
+            const trimmed = value.trim();
+            if (trimmed) counts.set(trimmed, (counts.get(trimmed) ?? 0) + 1);
           }
-          return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+          return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
         };
         const topRegions = tally(rated.map((w) => w.region ?? "")).slice(0, 2);
         const topGrapes = tally(rated.flatMap((w) => (w.grapeVariety ?? "").split(/[,/&]/))).slice(0, 2);
         const basisParts = [...topGrapes, ...topRegions].filter(Boolean);
-        let q: string;
+        let matchQuery: string;
         if (basisParts.length > 0) {
-          q = `highly rated wines like ${basisParts.join(", ")}`;
+          matchQuery = `highly rated wines like ${basisParts.join(", ")}`;
           setMatchBasis(basisParts.join(" · "));
         } else {
-          q = "highly rated crowd-pleasing wines to try";
+          matchQuery = "highly rated crowd-pleasing wines to try";
           setMatchBasis("popular picks");
         }
-        const res = await aiSearchWineSuggestions(q, userId ?? undefined, 6);
+        const res = await aiSearchWineSuggestions(matchQuery, userId ?? undefined, 6);
         if (!active) return;
         setMatches(res.success ? (res.data.suggestions as Suggestion[]) : []);
       } finally {
@@ -252,17 +252,17 @@ export default function DiscoverPage() {
   }, [userId, hasAI]);
 
   const handleAdd = useCallback(
-    async (s: Suggestion) => {
-      const k = key(s);
-      setAdded((prev) => new Set(prev).add(k));
+    async (suggestion: Suggestion) => {
+      const entryKey = suggestionKey(suggestion);
+      setAdded((prev) => new Set(prev).add(entryKey));
       try {
-        await addBuyListItem(suggestionToBuyListInput(s), userId);
-        toast.success(`Added "${s.name}" to your wishlist`);
+        await addBuyListItem(suggestionToBuyListInput(suggestion), userId);
+        toast.success(`Added "${suggestion.name}" to your wishlist`);
       } catch (err) {
         setAdded((prev) => {
-          const n = new Set(prev);
-          n.delete(k);
-          return n;
+          const next = new Set(prev);
+          next.delete(entryKey);
+          return next;
         });
         toast.error(err instanceof Error ? err.message : "Couldn't add to wishlist");
       }
@@ -313,17 +313,17 @@ export default function DiscoverPage() {
 
       {/* Browse chips */}
       <div className="flex gap-2 flex-wrap">
-        {BROWSE.map((b) => (
+        {BROWSE.map((chip) => (
           <Badge
-            key={b.label}
-            variant={activeChip === b.label ? "default" : "outline"}
+            key={chip.label}
+            variant={activeChip === chip.label ? "default" : "outline"}
             className="cursor-pointer select-none"
             onClick={() => {
-              setQuery(b.label);
-              runSearch(b.query, b.label);
+              setQuery(chip.label);
+              runSearch(chip.query, chip.label);
             }}
           >
-            {b.label}
+            {chip.label}
           </Badge>
         ))}
       </div>
@@ -334,13 +334,13 @@ export default function DiscoverPage() {
           {loading ? (
             [1, 2, 3, 4].map((i) => <div key={i} className="h-16 w-full animate-pulse rounded-lg bg-muted" />)
           ) : results.length > 0 ? (
-            results.map((s) => (
+            results.map((suggestion) => (
               <ResultCard
-                key={key(s)}
-                s={s}
-                added={added.has(key(s))}
-                onAdd={() => handleAdd(s)}
-                onOpen={() => setDetailWine(suggestionToWine(s))}
+                key={suggestionKey(suggestion)}
+                suggestion={suggestion}
+                added={added.has(suggestionKey(suggestion))}
+                onAdd={() => handleAdd(suggestion)}
+                onOpen={() => setDetailWine(suggestionToWine(suggestion))}
               />
             ))
           ) : (
@@ -379,13 +379,13 @@ export default function DiscoverPage() {
             </div>
           ) : matches.length > 0 ? (
             <div className="space-y-2">
-              {matches.map((s) => (
+              {matches.map((suggestion) => (
                 <ResultCard
-                  key={key(s)}
-                  s={s}
-                  added={added.has(key(s))}
-                  onAdd={() => handleAdd(s)}
-                  onOpen={() => setDetailWine(suggestionToWine(s))}
+                  key={suggestionKey(suggestion)}
+                  suggestion={suggestion}
+                  added={added.has(suggestionKey(suggestion))}
+                  onAdd={() => handleAdd(suggestion)}
+                  onOpen={() => setDetailWine(suggestionToWine(suggestion))}
                 />
               ))}
             </div>
@@ -404,8 +404,8 @@ export default function DiscoverPage() {
         <WineDetailDialog
           wine={detailWine}
           open={!!detailWine}
-          onOpenChange={(o) => {
-            if (!o) setDetailWine(null);
+          onOpenChange={(open) => {
+            if (!open) setDetailWine(null);
           }}
         />
       )}

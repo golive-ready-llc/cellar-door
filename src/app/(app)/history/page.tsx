@@ -74,19 +74,19 @@ function getDateRangeStart(range: DateRange): Date | null {
   const now = new Date();
   switch (range) {
     case "week": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      return d;
+      const start = new Date(now);
+      start.setDate(start.getDate() - 7);
+      return start;
     }
     case "month": {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 1);
-      return d;
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 1);
+      return start;
     }
     case "year": {
-      const d = new Date(now);
-      d.setFullYear(d.getFullYear() - 1);
-      return d;
+      const start = new Date(now);
+      start.setFullYear(start.getFullYear() - 1);
+      return start;
     }
     default:
       return null;
@@ -135,22 +135,22 @@ export default function HistoryPage() {
     // Date range filter
     const rangeStart = getDateRangeStart(dateRange);
     if (rangeStart) {
-      result = result.filter((i) => new Date(i.removedAt) >= rangeStart);
+      result = result.filter((item) => new Date(item.removedAt) >= rangeStart);
     }
 
     if (reasonFilter !== "all") {
-      result = result.filter((i) => i.reason === reasonFilter);
+      result = result.filter((item) => item.reason === reasonFilter);
     }
 
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+      const query = searchQuery.toLowerCase();
       result = result.filter(
-        (i) =>
-          i.name.toLowerCase().includes(q) ||
-          i.winery.toLowerCase().includes(q) ||
-          i.grapeVariety.toLowerCase().includes(q) ||
-          i.region.toLowerCase().includes(q) ||
-          i.country.toLowerCase().includes(q)
+        (item) =>
+          item.name.toLowerCase().includes(query) ||
+          item.winery.toLowerCase().includes(query) ||
+          item.grapeVariety.toLowerCase().includes(query) ||
+          item.region.toLowerCase().includes(query) ||
+          item.country.toLowerCase().includes(query)
       );
     }
 
@@ -176,7 +176,7 @@ export default function HistoryPage() {
 
   const handleDeleteHistoryItem = async (id: string) => {
     await removeHistoryItem(id, userId);
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   // Selection helpers
@@ -195,7 +195,7 @@ export default function HistoryPage() {
   };
 
   const selectedItems = useMemo(
-    () => items.filter((i) => selectedIds.has(i.id)),
+    () => items.filter((item) => selectedIds.has(item.id)),
     [items, selectedIds]
   );
 
@@ -206,7 +206,7 @@ export default function HistoryPage() {
       for (const id of selectedIds) {
         await removeHistoryItem(id, userId);
       }
-      setItems((prev) => prev.filter((i) => !selectedIds.has(i.id)));
+      setItems((prev) => prev.filter((item) => !selectedIds.has(item.id)));
       setBatchDeleteOpen(false);
       clearSelection();
     } finally {
@@ -346,7 +346,7 @@ export default function HistoryPage() {
               if (selectedIds.size === filteredItems.length) {
                 setSelectedIds(new Set());
               } else {
-                setSelectedIds(new Set(filteredItems.map((i) => i.id)));
+                setSelectedIds(new Set(filteredItems.map((item) => item.id)));
               }
             }}
           >
