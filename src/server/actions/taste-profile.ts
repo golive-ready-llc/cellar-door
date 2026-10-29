@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
-import { getAIProvider, isAIAvailable } from "@/lib/ai";
+import { getAIProvider, isAIAvailable, isTextAIAvailable } from "@/lib/ai";
 import type { TasteProfileResult, TasteProfileBundle } from "@/lib/ai";
 import { tasteProfilePrompt } from "@/lib/ai/prompts";
 import {
@@ -266,14 +266,10 @@ export async function generateTasteProfile(
     const whiteInputs = allInputs.filter((w) => whiteSet.has(w.type));
 
     const prompt = tasteProfilePrompt(allInputs, redInputs, whiteInputs);
-    // Touch the provider so test/feature stubs can intercept; the actual
-    // call below uses GoogleGenAI directly to set responseMimeType.
-    void getAIProvider();
 
-    const { GoogleGenAI } = await import("@google/genai");
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      // No API key — return mock bundle. Zero credit charge for mock.
+    if (!(await isTextAIAvailable())) {
+      // No text provider configured (a vision-only config counts as none) —
+      // return mock bundle. Zero credit charge for mock.
       const mockSlice: TasteProfileResult = {
         body: 7,
         tannin: 6,
@@ -292,7 +288,7 @@ export async function generateTasteProfile(
       return { success: true, data: mockBundle, isMock: true };
     }
 
-    // Reserve 1 credit RIGHT BEFORE the real Gemini call. Single charge for
+    // Reserve 1 credit RIGHT BEFORE the real AI call. Single charge for
     // all three slices since it's one AI call. Cached returns charge zero.
     reservation = await reserveAiCredits(uid, "enrich_text", 1);
     if (!reservation.ok) {
@@ -303,32 +299,22 @@ export async function generateTasteProfile(
       );
     }
 
-    const client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 60_000 } });
-    // gemini-2.5-flash "thinks" by default. This prompt is deterministic
-    // scoring, and thinking is what pushed the three-slice JSON response past
-    // Gemini's server deadline — production logged 504 DEADLINE_EXCEEDED on
-    // 2026-09-12. Budget 0 skips thinking entirely.
-    const call = () =>
-      client.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.2,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      });
-    let response;
+    // Goes through the /admin text slots (with failover) like every other
+    // text op. It used to call Gemini directly with GEMINI_API_KEY, so it kept
+    // failing on Gemini's spend cap (2026-10-27) after the slots moved off it.
+    const provider = await getAIProvider();
+    const call = () => provider.completeJSON(prompt, 0.2);
+    let text: string;
     try {
-      response = await call();
+      text = await call();
     } catch (err) {
-      // One retry: these 504s are Gemini load, not something in the request.
+      // One retry: deadline/timeout errors are provider load, not something
+      // in the request (Gemini logged 504 DEADLINE_EXCEEDED on 2026-09-12).
       const msg = err instanceof Error ? err.message : String(err);
-      if (!/504|DEADLINE_EXCEEDED|timed out/i.test(msg)) throw err;
-      response = await call();
+      if (!/504|DEADLINE_EXCEEDED|timed out|timeout/i.test(msg)) throw err;
+      text = await call();
     }
 
-    const text = response.text ?? "";
     const bundle = parseBundle(text);
 
     // If the input set has fewer than 3 reds/whites, force null on that

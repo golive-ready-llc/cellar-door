@@ -714,6 +714,12 @@ export class MockAIProvider implements AIProvider {
     return "That's an interesting question! Based on your cellar, I'd recommend checking your Drink Now wines for something that matches your mood tonight.";
   }
 
+  async completeJSON(_prompt: string, _temperature?: number): Promise<string> {
+    // No canned answer fits an arbitrary prompt. Callers check isAIAvailable()
+    // first and use their own fallback, so reaching this is a misconfiguration.
+    throw new Error("No AI provider configured for this operation");
+  }
+
   async *chatStream(
     systemPrompt: string,
     messages: Array<{ role: string; content: string }>

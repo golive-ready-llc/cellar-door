@@ -87,6 +87,23 @@ export async function isAIAvailable(): Promise<boolean> {
   }
 }
 
+/**
+ * Whether a real provider can answer TEXT operations: a text slot (primary
+ * or failover) or the GEMINI_API_KEY fallback. isAIAvailable() is also true
+ * for a vision-only config, whose text calls end up at the mock provider.
+ */
+export async function isTextAIAvailable(): Promise<boolean> {
+  if (process.env.GEMINI_API_KEY) return true;
+  try {
+    const { getAIConfig } = await import("./config");
+    const config = await getAIConfig();
+    const real = (p: string) => !!p && p !== "mock";
+    return config.enabled && (real(config.text.provider) || real(config.textFailover.provider));
+  } catch {
+    return false;
+  }
+}
+
 // Re-export types
 export type { AIProvider } from "./provider";
 export type {
