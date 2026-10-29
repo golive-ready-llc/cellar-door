@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Wine, Globe, Share2, BookOpen, Check, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,10 +58,16 @@ export function ChallengeCard({ challenge, onComplete }: ChallengeCardProps) {
   const config = TYPE_CONFIG[challenge.type] || TYPE_CONFIG.taste;
   const Icon = config.icon;
   const isCompleted = challenge.completed;
-  // Read the clock once per mount; Date.now() can't run during render.
-  const [now] = useState(Date.now);
-  const isExpired =
-    !isCompleted && new Date(challenge.expiresAt).getTime() < now;
+  // Date.now() can't run during render, so the clock lives in state and a
+  // timer refreshes it at the deadline, flipping the card to expired.
+  const expiresAtMs = new Date(challenge.expiresAt).getTime();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const ms = Math.min(Math.max(0, expiresAtMs - Date.now()), 2 ** 31 - 1);
+    const timer = setTimeout(() => setNow(Date.now()), ms);
+    return () => clearTimeout(timer);
+  }, [expiresAtMs]);
+  const isExpired = !isCompleted && expiresAtMs <= now;
 
   const handleComplete = async () => {
     setCompleting(true);
