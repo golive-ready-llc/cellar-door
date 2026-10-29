@@ -37,7 +37,7 @@ export function useDropTarget({
 
   // Keep onDrop in a ref so we don't re-register every render
   const onDropRef = useRef(onDrop);
-  onDropRef.current = onDrop;
+  useEffect(() => { onDropRef.current = onDrop; }, [onDrop]);
 
   // Stable callback wrapper
   const stableOnDrop = useCallback(

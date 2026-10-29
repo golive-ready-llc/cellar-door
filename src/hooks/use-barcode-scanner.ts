@@ -65,6 +65,10 @@ export function useBarcodeScanner(cabinets: Cabinet[]) {
     setFields({ ...DEFAULT_FIELDS, cabinetId: defaultCabinetId });
   }, [defaultCabinetId]);
 
+  // Ref so scanner lifecycle effect always calls the latest handleLookup
+  // (kept current by an effect below, once handleLookup is defined).
+  const handleLookupRef = useRef<(barcode: string) => Promise<void>>(async () => {});
+
   // --- Scanner lifecycle ---
   useEffect(() => {
     if (!open || step !== "scan" || manualEntry) return;
@@ -196,9 +200,9 @@ export function useBarcodeScanner(cabinets: Cabinet[]) {
     [defaultCabinetId]
   );
 
-  // Ref so scanner lifecycle effect always calls the latest handleLookup
-  const handleLookupRef = useRef(handleLookup);
-  handleLookupRef.current = handleLookup;
+  // Keep handleLookupRef on the latest handleLookup (declared above the
+  // lifecycle effect that reads it).
+  useEffect(() => { handleLookupRef.current = handleLookup; }, [handleLookup]);
 
   const handleManualLookup = useCallback(() => {
     if (!barcodeValue.trim()) return;
