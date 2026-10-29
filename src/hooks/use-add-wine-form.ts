@@ -177,6 +177,10 @@ export function useAddWineForm({
     setUnfiledCabinetId(pendingSlot?.cabinetId ?? (cabinets.length > 0 ? cabinets[0].id : ""));
   }, [cabinets, pendingSlot?.cabinetId]);
 
+  // Ref so the toast's "Add anyway" always calls the latest submit closure
+  // (the toast outlives the render that created it).
+  const submitWineRef = useRef<(skipDuplicateCheck: boolean) => Promise<void>>(async () => {});
+
   const submitWine = useCallback(async (skipDuplicateCheck: boolean) => {
     setSaving(true);
     try {
@@ -243,10 +247,8 @@ export function useAddWineForm({
     drinkWindow, userRating, quantity, resetForm, setOpen,
   ]);
 
-  // Ref so the toast's "Add anyway" always calls the latest submit closure
-  // (the toast outlives the render that created it).
-  const submitWineRef = useRef(submitWine);
-  submitWineRef.current = submitWine;
+  // Keep submitWineRef on the latest submitWine.
+  useEffect(() => { submitWineRef.current = submitWine; }, [submitWine]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

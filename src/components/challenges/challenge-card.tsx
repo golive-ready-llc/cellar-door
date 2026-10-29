@@ -58,8 +58,10 @@ export function ChallengeCard({ challenge, onComplete }: ChallengeCardProps) {
   const config = TYPE_CONFIG[challenge.type] || TYPE_CONFIG.taste;
   const Icon = config.icon;
   const isCompleted = challenge.completed;
+  // Read the clock once per mount; Date.now() can't run during render.
+  const [now] = useState(Date.now);
   const isExpired =
-    !isCompleted && new Date(challenge.expiresAt).getTime() < Date.now();
+    !isCompleted && new Date(challenge.expiresAt).getTime() < now;
 
   const handleComplete = async () => {
     setCompleting(true);

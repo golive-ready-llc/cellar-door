@@ -76,6 +76,11 @@ export function useTouchDrag({
     maxDistance: number;
   } | null>(null);
 
+  // Removes the three window listeners that handlePointerDown attached. Set
+  // there, so it always removes exactly the handlers that were added, and the
+  // handlers can tear each other down without referring to one another.
+  const detachWindowListenersRef = useRef<() => void>(() => {});
+
   const cleanup = useCallback(() => {
     const s = stateRef.current;
     if (s?.longPressTimer) {
@@ -133,11 +138,7 @@ export function useTouchDrag({
         updateDragPosition({ x: e.clientX, y: e.clientY });
       }
     },
-    // handleWindowPointerUp is declared below but referenced here — this
-    // circular ref is intentional (all three window handlers tear each
-    // other down), so we can't cleanly list it as a dep.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [type, data, ghostColor, ghostLabel, ghostName, startDrag, updateDragPosition, onDragStart, cleanup]
+    [type, data, ghostColor, ghostLabel, ghostName, startDrag, updateDragPosition, onDragStart]
   );
 
   const handleWindowPointerCancel = useCallback(
@@ -152,11 +153,8 @@ export function useTouchDrag({
         onDragEnd?.();
       }
       cleanup();
-      window.removeEventListener("pointermove", handleWindowPointerMove);
-      window.removeEventListener("pointerup", handleWindowPointerUp);
-      window.removeEventListener("pointercancel", handleWindowPointerCancel);
+      detachWindowListenersRef.current();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [cleanup, cancelDrag, onDragEnd]
   );
 
@@ -177,11 +175,9 @@ export function useTouchDrag({
         }
       }
       cleanup();
-      window.removeEventListener("pointermove", handleWindowPointerMove);
-      window.removeEventListener("pointerup", handleWindowPointerUp);
-      window.removeEventListener("pointercancel", handleWindowPointerCancel);
+      detachWindowListenersRef.current();
     },
-    [endDrag, onDragEnd, onTap, cleanup, handleWindowPointerMove, handleWindowPointerCancel]
+    [endDrag, onDragEnd, onTap, cleanup]
   );
 
   const handlePointerDown = useCallback(
@@ -213,6 +209,11 @@ export function useTouchDrag({
       window.addEventListener("pointermove", handleWindowPointerMove);
       window.addEventListener("pointerup", handleWindowPointerUp);
       window.addEventListener("pointercancel", handleWindowPointerCancel);
+      detachWindowListenersRef.current = () => {
+        window.removeEventListener("pointermove", handleWindowPointerMove);
+        window.removeEventListener("pointerup", handleWindowPointerUp);
+        window.removeEventListener("pointercancel", handleWindowPointerCancel);
+      };
 
       if (e.pointerType === "touch") {
         // Touch: use long-press to initiate
