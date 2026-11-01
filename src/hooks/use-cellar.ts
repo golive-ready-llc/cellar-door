@@ -382,7 +382,6 @@ export function useCellar() {
   const [selectedWine, setSelectedWine] = useState<Wine | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [consumeOpen, setConsumeOpen] = useState(false);
-  const [wineListScanOpen, setWineListScanOpen] = useState(false);
   const [addWineOpen, setAddWineOpen] = useState(false);
   const [pendingSlot, setPendingSlot] = useState<{
     cabinetId: string;
@@ -405,26 +404,6 @@ export function useCellar() {
   const triggerConsume = useCallback(() => {
     setPendingConsume(true);
     setDetailOpen(false);
-  }, []);
-
-  // Dialog transition: add-wine -> wine-list-scan
-  // Base UI Dialogs don't stack well — opening a new one while another is
-  // closing gets swallowed. Use a pending flag + useEffect to defer the
-  // open until after AddWineDialog has fully unmounted.
-  const [pendingWineListScan, setPendingWineListScan] = useState(false);
-  useEffect(() => {
-    if (!addWineOpen && pendingWineListScan) {
-      const timer = setTimeout(() => {
-        setWineListScanOpen(true);
-        setPendingWineListScan(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [addWineOpen, pendingWineListScan]);
-
-  const triggerWineListScan = useCallback(() => {
-    setPendingWineListScan(true);
-    setAddWineOpen(false);
   }, []);
 
   // Depth view
@@ -1087,10 +1066,6 @@ export function useCellar() {
       consumeOpen,
       setConsumeOpen,
       triggerConsume,
-
-      wineListScanOpen,
-      setWineListScanOpen,
-      triggerWineListScan,
 
       addWineOpen,
       setAddWineOpen,

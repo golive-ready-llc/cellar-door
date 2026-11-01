@@ -126,9 +126,8 @@ interface WineListResultsProps {
 }
 
 /**
- * Wine-list scan results. Shared between WineListScanDialog (legacy
- * standalone) and the inline wine-list mode in AddWineDialog so they
- * stay visually identical and don't drift over time.
+ * Wine-list scan results. Rendered by the inline wine-list mode in
+ * AddWineDialog's camera session.
  */
 export function WineListResults({
   extractedWines,
@@ -308,9 +307,8 @@ export function WineListResults({
 }
 
 /**
- * Convenience helper for the "Scan Another / Done" footer used by both
- * the standalone WineListScanDialog and the inline wine-list mode in
- * AddWineDialog. Kept here so the two stay visually aligned.
+ * Convenience helper for the "Scan Another / Done" footer of the inline
+ * wine-list mode in AddWineDialog.
  */
 export function WineListResultsFooter({
   onScanAnother,

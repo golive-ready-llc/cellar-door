@@ -13,9 +13,6 @@ interface AddWineContextType {
     allTags?: string[];
     unfiledWines?: Wine[];
     onPlaceWine?: (wineId: string, cabinetId: string) => void;
-    /** Optional: open the wine-list-scan dialog (e.g., from the camera's
-     * Wine List tab). Pages that support wine-list scanning register this. */
-    onScanWineList?: () => void;
   }) => void;
   /** Whether a handler is registered */
   ready: boolean;
@@ -27,7 +24,6 @@ interface AddWineContextType {
   _allTags: string[];
   _unfiledWines: Wine[];
   _onPlaceWine: ((wineId: string, cabinetId: string) => void) | null;
-  _onScanWineList: (() => void) | null;
   /** Pre-acquired camera stream (acquired inside a user gesture) */
   _readyStream: MediaStream | null;
   /** Open the dialog with a camera stream already started (called from FAB click) */
@@ -49,7 +45,6 @@ const AddWineContext = createContext<AddWineContextType>({
   _allTags: [],
   _unfiledWines: [],
   _onPlaceWine: null,
-  _onScanWineList: null,
   _readyStream: null,
   _openCameraFirst: () => {},
   requestCameraOnReady: () => {},
@@ -67,7 +62,6 @@ export function AddWineProvider({ children }: { children: ReactNode }) {
   const [onPlaceWine, setOnPlaceWine] = useState<
     ((wineId: string, cabinetId: string) => void) | null
   >(null);
-  const [onScanWineList, setOnScanWineList] = useState<(() => void) | null>(null);
   const [ready, setReady] = useState(false);
   const readyStreamRef = useRef<MediaStream | null>(null);
   // Monotonic token for camera acquisitions — lets a stale getUserMedia
@@ -138,7 +132,6 @@ export function AddWineProvider({ children }: { children: ReactNode }) {
       allTags?: string[];
       unfiledWines?: Wine[];
       onPlaceWine?: (wineId: string, cabinetId: string) => void;
-      onScanWineList?: () => void;
     }) => {
       setCabinets(opts.cabinets);
       // Wrap in function to avoid React treating it as a state updater
@@ -146,7 +139,6 @@ export function AddWineProvider({ children }: { children: ReactNode }) {
       setAllTags(opts.allTags ?? []);
       setUnfiledWines(opts.unfiledWines ?? []);
       setOnPlaceWine(opts.onPlaceWine ? () => opts.onPlaceWine : null);
-      setOnScanWineList(opts.onScanWineList ? () => opts.onScanWineList : null);
       setReady(true);
       // Honor a pending camera-open request (Add tapped on a page without a
       // handler → navigated here). Permission is usually already granted, so
@@ -181,7 +173,6 @@ export function AddWineProvider({ children }: { children: ReactNode }) {
         _allTags: allTags,
         _unfiledWines: unfiledWines,
         _onPlaceWine: onPlaceWine,
-        _onScanWineList: onScanWineList,
         _readyStream: readyStream,
         _openCameraFirst: openCameraFirst,
         requestCameraOnReady,

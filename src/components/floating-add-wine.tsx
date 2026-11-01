@@ -18,7 +18,7 @@ import { useAddWine } from "@/components/add-wine-context";
  * FAB is hidden (e.g. on routes that don't show the FAB).
  */
 export function HeaderAddWine() {
-  const { ready, _open, _setOpen, _cabinets, _onAdd, _allTags, _unfiledWines, _onPlaceWine, _onScanWineList } = useAddWine();
+  const { ready, _open, _setOpen, _cabinets, _onAdd, _allTags, _unfiledWines, _onPlaceWine } = useAddWine();
 
   if (!ready || !_onAdd) return null;
 
@@ -31,7 +31,6 @@ export function HeaderAddWine() {
       onOpenChange={_setOpen}
       unfiledWines={_unfiledWines}
       onPlaceWine={_onPlaceWine ?? undefined}
-      onScanWineList={_onScanWineList ?? undefined}
     />
   );
 }

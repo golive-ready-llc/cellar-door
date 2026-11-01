@@ -55,8 +55,6 @@ interface AddWineDialogProps {
   onPlaceWine?: (wineId: string, cabinetId: string, row?: number, col?: number) => void;
   /** Pre-selected slot from clicking a specific empty slot */
   pendingSlot?: { cabinetId: string; row: number; col: number } | null;
-  /** Called when user wants to scan a wine list (opens external dialog) */
-  onScanWineList?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────
@@ -71,9 +69,6 @@ export function AddWineDialog({
   unfiledWines = [],
   onPlaceWine,
   pendingSlot,
-  // onScanWineList is accepted for API stability — wine-list scanning now
-  // happens inline in this dialog's own camera session.
-  onScanWineList: _onScanWineList,
 }: AddWineDialogProps) {
   const { hasAI, tierHasAI, userId } = useTier();
   const { _readyStream } = useAddWine();

@@ -138,7 +138,6 @@ function CellarPageInner() {
   // --- Register with global FAB context ---
   const { register: registerAddWine } = useAddWine();
   const { handleAddWine, handlePlaceWine } = actions;
-  const { triggerWineListScan } = dialogs;
   useEffect(() => {
     registerAddWine({
       cabinets: data.wallCabinets,
@@ -146,9 +145,8 @@ function CellarPageInner() {
       allTags: data.allTags,
       unfiledWines: data.unfiledWines,
       onPlaceWine: handlePlaceWine,
-      onScanWineList: triggerWineListScan,
     });
-  }, [data.wallCabinets, data.allTags, data.unfiledWines, handleAddWine, handlePlaceWine, triggerWineListScan, registerAddWine]);
+  }, [data.wallCabinets, data.allTags, data.unfiledWines, handleAddWine, handlePlaceWine, registerAddWine]);
 
   // --- Sort assistant: apply one guided move (dest=null → set aside/unfile) ---
   const { handleWineMove, handleUnfileWine } = actions;
