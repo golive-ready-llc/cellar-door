@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   getTierConfig,
   getTierDisplayName,
@@ -6,7 +6,9 @@ import {
   canAddWine,
   getUpgradeTier,
   effectiveCreditCap,
+  maxTier,
   TIER_CONFIGS,
+  TIER_RANK,
   TRIAL_CREDIT_CAP,
   AI_CREDIT_COSTS,
   CREDIT_PACKS,
@@ -23,9 +25,8 @@ import {
  *                   (out of scope for pure-lib tests)
  *   - getCreditCap → TIER_CONFIGS[tier].features.aiCreditsPerMonth
  *   - getEffectivePrice → TIER_CONFIGS[tier].pricing.{monthly,annual}
- *   - getEffectiveTier / DEFAULT_TIER_FLOOR → no such export; floor logic
- *                   lives behind `getUserTier` (server) which is also
- *                   out of scope for a pure-lib test.
+ *   - getEffectiveTier → maxTier + DEFAULT_TIER below (the DB-row half
+ *                   still lives behind `getUserTier` in server/tier-check)
  */
 
 describe("tier — config integrity", () => {
@@ -183,5 +184,71 @@ describe("tier pricing (effective price proxy)", () => {
       expect(annual).not.toBeNull();
       expect(annual!).toBeLessThan(monthly! * 12);
     }
+  });
+});
+
+describe("maxTier", () => {
+  it("returns the higher tier regardless of argument order", () => {
+    expect(maxTier("FREE", "PREMIUM")).toBe("PREMIUM");
+    expect(maxTier("PREMIUM", "FREE")).toBe("PREMIUM");
+    expect(maxTier("FREE", "PRO")).toBe("PRO");
+    expect(maxTier("PRO", "PREMIUM")).toBe("PREMIUM");
+  });
+
+  it("equal tiers return that tier", () => {
+    expect(maxTier("PRO", "PRO")).toBe("PRO");
+  });
+});
+
+describe("TIER_RANK", () => {
+  it("ranks FREE < PRO < PREMIUM, matching TIER_ORDER", () => {
+    expect(TIER_RANK.FREE).toBeLessThan(TIER_RANK.PRO);
+    expect(TIER_RANK.PRO).toBeLessThan(TIER_RANK.PREMIUM);
+    expect(TIER_ORDER.map((t) => TIER_RANK[t])).toEqual([
+      TIER_RANK.FREE,
+      TIER_RANK.PRO,
+      TIER_RANK.PREMIUM,
+    ]);
+  });
+});
+
+describe("DEFAULT_TIER — NEXT_PUBLIC_DEFAULT_TIER floor parsing", () => {
+  // DEFAULT_TIER is read at module load, so each case sets the env and
+  // re-imports @/lib/tier fresh (the tier-check.test.ts pattern). process.env
+  // is shared across test files in a worker — clear the var and reset the
+  // registry after every case so no floor leaks into other files.
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_DEFAULT_TIER;
+    vi.resetModules();
+  });
+
+  async function defaultTier() {
+    return (await import("@/lib/tier")).DEFAULT_TIER;
+  }
+
+  it("unset env → FREE", async () => {
+    delete process.env.NEXT_PUBLIC_DEFAULT_TIER;
+    vi.resetModules();
+    expect(await defaultTier()).toBe("FREE");
+  });
+
+  it("PREMIUM env → PREMIUM (the self-hoster unlock)", async () => {
+    process.env.NEXT_PUBLIC_DEFAULT_TIER = "PREMIUM";
+    vi.resetModules();
+    expect(await defaultTier()).toBe("PREMIUM");
+  });
+
+  it("empty-string env → FREE", async () => {
+    process.env.NEXT_PUBLIC_DEFAULT_TIER = "";
+    vi.resetModules();
+    expect(await defaultTier()).toBe("FREE");
+  });
+
+  it("a typo'd value falls back to FREE instead of surfacing as a bogus tier", async () => {
+    // The pre-consolidation client copy parsed the env with a bare cast, so a
+    // typo like "PREMIU" reached tier state and threw in TIER_CONFIGS lookups.
+    process.env.NEXT_PUBLIC_DEFAULT_TIER = "PREMIU";
+    vi.resetModules();
+    expect(await defaultTier()).toBe("FREE");
   });
 });
