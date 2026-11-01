@@ -12,11 +12,6 @@
 
 const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
-/** True once the server secret is configured (so callers can require a token). */
-export function turnstileConfigured(): boolean {
-  return Boolean(process.env.TURNSTILE_SECRET_KEY);
-}
-
 export async function verifyTurnstile(
   token: string | null | undefined,
   remoteIp?: string

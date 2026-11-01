@@ -97,14 +97,6 @@ describe("getCabinets", () => {
   });
 });
 
-describe("getCabinet", () => {
-  it("returns null on ownership mismatch", async () => {
-    cabinetFindFirst.mockResolvedValue(null);
-    const { getCabinet } = await import("@/server/actions/cabinets");
-    expect(await getCabinet("u1", "c-other")).toBeNull();
-  });
-});
-
 describe("updateCabinet", () => {
   it("rejects when cabinet not owned by user", async () => {
     cabinetFindFirst.mockResolvedValue(null);

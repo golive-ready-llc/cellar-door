@@ -118,20 +118,6 @@ export async function fetchWines(userId?: string | null): Promise<Wine[]> {
   });
 }
 
-export async function fetchWinesByCabinet(cabinetId: string, userId?: string | null): Promise<Wine[]> {
-  const uid = resolveUserId(userId);
-  if (isMockMode()) return (await loadMockStore()).getWinesByCabinet(uid, cabinetId);
-  const { getWinesByCabinet } = await import("@/server/actions/wines");
-  return getWinesByCabinet(uid, cabinetId);
-}
-
-export async function fetchWine(wineId: string, userId?: string | null): Promise<Wine | null> {
-  const uid = resolveUserId(userId);
-  if (isMockMode()) return (await loadMockStore()).getWine(uid, wineId);
-  const { getWine } = await import("@/server/actions/wines");
-  return getWine(uid, wineId);
-}
-
 export async function createWine(
   data: NewWineInput,
   userId?: string | null
@@ -257,13 +243,6 @@ export async function fetchCabinets(userId?: string | null): Promise<Cabinet[]> 
     const { getCabinets } = await import("@/server/actions/cabinets");
     return getCabinets(uid);
   });
-}
-
-export async function fetchCabinet(cabinetId: string, userId?: string | null): Promise<Cabinet | null> {
-  const uid = resolveUserId(userId);
-  if (isMockMode()) return (await loadMockStore()).getCabinet(uid, cabinetId);
-  const { getCabinet } = await import("@/server/actions/cabinets");
-  return getCabinet(uid, cabinetId);
 }
 
 export async function createCabinet(
@@ -408,19 +387,6 @@ export async function addBuyListItem(
   if (isDev) return (await loadMockStore()).addBuyListItem({ ...data, userId: uid });
   const { addBuyListItem: serverAdd } = await import("@/server/actions/buy-list");
   return serverAdd(uid, data);
-}
-
-export async function updateBuyListItemData(
-  id: string,
-  data: Partial<Omit<BuyListItem, "id" | "addedAt" | "userId">>,
-  userId?: string | null
-): Promise<BuyListItem> {
-  assertNotDemoClient("edit buy-list items");
-  invalidateReadCache();
-  const uid = resolveUserId(userId);
-  if (isDev) return (await loadMockStore()).updateBuyListItem(id, data);
-  const { updateBuyListItem: serverUpdate } = await import("@/server/actions/buy-list");
-  return serverUpdate(uid, id, data);
 }
 
 export async function removeBuyListItem(id: string, userId?: string | null): Promise<void> {

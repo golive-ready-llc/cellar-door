@@ -103,24 +103,6 @@ describe("addBuyListItem", () => {
   });
 });
 
-describe("updateBuyListItem", () => {
-  it("rejects (scoped updateMany matches nothing) when not owned", async () => {
-    itemUpdateMany.mockResolvedValue({ count: 0 });
-    const { updateBuyListItem } = await import("@/server/actions/buy-list");
-    await expect(updateBuyListItem("u1", "i1", { name: "x" })).rejects.toThrow(/not found/i);
-  });
-
-  it("updates only explicit fields, scoped to the owner", async () => {
-    itemUpdateMany.mockResolvedValue({ count: 1 });
-    itemFindUnique.mockResolvedValue(fakeItem({ status: "ordered" }));
-    const { updateBuyListItem } = await import("@/server/actions/buy-list");
-    await updateBuyListItem("u1", "i1", { status: "ordered" });
-    const call = itemUpdateMany.mock.calls[0][0];
-    expect(call.where).toEqual({ id: "i1", userId: "u1" });
-    expect(call.data).toEqual({ status: "ordered" });
-  });
-});
-
 describe("removeBuyListItem", () => {
   it("rejects when item not owned by user (no IDOR)", async () => {
     itemDeleteMany.mockResolvedValue({ count: 0 });

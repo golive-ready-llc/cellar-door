@@ -63,18 +63,6 @@ export async function getCabinets(userId?: string): Promise<Cabinet[]> {
   return cabinets.map(mapPrismaCabinet);
 }
 
-export async function getCabinet(
-  userId: string,
-  cabinetId: string
-): Promise<Cabinet | null> {
-  const uid = await resolveServerUserId(userId);
-  const cabinet = await prisma.cabinet.findFirst({
-    where: { id: cabinetId, userId: uid },
-  });
-
-  return cabinet ? mapPrismaCabinet(cabinet) : null;
-}
-
 export async function updateCabinet(
   userId: string,
   cabinetId: string,

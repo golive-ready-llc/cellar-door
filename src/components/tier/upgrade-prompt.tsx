@@ -231,31 +231,3 @@ export function UpgradePrompt({
     </>
   );
 }
-
-/**
- * Convenience wrapper — only renders children if user has AI access,
- * otherwise shows the upgrade prompt popup.
- */
-export function RequireAI({
-  children,
-  feature,
-  variant = "card",
-  className,
-}: {
-  children: React.ReactNode;
-  feature: string;
-  variant?: "inline" | "card" | "banner";
-  className?: string;
-}) {
-  const { hasAI } = useTier();
-
-  if (hasAI) return <>{children}</>;
-
-  return (
-    <UpgradePrompt
-      feature={feature}
-      variant={variant}
-      className={className}
-    />
-  );
-}

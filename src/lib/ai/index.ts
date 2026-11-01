@@ -62,12 +62,6 @@ export async function getAIProvider(): Promise<AIProvider> {
   return new MockAIProvider();
 }
 
-/** Invalidate the cached router so the next call re-reads DB config */
-export function resetAIProvider(): void {
-  _router = null;
-  _configHash = "";
-}
-
 /**
  * Check if a real AI provider is available.
  * Checks BOTH the GEMINI_API_KEY env var AND any DB-configured provider.
