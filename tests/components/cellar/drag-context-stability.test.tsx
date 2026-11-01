@@ -18,9 +18,9 @@ import {
 
 let consumerRenders = 0;
 
-function Probe({ captured }: { captured: { current: ReturnType<typeof useDragDrop> | null } }) {
+function Probe({ onRender }: { onRender: (ctx: ReturnType<typeof useDragDrop>) => void }) {
   const ctx = useDragDrop();
-  captured.current = ctx;
+  onRender(ctx);
   consumerRenders++;
   return null;
 }
@@ -32,7 +32,7 @@ function renderProbe() {
   consumerRenders = 0;
   const utils = render(
     <DragDropProvider>
-      <Probe captured={captured} />
+      <Probe onRender={(ctx) => { captured.current = ctx; }} />
     </DragDropProvider>
   );
   return { captured, ...utils };

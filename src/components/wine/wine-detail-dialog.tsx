@@ -332,7 +332,8 @@ function DetailView({
   onTerroirWineClick?: (wine: Wine) => void;
 }) {
   // Guard against phantom taps on buttons when dialog first appears on mobile
-  const mountedAtRef = useRef<number>(Date.now());
+  // Set by the effect below on mount (Date.now() can't run during render).
+  const mountedAtRef = useRef<number>(0);
   useEffect(() => { mountedAtRef.current = Date.now(); }, [wine?.id]);
 
   // Duplicate-count picker state — replaces the old one-bottle-at-a-time

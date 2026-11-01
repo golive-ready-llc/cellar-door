@@ -62,6 +62,60 @@ export function BarcodeScanner({ onDetected, active }: BarcodeScannerProps) {
     setCameraReady(false);
   }, []);
 
+  // html5-qrcode fallback for browsers without BarcodeDetector
+  const html5QrCodeRef = useRef<unknown>(null);
+  // The in-flight scanner.start() promise. html5-qrcode's stop() REJECTS if
+  // called while start() is still pending — and the camera that start()
+  // acquires afterwards keeps running (leaked). Cleanup must await this
+  // before stopping.
+  const html5StartPromiseRef = useRef<Promise<void> | null>(null);
+
+  const startHtml5QrCodeFallback = useCallback(async (isCancelled: () => boolean = () => false) => {
+    try {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      const containerId = "barcode-fallback-scanner";
+
+      // Wait for DOM element
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Bail if the effect that started us was torn down during the import /
+      // DOM wait — otherwise scanner.start() below acquires a camera no one
+      // will release (Android then locks the HAL app-wide).
+      if (isCancelled()) return;
+      if (!document.getElementById(containerId)) {
+        setCameraLoading(false);
+        setManualMode(true);
+        return;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scanner: any = new Html5Qrcode(containerId);
+      html5QrCodeRef.current = scanner;
+
+      const startPromise = scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 100 }, aspectRatio: 2.0 },
+        (decodedText: string) => {
+          if (!detectedRef.current) {
+            detectedRef.current = true;
+            try {
+              const state = scanner.getState?.();
+              if (state === 1 || state === 2) scanner.stop().catch(() => {});
+            } catch { /* ignore */ }
+            onDetected(decodedText);
+          }
+        },
+        () => {}
+      );
+      html5StartPromiseRef.current = startPromise;
+      await startPromise;
+      setCameraReady(true);
+      setCameraLoading(false);
+    } catch {
+      setCameraLoading(false);
+      setManualMode(true);
+    }
+  }, [onDetected]);
+
   // Start camera + continuous barcode detection. `isCancelled` is checked
   // after every await — if the effect that started us has already cleaned
   // up (tab switch, dialog close), we stop the just-acquired stream HERE
@@ -159,62 +213,7 @@ export function BarcodeScanner({ onDetected, active }: BarcodeScannerProps) {
       setManualMode(true);
       setCameraLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onDetected, stopScanning]);
-
-  // html5-qrcode fallback for browsers without BarcodeDetector
-  const html5QrCodeRef = useRef<unknown>(null);
-  // The in-flight scanner.start() promise. html5-qrcode's stop() REJECTS if
-  // called while start() is still pending — and the camera that start()
-  // acquires afterwards keeps running (leaked). Cleanup must await this
-  // before stopping.
-  const html5StartPromiseRef = useRef<Promise<void> | null>(null);
-
-  const startHtml5QrCodeFallback = useCallback(async (isCancelled: () => boolean = () => false) => {
-    try {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      const containerId = "barcode-fallback-scanner";
-
-      // Wait for DOM element
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      // Bail if the effect that started us was torn down during the import /
-      // DOM wait — otherwise scanner.start() below acquires a camera no one
-      // will release (Android then locks the HAL app-wide).
-      if (isCancelled()) return;
-      if (!document.getElementById(containerId)) {
-        setCameraLoading(false);
-        setManualMode(true);
-        return;
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scanner: any = new Html5Qrcode(containerId);
-      html5QrCodeRef.current = scanner;
-
-      const startPromise = scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 100 }, aspectRatio: 2.0 },
-        (decodedText: string) => {
-          if (!detectedRef.current) {
-            detectedRef.current = true;
-            try {
-              const state = scanner.getState?.();
-              if (state === 1 || state === 2) scanner.stop().catch(() => {});
-            } catch { /* ignore */ }
-            onDetected(decodedText);
-          }
-        },
-        () => {}
-      );
-      html5StartPromiseRef.current = startPromise;
-      await startPromise;
-      setCameraReady(true);
-      setCameraLoading(false);
-    } catch {
-      setCameraLoading(false);
-      setManualMode(true);
-    }
-  }, [onDetected]);
+  }, [onDetected, stopScanning, startHtml5QrCodeFallback]);
 
   // Cleanup html5-qrcode on unmount — await any pending start() first so
   // the stop actually lands on a running scanner (see html5StartPromiseRef).
