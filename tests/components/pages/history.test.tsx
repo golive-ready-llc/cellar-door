@@ -152,3 +152,34 @@ describe("HistoryPage detail dialog", () => {
     });
   });
 });
+
+/**
+ * Regression (ledger N27): a failed load used to masquerade as an empty
+ * cellar — try/finally with no catch left items=[] and rendered
+ * "No history yet" while the rejection went unhandled. The #39 shape
+ * (loadError + canonical EmptyState retry) applies here too.
+ */
+describe("HistoryPage load failures", () => {
+  beforeEach(() => {
+    historyMock.mockReset();
+  });
+
+  it("a failed load shows an error state with retry, not an empty history", async () => {
+    historyMock.mockRejectedValue(new Error("network down"));
+    render(<HistoryPage />);
+
+    expect(await screen.findByText("Couldn't load your history")).toBeInTheDocument();
+    expect(screen.queryByText("No history yet")).not.toBeInTheDocument();
+  });
+
+  it("Try again refetches and shows the history", async () => {
+    historyMock.mockRejectedValueOnce(new Error("network down"));
+    historyMock.mockResolvedValue([ITEM_A]);
+    render(<HistoryPage />);
+
+    expect(await screen.findByText("Couldn't load your history")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Alpha")).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load your history")).not.toBeInTheDocument();
+  });
+});

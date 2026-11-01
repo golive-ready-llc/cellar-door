@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Printer, ArrowLeft } from "lucide-react";
+import { Printer, ArrowLeft, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useAuth } from "@/components/auth-provider";
 import { useTier } from "@/hooks/use-tier";
 import { fetchWines, fetchWalls } from "@/lib/data";
@@ -38,20 +39,35 @@ export default function InsuranceReportPage() {
   const [wines, setWines] = useState<Wine[]>([]);
   const [walls, setWalls] = useState<Wall[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+
+  const load = useCallback(async () => {
+    // Don't fetch with a null userId — resolveUserId would throw while auth
+    // is still resolving. Mirrors the guard in useStatsData.
+    if (!userId) return;
+    try {
+      setLoadError(false);
+      const [w, wa] = await Promise.all([fetchWines(userId), fetchWalls(userId)]);
+      setWines(w);
+      setWalls(wa);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
 
   useEffect(() => {
-    if (!userId) return;
-    async function load() {
-      try {
-        const [w, wa] = await Promise.all([fetchWines(userId!), fetchWalls(userId!)]);
-        setWines(w);
-        setWalls(wa);
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
-  }, [userId]);
+  }, [load]);
+
+  // Retry after a failed load: back to the loading message (the report has no
+  // data to show), then fetch again.
+  const retryLoad = useCallback(() => {
+    setLoadError(false);
+    setLoading(true);
+    return load();
+  }, [load]);
 
   const now = new Date();
   const reportDate = REPORT_DATE_FMT.format(now);
@@ -120,6 +136,19 @@ export default function InsuranceReportPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <p className="text-muted-foreground">Loading collection data...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <EmptyState
+          icon={AlertTriangle}
+          title="Couldn't load your collection"
+          description="Something went wrong fetching your cellar. Check your connection and try again."
+          action={{ label: "Try again", onClick: retryLoad }}
+        />
       </div>
     );
   }

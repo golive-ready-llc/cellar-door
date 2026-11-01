@@ -53,7 +53,7 @@ import { WineListItem } from "@/components/inventory/wine-list-item";
 import { WineDetailDialog } from "@/components/wine/wine-detail-dialog";
 import { LoadMore } from "@/components/ui/load-more";
 import { useIncrementalList } from "@/hooks/use-incremental-list";
-import { WINE_TYPE_COLORS } from "@/types/constants";
+import { REMOVAL_REASONS, WINE_TYPE_COLORS } from "@/types/constants";
 import { isLightWineType, type Wine, type WineHistoryItem, type Cabinet } from "@/types/wine";
 
 const REMOVED_DATE_FMT = new Intl.DateTimeFormat();
@@ -510,6 +510,10 @@ function ValueList({ wines, formatPrice, onWineClick }: ValueListProps) {
 // HistoryList — for /stats/consumed.
 // -----------------------------------------------------------------------
 
+const REMOVAL_REASON_LABELS = new Map<string, string>(
+  REMOVAL_REASONS.map((r) => [r.id, r.label] as const)
+);
+
 function HistoryList({
   history,
   formatPrice,
@@ -585,7 +589,9 @@ function HistoryList({
                 )}
               </div>
               <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
-                <span>{h.reason === "drank" ? "Drank" : h.reason || "Removed"}</span>
+                <span>
+                  {REMOVAL_REASON_LABELS.get(h.reason) || h.reason || "Removed"}
+                </span>
                 <span>{dateStr}</span>
                 {h.price != null && (
                   <span className="tabular-nums">{formatPrice(h.price)}</span>

@@ -94,9 +94,10 @@ function getDateRangeStart(range: DateRange): Date | null {
 }
 
 export default function HistoryPage() {
-  const { userId } = useAuth();
+  const { userId, devMode } = useAuth();
   const [items, setItems] = useState<WineHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [reasonFilter, setReasonFilter] = useState<ReasonFilter>("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
@@ -111,16 +112,30 @@ export default function HistoryPage() {
   const { formatPrice } = useCurrency();
 
   const loadData = useCallback(async () => {
+    // Don't fetch with a null userId in production — resolveUserId would throw
+    // while auth is still resolving. Mirrors the guard in useStatsData.
+    if (!userId && !devMode) return;
     try {
+      setLoadError(false);
       const data = await fetchHistory(userId);
       setItems(data);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, devMode]);
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  // Retry after a failed load: back to the loading skeleton (the page has no
+  // data to show), then fetch again.
+  const retryLoad = useCallback(() => {
+    setLoadError(false);
+    setLoading(true);
+    return loadData();
   }, [loadData]);
 
   // Reset visible count when filters change
@@ -228,6 +243,20 @@ export default function HistoryPage() {
           ))}
         </div>
         <WineListSkeleton count={8} variant="list" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="History" subtitle="Wines you've consumed or removed" />
+        <EmptyState
+          icon={AlertTriangle}
+          title="Couldn't load your history"
+          description="Something went wrong fetching your history. Check your connection and try again."
+          action={{ label: "Try again", onClick: retryLoad }}
+        />
       </div>
     );
   }
