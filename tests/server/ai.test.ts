@@ -26,10 +26,17 @@ const getAiCreditsRemainingSpy = vi.fn().mockResolvedValue({
   tier: "PRO",
 });
 const searchWineSpy = vi.fn();
+const scanLabelSpy = vi.fn();
+const enrichWineSpy = vi.fn();
+const fetchWineImageSpy = vi.fn();
 const isAIAvailableSpy = vi.fn().mockReturnValue(true);
 const barcodeFindUniqueSpy = vi.fn();
 const barcodeCreateSpy = vi.fn().mockResolvedValue({});
+const metadataFindFirstSpy = vi.fn();
 const saveWineMetadataSpy = vi.fn().mockResolvedValue(undefined);
+const saveWineMetadataImageSpy = vi.fn().mockResolvedValue(undefined);
+const getEnrichmentCacheSpy = vi.fn();
+const setEnrichmentCacheSpy = vi.fn().mockResolvedValue(undefined);
 
 class MockTierError extends Error {
   code: string;
@@ -71,6 +78,9 @@ vi.mock("@/server/tier-check", () => ({
 vi.mock("@/lib/ai", () => ({
   getAIProvider: () => ({
     searchWine: (...a: unknown[]) => searchWineSpy(...a),
+    scanLabel: (...a: unknown[]) => scanLabelSpy(...a),
+    enrichWine: (...a: unknown[]) => enrichWineSpy(...a),
+    fetchWineImage: (...a: unknown[]) => fetchWineImageSpy(...a),
   }),
   isAIAvailable: () => isAIAvailableSpy(),
 }));
@@ -78,7 +88,15 @@ vi.mock("@/lib/ai", () => ({
 vi.mock("@/lib/ai/mock", () => ({
   MockAIProvider: class {
     searchWine = (...a: unknown[]) => searchWineSpy(...a);
+    scanLabel = (...a: unknown[]) => scanLabelSpy(...a);
+    enrichWine = (...a: unknown[]) => enrichWineSpy(...a);
+    fetchWineImage = (...a: unknown[]) => fetchWineImageSpy(...a);
   },
+}));
+
+vi.mock("@/lib/ai/cache", () => ({
+  getEnrichmentCache: (...a: unknown[]) => getEnrichmentCacheSpy(...a),
+  setEnrichmentCache: (...a: unknown[]) => setEnrichmentCacheSpy(...a),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -87,12 +105,15 @@ vi.mock("@/lib/db", () => ({
       findUnique: (...a: unknown[]) => barcodeFindUniqueSpy(...a),
       create: (...a: unknown[]) => barcodeCreateSpy(...a),
     },
+    wineMetadata: {
+      findFirst: (...a: unknown[]) => metadataFindFirstSpy(...a),
+    },
   },
 }));
 
 vi.mock("@/server/wine-metadata-store", () => ({
   saveWineMetadata: (...a: unknown[]) => saveWineMetadataSpy(...a),
-  saveWineMetadataImage: vi.fn(),
+  saveWineMetadataImage: (...a: unknown[]) => saveWineMetadataImageSpy(...a),
 }));
 
 // ─── Defaults ─────────────────────────────────────────────────────────
@@ -113,6 +134,14 @@ beforeEach(() => {
   requireFeatureSpy.mockResolvedValue("PRO");
   isAIAvailableSpy.mockReturnValue(true);
   searchWineSpy.mockResolvedValue({ name: "Chateau X", winery: "Wx" });
+  scanLabelSpy.mockResolvedValue({ name: "Chateau X", winery: "Wx" });
+  enrichWineSpy.mockResolvedValue({ description: "A structured red." });
+  fetchWineImageSpy.mockResolvedValue({
+    imageUrl: "https://img.example/label.jpg",
+    source: "google",
+  });
+  getEnrichmentCacheSpy.mockResolvedValue(null);
+  metadataFindFirstSpy.mockResolvedValue(null);
   reserveAiCreditsSpy.mockResolvedValue({
     ok: true,
     tier: "PRO",
@@ -317,5 +346,134 @@ describe("security: no client-supplied identity (2026-09-10)", () => {
     const { getCreditsRemaining } = await import("@/server/actions/ai");
     await expect(getCreditsRemaining("victim")).rejects.toThrow("Unauthorized");
     expect(getAiCreditsRemainingSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("demo/mock results never enter the shared caches (N24)", () => {
+  // Demo visitors always get the mock provider, and when no provider is
+  // configured real users do too (isMock). Fabricated data must not be
+  // persisted to the shared WineMetadata / BarcodeCache stores — the guard
+  // aiEstimateCriticScores has carried since 2026-09-27, applied everywhere.
+
+  const WINE_INPUT = {
+    name: "Chateau X",
+    winery: "Wx",
+    vintage: 2020,
+    type: "red" as const,
+    region: "Bordeaux",
+    country: "France",
+    grapeVariety: "Merlot",
+  };
+
+  it("demo aiSearchWine: success, but no shared metadata write", async () => {
+    isDemoRequestSpy.mockResolvedValue(true);
+    const { aiSearchWine } = await import("@/server/actions/ai");
+    const result = await aiSearchWine("Bordeaux", undefined);
+    expect(result.success).toBe(true);
+    expect(saveWineMetadataSpy).not.toHaveBeenCalled();
+  });
+
+  it("demo aiBarcodeLookup AI fallback: no barcodeCache or metadata write", async () => {
+    isDemoRequestSpy.mockResolvedValue(true);
+    barcodeFindUniqueSpy.mockResolvedValue(null);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("OFF down"));
+    const { aiBarcodeLookup } = await import("@/server/actions/ai");
+    const result = await aiBarcodeLookup("0123456789012", undefined);
+    expect(result.success).toBe(true);
+    expect(barcodeCreateSpy).not.toHaveBeenCalled();
+    expect(saveWineMetadataSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("demo aiScanLabel: success, but no shared metadata write", async () => {
+    isDemoRequestSpy.mockResolvedValue(true);
+    const { aiScanLabel } = await import("@/server/actions/ai");
+    const result = await aiScanLabel("b64", "image/jpeg", undefined);
+    expect(result.success).toBe(true);
+    expect(saveWineMetadataSpy).not.toHaveBeenCalled();
+  });
+
+  it("demo aiEnrichWine: no enrichment-cache write", async () => {
+    isDemoRequestSpy.mockResolvedValue(true);
+    getEnrichmentCacheSpy.mockResolvedValue(null);
+    const { aiEnrichWine } = await import("@/server/actions/ai");
+    const result = await aiEnrichWine(WINE_INPUT, undefined);
+    expect(result.success).toBe(true);
+    expect(setEnrichmentCacheSpy).not.toHaveBeenCalled();
+  });
+
+  it("demo aiFetchWineImage: no shared image write", async () => {
+    isDemoRequestSpy.mockResolvedValue(true);
+    metadataFindFirstSpy.mockResolvedValue(null);
+    fetchWineImageSpy.mockResolvedValue({
+      imageUrl: "data:image/svg+xml;base64,ZmFrZQ==",
+      source: "google",
+    });
+    const { aiFetchWineImage } = await import("@/server/actions/ai");
+    const result = await aiFetchWineImage(WINE_INPUT, undefined);
+    expect(result.success).toBe(true);
+    expect(saveWineMetadataImageSpy).not.toHaveBeenCalled();
+  });
+
+  it("outage (isMock) aiSearchWine for a real user: no shared metadata write", async () => {
+    isDemoRequestSpy.mockResolvedValue(false);
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
+    isAIAvailableSpy.mockReturnValue(false);
+    const { aiSearchWine } = await import("@/server/actions/ai");
+    const result = await aiSearchWine("Bordeaux", undefined);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.isMock).toBe(true);
+    expect(saveWineMetadataSpy).not.toHaveBeenCalled();
+  });
+
+  it("control: a real aiSearchWine result still writes shared metadata", async () => {
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
+    const { aiSearchWine } = await import("@/server/actions/ai");
+    const result = await aiSearchWine("Bordeaux", undefined);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.isMock).toBe(false);
+    expect(saveWineMetadataSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("control: a real aiBarcodeLookup fallback still writes both caches", async () => {
+    barcodeFindUniqueSpy.mockResolvedValue(null);
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("OFF down"));
+    const { aiBarcodeLookup } = await import("@/server/actions/ai");
+    const result = await aiBarcodeLookup("0123456789012", "u1");
+    expect(result.success).toBe(true);
+    expect(barcodeCreateSpy).toHaveBeenCalledTimes(1);
+    expect(saveWineMetadataSpy).toHaveBeenCalledTimes(1);
+    fetchSpy.mockRestore();
+  });
+
+  it("control: a real aiScanLabel result still writes shared metadata", async () => {
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
+    const { aiScanLabel } = await import("@/server/actions/ai");
+    const result = await aiScanLabel("b64", "image/jpeg", undefined);
+    expect(result.success).toBe(true);
+    expect(saveWineMetadataSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("control: a real aiEnrichWine result still populates the enrichment cache", async () => {
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
+    getEnrichmentCacheSpy.mockResolvedValue(null);
+    const { aiEnrichWine } = await import("@/server/actions/ai");
+    const result = await aiEnrichWine(WINE_INPUT, undefined);
+    expect(result.success).toBe(true);
+    expect(setEnrichmentCacheSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("control: a real aiFetchWineImage result still saves the image URL", async () => {
+    getAuthenticatedUserIdSpy.mockResolvedValue("u1");
+    metadataFindFirstSpy.mockResolvedValue(null);
+    const { aiFetchWineImage } = await import("@/server/actions/ai");
+    const result = await aiFetchWineImage(WINE_INPUT, undefined);
+    expect(result.success).toBe(true);
+    expect(saveWineMetadataImageSpy).toHaveBeenCalledTimes(1);
   });
 });

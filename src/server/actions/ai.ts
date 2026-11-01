@@ -85,6 +85,16 @@ async function cacheScope(): Promise<string> {
   return (await getAuthenticatedUserId()) ?? "anon";
 }
 
+/**
+ * True when this request's AI data is fabricated: demo-mode visitors always
+ * get the mock provider, and real users fall back to it when no provider is
+ * configured (`isMock`). Fabricated results must never be written to the
+ * shared WineMetadata / BarcodeCache stores.
+ */
+async function isFabricatedResult(result: { isMock: boolean }): Promise<boolean> {
+  return result.isMock || (await isDemoRequest());
+}
+
 // ─── Helpers ───────────────────────────────────────────────────
 
 /** In-flight request cache: deduplicates concurrent AI calls with the same (operation, query) key. */
@@ -205,7 +215,8 @@ export async function aiSearchWine(
   }
 
   // Post-save: cache metadata for future lookups
-  if (result.success && result.data.name && result.data.winery) {
+  if (result.success && !(await isFabricatedResult(result))
+      && result.data.name && result.data.winery) {
     const { saveWineMetadata } = await import("@/server/wine-metadata-store");
     saveWineMetadata(result.data).catch(() => {});
   }
@@ -329,18 +340,22 @@ export async function aiBarcodeLookup(
     () => buildGate("barcodeAiLookup", "auto_fill", 1, _userId)
   );
 
-  // Cache successful AI results in both in-memory and DB caches
+  // Cache successful AI results in both in-memory and DB caches. The shared DB
+  // stores are skipped for fabricated (demo/mock) results; the in-memory cache
+  // is already scoped per user (or to "demo") so it cannot leak across users.
   if (aiResult.success) {
     wineIdCache.set(barcodeCacheKey, { data: aiResult.data, cachedAt: Date.now() }); capCache(wineIdCache);
-    await prisma.barcodeCache.create({
-      data: { barcode: code, data: aiResult.data as unknown as import("@/generated/prisma/client").Prisma.InputJsonValue },
-    }).catch((err) => {
-      if ((err as { code?: string }).code !== "P2002") {
-        console.error("[barcode cache write error]", err);
-      }
-    });
-    const { saveWineMetadata } = await import("@/server/wine-metadata-store");
-    saveWineMetadata(aiResult.data).catch(() => {});
+    if (!(await isFabricatedResult(aiResult))) {
+      await prisma.barcodeCache.create({
+        data: { barcode: code, data: aiResult.data as unknown as import("@/generated/prisma/client").Prisma.InputJsonValue },
+      }).catch((err) => {
+        if ((err as { code?: string }).code !== "P2002") {
+          console.error("[barcode cache write error]", err);
+        }
+      });
+      const { saveWineMetadata } = await import("@/server/wine-metadata-store");
+      saveWineMetadata(aiResult.data).catch(() => {});
+    }
   }
 
   return aiResult;
@@ -405,7 +420,8 @@ export async function aiScanLabel(
     () => buildGate("labelScanning", "label_scan", 2, _userId)
   );
   // Post-save: cache metadata for future enrichment lookups
-  if (result.success && result.data.name && result.data.winery) {
+  if (result.success && !(await isFabricatedResult(result))
+      && result.data.name && result.data.winery) {
     const { saveWineMetadata } = await import("@/server/wine-metadata-store");
     saveWineMetadata(result.data).catch(() => {});
   }
@@ -425,8 +441,8 @@ export async function aiEstimateCriticScores(
   // resolve their Expert Score from the cache instead of a paid AI call.
   // Never cache demo/mock results — fabricated scores must not pollute the
   // shared cache.
-  if (result.success && !result.isMock && result.data.ratings &&
-      wine.name && wine.winery && !(await isDemoRequest())) {
+  if (result.success && !(await isFabricatedResult(result)) && result.data.ratings &&
+      wine.name && wine.winery) {
     const { saveWineMetadata } = await import("@/server/wine-metadata-store");
     saveWineMetadata({
       name: wine.name,
@@ -458,7 +474,8 @@ export async function aiEnrichWine(
   );
 
   // Post-save: store in enrichment cache for future lookups
-  if (result.success && wine.name && wine.winery) {
+  if (result.success && !(await isFabricatedResult(result))
+      && wine.name && wine.winery) {
     const { setEnrichmentCache } = await import("@/lib/ai/cache");
     setEnrichmentCache(wine.winery, wine.name, wine.vintage ?? null, result.data).catch(() => {});
   }
@@ -492,7 +509,8 @@ export async function aiFetchWineImage(
   );
 
   // Post-save: cache the image URL
-  if (result.success && result.data.imageUrl && wine.winery && wine.name) {
+  if (result.success && !(await isFabricatedResult(result))
+      && result.data.imageUrl && wine.winery && wine.name) {
     const { saveWineMetadataImage } = await import("@/server/wine-metadata-store");
     saveWineMetadataImage(wine.winery, wine.name, wine.vintage, result.data.imageUrl).catch(() => {});
   }
