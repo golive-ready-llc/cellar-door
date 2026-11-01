@@ -14,6 +14,7 @@ vi.mock("@google/genai", () => ({
 }));
 
 import { GeminiProvider } from "@/lib/ai/gemini";
+import type { WineDataInput } from "@/lib/ai/types";
 
 describe("GeminiProvider.completeJSON", () => {
   it("asks for JSON with thinking disabled (2026-09-12 504 DEADLINE_EXCEEDED fix)", async () => {
@@ -27,5 +28,33 @@ describe("GeminiProvider.completeJSON", () => {
       temperature: 0.8,
       thinkingConfig: { thinkingBudget: 0 },
     });
+  });
+});
+
+const WINE: WineDataInput = {
+  name: "Termes",
+  winery: "Numanthia",
+  vintage: 2019,
+  type: "red",
+  region: "Toro",
+  country: "Spain",
+  grapeVariety: "Tinta de Toro",
+};
+
+describe("GeminiProvider JSON helpers", () => {
+  it("scanLabel disables the default thinking phase (label scan is the hottest AI flow)", async () => {
+    generateContentSpy.mockResolvedValueOnce({ text: '{"name":"Termes","winery":"Numanthia"}' });
+    await new GeminiProvider("test-key").scanLabel("aW1hZ2U=", "image/jpeg");
+    const req = generateContentSpy.mock.calls[0][0];
+    expect(req.config.responseMimeType).toBe("application/json");
+    expect(req.config.thinkingConfig).toEqual({ thinkingBudget: 0 });
+  });
+
+  it("enrichWine disables the default thinking phase", async () => {
+    generateContentSpy.mockResolvedValueOnce({ text: '{"description":"Toro red"}' });
+    await new GeminiProvider("test-key").enrichWine(WINE);
+    const req = generateContentSpy.mock.calls[0][0];
+    expect(req.config.responseMimeType).toBe("application/json");
+    expect(req.config.thinkingConfig).toEqual({ thinkingBudget: 0 });
   });
 });

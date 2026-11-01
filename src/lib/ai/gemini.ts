@@ -100,6 +100,10 @@ export class GeminiProvider implements AIProvider {
       config: {
         responseMimeType: "application/json",
         temperature,
+        // 2.5-flash thinks by default; on JSON prompts the thinking phase
+        // added seconds and pushed calls past the server deadline
+        // (production 504 DEADLINE_EXCEEDED, 2026-09-12 — see completeJSON).
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
     const text = response.text ?? "";
@@ -144,6 +148,9 @@ export class GeminiProvider implements AIProvider {
         config: {
           responseMimeType: "application/json",
           temperature,
+          // Same budget-0 fix as generateJSON: vision scans pay the thinking
+          // phase twice over — label photos need the tokens for extraction.
+          thinkingConfig: { thinkingBudget: 0 },
         },
       });
       const text = response.text ?? "";
