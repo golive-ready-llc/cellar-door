@@ -2,7 +2,6 @@
 
 import { AddWineDialog } from "@/components/wine/add-wine-dialog";
 import { WineDetailDialog } from "@/components/wine/wine-detail-dialog";
-import { WineListScanDialog } from "@/components/wine/wine-list-scan-dialog";
 import { ConsumeWineDialog } from "@/components/wine/consume-wine-dialog";
 import { DepthSideView } from "@/components/cellar/depth-side-view";
 import { BulkZoneSideView } from "@/components/cellar/bulk-zone-side-view";
@@ -108,27 +107,6 @@ export function CellarDialogs({ store }: { store: CellarStore }) {
         unfiledWines={data.unfiledWines}
         onPlaceWine={actions.handlePlaceWine}
         pendingSlot={dialogs.pendingSlot}
-        onScanWineList={dialogs.triggerWineListScan}
-      />
-
-      {/* Wine List Scan Dialog */}
-      <WineListScanDialog
-        open={dialogs.wineListScanOpen}
-        onOpenChange={dialogs.setWineListScanOpen}
-        userWines={data.wines.map((w) => ({
-          id: w.id,
-          name: w.name,
-          winery: w.winery,
-          vintage: w.vintage,
-          type: w.type,
-          region: w.region,
-          grapeVariety: w.grapeVariety,
-          disposition: w.disposition,
-          drinkWindow: w.drinkWindow,
-          userRating: w.userRating,
-          aiRatings: w.aiRatings,
-          cdScore: w.cdScore ?? null,
-        }))}
       />
 
       {/* Wine Detail Dialog */}

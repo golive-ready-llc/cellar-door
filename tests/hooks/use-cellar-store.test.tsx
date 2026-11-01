@@ -126,16 +126,6 @@ describe("useCellar choreography", () => {
     expect(result.current.dialogs.consumeOpen).toBe(true);
   });
 
-  it("defers the wine-list-scan dialog until add-wine has unmounted", async () => {
-    const { result } = await renderCellar();
-    act(() => result.current.dialogs.setAddWineOpen(true));
-    act(() => result.current.dialogs.triggerWineListScan());
-    expect(result.current.dialogs.addWineOpen).toBe(false);
-    expect(result.current.dialogs.wineListScanOpen).toBe(false);
-    act(() => vi.advanceTimersByTime(300));
-    expect(result.current.dialogs.wineListScanOpen).toBe(true);
-  });
-
   it("drops a wine into the bulk zone's first free column and flashes it", async () => {
     const { result } = await renderCellar();
     act(() =>
