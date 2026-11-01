@@ -107,7 +107,7 @@ export async function deleteWall(
 
   await prisma.$transaction([
     prisma.wine.updateMany({
-      where: { userId: uid, cabinetId: { in: cabinetIds.map((c) => c.id) } },
+      where: { userId: uid, cabinetId: { in: cabinetIds.map((cabinet) => cabinet.id) } },
       data: { cabinetId: null, row: null, col: null, depth: 0 },
     }),
     prisma.cabinet.deleteMany({ where: { wallId, userId: uid } }),
@@ -122,8 +122,7 @@ export async function deleteWall(
 type PrismaWall = Awaited<ReturnType<typeof prisma.wall.findFirst>> & object;
 
 function mapPrismaWall(wall: PrismaWall): Wall {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = (wall as any).haConfig as Record<string, string> | null;
+  const raw = wall.haConfig as Record<string, string> | null;
   const haConfig: HaConfig | null = raw?.haUrl
     ? {
         haUrl: raw.haUrl,

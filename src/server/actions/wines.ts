@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { after } from "next/server";
 import { prisma } from "@/lib/db";
@@ -94,14 +94,14 @@ function assertSlotInBounds(
   col?: number | null,
   depth?: number | null
 ) {
-  if (row != null && (row < 0 || row >= cabinet.rows)) {
-    throw new Error(`Row ${row} is outside this section (0–${cabinet.rows - 1})`);
-  }
-  if (col != null && (col < 0 || col >= cabinet.cols)) {
-    throw new Error(`Column ${col} is outside this section (0–${cabinet.cols - 1})`);
-  }
-  if (depth != null && (depth < 0 || depth >= cabinet.depth)) {
-    throw new Error(`Depth ${depth} is outside this section (0–${cabinet.depth - 1})`);
+  for (const [label, value, slots] of [
+    ["Row", row, cabinet.rows],
+    ["Column", col, cabinet.cols],
+    ["Depth", depth, cabinet.depth],
+  ] as const) {
+    if (value != null && (value < 0 || value >= slots)) {
+      throw new Error(`${label} ${value} is outside this section (0–${slots - 1})`);
+    }
   }
 }
 
@@ -226,7 +226,7 @@ function wineCreateData(
     zone: input.zone ?? "",
     disposition: input.disposition ?? "",
     drinkWindow: input.drinkWindow ?? "",
-    tags: Array.isArray(input.tags) ? input.tags.filter((t) => typeof t === "string") : [],
+    tags: Array.isArray(input.tags) ? input.tags.filter((tag) => typeof tag === "string") : [],
     tastingNotes: (input.tastingNotes || Prisma.JsonNull) as Prisma.InputJsonValue,
     aiRatings: (aiRatings ?? Prisma.JsonNull) as Prisma.InputJsonValue,
   };
@@ -323,8 +323,8 @@ export async function getWines(
       select: { id: true, imageUrl: true },
     }),
   ]);
-  const direct = new Map(passthroughs.map((r) => [r.id, r.imageUrl]));
-  return populateCdScores(wines.map((w) => mapListWine(w, direct.get(w.id))));
+  const direct = new Map(passthroughs.map((row) => [row.id, row.imageUrl]));
+  return populateCdScores(wines.map((wine) => mapListWine(wine, direct.get(wine.id))));
 }
 
 export async function getWinesByCabinet(
@@ -347,9 +347,9 @@ export async function getWinesByCabinet(
       select: { id: true, imageUrl: true },
     }),
   ]);
-  const direct = new Map(passthroughs.map((r) => [r.id, r.imageUrl]));
+  const direct = new Map(passthroughs.map((row) => [row.id, row.imageUrl]));
 
-  return populateCdScores(wines.map((w) => mapListWine(w, direct.get(w.id))));
+  return populateCdScores(wines.map((wine) => mapListWine(wine, direct.get(wine.id))));
 }
 
 export async function getWine(
@@ -417,6 +417,9 @@ export async function updateWine(
     }
   }
 
+  // tastingNotes/aiRatings/tags/aiEnrichedAt are not declared on
+  // Partial<AddWineInput> — one alias instead of a cast at every use.
+  const patch = data as Record<string, unknown>;
   const updateData = {
     // Only include fields that were provided
     ...(data.cabinetId !== undefined && { cabinetId: data.cabinetId }),
@@ -448,21 +451,21 @@ export async function updateWine(
     ...(data.disposition !== undefined && { disposition: data.disposition }),
     ...(data.drinkWindow !== undefined && { drinkWindow: data.drinkWindow }),
     // tastingNotes: stored as Json in Prisma, but we now use plain strings
-    ...((data as Record<string, unknown>).tastingNotes !== undefined && {
-      tastingNotes: (data as Record<string, unknown>).tastingNotes || null,
+    ...(patch.tastingNotes !== undefined && {
+      tastingNotes: patch.tastingNotes || null,
     }),
     // aiRatings + tags: also Json fields that can come through partial updates
-    ...((data as Record<string, unknown>).aiRatings !== undefined && {
-      aiRatings: (data as Record<string, unknown>).aiRatings ?? null,
+    ...(patch.aiRatings !== undefined && {
+      aiRatings: patch.aiRatings ?? null,
     }),
-    ...((data as Record<string, unknown>).tags !== undefined && {
-      tags: (data as Record<string, unknown>).tags ?? [],
+    ...(patch.tags !== undefined && {
+      tags: patch.tags ?? [],
     }),
     // aiEnrichedAt: timestamp stamped by the enrichment pipeline — accept
     // ISO strings or Date objects and coerce to Date for Prisma.
-    ...((data as Record<string, unknown>).aiEnrichedAt !== undefined && {
+    ...(patch.aiEnrichedAt !== undefined && {
       aiEnrichedAt: (() => {
-        const v = (data as Record<string, unknown>).aiEnrichedAt;
+        const v = patch.aiEnrichedAt;
         if (v === null) return null;
         if (v instanceof Date) return v;
         if (typeof v === "string") return new Date(v);
@@ -478,13 +481,13 @@ export async function updateWine(
 
   // Propagate wine-level metadata to the user's other bottles of the same wine.
   // A patch is empty when only bottle-specific fields changed (location, notes).
-  propagateSharedFields(uid, existing, sharedFieldPatch(data as Record<string, unknown>));
+  propagateSharedFields(uid, existing, sharedFieldPatch(patch));
 
   // If aiRatings was just set/updated (e.g. AI enrichment filled them in
   // after the bottle was added manually), seed the community baseline.
   // seedCommunityBaseline is idempotent + first-scan-wins so re-calling
   // for an already-seeded wine is a no-op.
-  const newAiRatings = (data as Record<string, unknown>).aiRatings;
+  const newAiRatings = patch.aiRatings;
   if (newAiRatings) {
     void seedCommunityBaseline({
       name: wine.name,
@@ -643,13 +646,11 @@ export async function removeWine(
       }
       // Also stamp aiEnrichedAt on duplicates that never got enriched,
       // since the drunk wine was. Prevents "re-enrich" loops on the dupes.
-      if ((wine as typeof wine & { aiEnrichedAt?: Date | null }).aiEnrichedAt) {
+      if (wine.aiEnrichedAt) {
         propagations.push(
           prisma.wine.updateMany({
             where: { ...dupeWhere, aiEnrichedAt: null },
-            data: {
-              aiEnrichedAt: (wine as typeof wine & { aiEnrichedAt?: Date | null }).aiEnrichedAt,
-            },
+            data: { aiEnrichedAt: wine.aiEnrichedAt },
           })
         );
       }
@@ -686,7 +687,7 @@ export async function getHistory(
       where: { userId: uid },
       orderBy: { removedAt: "desc" },
     });
-    return rows.map((r) => mapHistoryItem(r, r.imageUrl));
+    return rows.map((row) => mapHistoryItem(row, row.imageUrl));
   }
   const [rows, passthroughs] = await Promise.all([
     prisma.wineHistory.findMany({
@@ -701,14 +702,14 @@ export async function getHistory(
       select: { id: true, imageUrl: true },
     }),
   ]);
-  const direct = new Map(passthroughs.map((r) => [r.id, r.imageUrl]));
-  return rows.map((r) => {
-    const stored = direct.get(r.id);
+  const direct = new Map(passthroughs.map((row) => [row.id, row.imageUrl]));
+  return rows.map((row) => {
+    const stored = direct.get(row.id);
     return mapHistoryItem(
-      r,
+      row,
       stored !== undefined
-        ? listImageUrl("history", r.id, stored)
-        : wineImageUrlAt("history", r.id, r.removedAt)
+        ? listImageUrl("history", row.id, stored)
+        : wineImageUrlAt("history", row.id, row.removedAt)
     );
   });
 }
@@ -716,36 +717,36 @@ export async function getHistory(
 /** Map a history row for a response; `imageUrl` is the value to ship (stored
  *  data for backups, a versioned URL for lists). */
 function mapHistoryItem(
-  r: Omit<Awaited<ReturnType<typeof prisma.wineHistory.findFirst>> & object, "imageUrl"> & {
+  row: Omit<Awaited<ReturnType<typeof prisma.wineHistory.findFirst>> & object, "imageUrl"> & {
     imageUrl?: string;
   },
   imageUrl: string
 ): import("@/types/wine").WineHistoryItem {
   return {
-    id: r.id,
-    originalId: r.originalId,
-    name: r.name,
-    winery: r.winery,
-    vintage: r.vintage,
-    type: r.type,
-    region: r.region,
-    country: r.country,
-    grapeVariety: r.grapeVariety,
-    rating: r.rating,
-    consumeRating: r.consumeRating,
-    consumeNotes: r.consumeNotes,
-    price: r.price,
-    retailPrice: r.retailPrice,
+    id: row.id,
+    originalId: row.originalId,
+    name: row.name,
+    winery: row.winery,
+    vintage: row.vintage,
+    type: row.type,
+    region: row.region,
+    country: row.country,
+    grapeVariety: row.grapeVariety,
+    rating: row.rating,
+    consumeRating: row.consumeRating,
+    consumeNotes: row.consumeNotes,
+    price: row.price,
+    retailPrice: row.retailPrice,
     imageUrl,
-    description: r.description,
-    foodPairings: r.foodPairings,
-    alcohol: r.alcohol,
-    disposition: r.disposition,
-    drinkWindow: r.drinkWindow,
-    aiRatings: r.aiRatings as Record<string, number | null> | null,
-    addedAt: r.addedAt?.toISOString() ?? null,
-    removedAt: r.removedAt.toISOString(),
-    reason: r.reason,
+    description: row.description,
+    foodPairings: row.foodPairings,
+    alcohol: row.alcohol,
+    disposition: row.disposition,
+    drinkWindow: row.drinkWindow,
+    aiRatings: row.aiRatings as Record<string, number | null> | null,
+    addedAt: row.addedAt?.toISOString() ?? null,
+    removedAt: row.removedAt.toISOString(),
+    reason: row.reason,
   };
 }
 
@@ -798,25 +799,25 @@ export async function getTasteProfileEntries(
     }),
   ]);
   return [
-    ...wines.map((w) => ({
-      id: w.id,
+    ...wines.map((wine) => ({
+      id: wine.id,
       source: "cellar" as const,
-      type: w.type,
-      region: w.region ?? "",
-      country: w.country ?? "",
-      grapeVariety: w.grapeVariety ?? "",
-      rating: w.userRating ?? null,
+      type: wine.type,
+      region: wine.region ?? "",
+      country: wine.country ?? "",
+      grapeVariety: wine.grapeVariety ?? "",
+      rating: wine.userRating ?? null,
     })),
-    ...history.map((h) => ({
-      id: h.id,
+    ...history.map((item) => ({
+      id: item.id,
       source: "history" as const,
-      type: h.type,
-      region: h.region ?? "",
-      country: h.country ?? "",
-      grapeVariety: h.grapeVariety ?? "",
+      type: item.type,
+      region: item.region ?? "",
+      country: item.country ?? "",
+      grapeVariety: item.grapeVariety ?? "",
       // Consume-time rating reflects the final verdict; fall back to the
       // rating captured when the row was written.
-      rating: (h.consumeRating ?? h.rating) ?? null,
+      rating: (item.consumeRating ?? item.rating) ?? null,
     })),
   ];
 }
@@ -896,7 +897,7 @@ export async function bulkRemoveWines(
     }),
     // Delete all wines in one query
     prisma.wine.deleteMany({
-      where: { id: { in: wines.map((w) => w.id) }, userId: uid },
+      where: { id: { in: wines.map((wine) => wine.id) }, userId: uid },
     }),
   ]);
 
@@ -964,12 +965,12 @@ function flattenTastingNotes(notes: unknown): string {
   if (!notes) return "";
   if (typeof notes === "string") return notes;
   if (typeof notes === "object") {
-    const n = notes as Record<string, string>;
+    const structured = notes as Record<string, string>;
     const parts: string[] = [];
-    if (n.aroma) parts.push(`Aroma: ${n.aroma}`);
-    if (n.taste) parts.push(`Taste: ${n.taste}`);
-    if (n.finish) parts.push(`Finish: ${n.finish}`);
-    if (n.overall) parts.push(`Overall: ${n.overall}`);
+    if (structured.aroma) parts.push(`Aroma: ${structured.aroma}`);
+    if (structured.taste) parts.push(`Taste: ${structured.taste}`);
+    if (structured.finish) parts.push(`Finish: ${structured.finish}`);
+    if (structured.overall) parts.push(`Overall: ${structured.overall}`);
     return parts.join("\n");
   }
   return "";
@@ -983,13 +984,13 @@ function flattenTastingNotes(notes: unknown): string {
 async function populateCdScores(wines: Wine[]): Promise<Wine[]> {
   if (wines.length === 0) return wines;
   const scores = await getCommunityScoresBatch(
-    wines.map((w) => ({ name: w.name, winery: w.winery, vintage: w.vintage }))
+    wines.map((wine) => ({ name: wine.name, winery: wine.winery, vintage: wine.vintage }))
   );
-  return wines.map((w) => {
-    const hit = scores.get(communityWineKey(w.name, w.winery, w.vintage));
+  return wines.map((wine) => {
+    const hit = scores.get(communityWineKey(wine.name, wine.winery, wine.vintage));
     return hit
-      ? { ...w, cdScore: hit.cdScore, cdRatingCount: hit.cdRatingCount }
-      : { ...w, cdScore: null, cdRatingCount: 0 };
+      ? { ...wine, cdScore: hit.cdScore, cdRatingCount: hit.cdRatingCount }
+      : { ...wine, cdScore: null, cdRatingCount: 0 };
   });
 }
 
@@ -1033,8 +1034,8 @@ function mapPrismaWine(wine: PrismaWineRow): Wine {
     type: wine.type as Wine["type"],
     // Use || so legacy wines with a sparkling type (sparkling/champagne/prosecco/etc.)
     // For new wines added through addWine, sparkling is always set explicitly and correctly.
-    sparkling: !!(wine as PrismaWine & { sparkling?: boolean }).sparkling || isSparklingType(wine.type ?? ""),
-    bottleSize: ((wine as PrismaWine & { bottleSize?: string }).bottleSize ?? "standard") as Wine["bottleSize"],
+    sparkling: wine.sparkling || isSparklingType(wine.type ?? ""),
+    bottleSize: (wine.bottleSize ?? "standard") as Wine["bottleSize"],
     grapeVariety: wine.grapeVariety,
     userRating: wine.userRating,
     imageUrl: wine.imageUrl ?? "",
@@ -1057,7 +1058,6 @@ function mapPrismaWine(wine: PrismaWineRow): Wine {
     tags: wine.tags ?? [],
     addedAt: wine.addedAt.toISOString(),
     updatedAt: wine.updatedAt.toISOString(),
-    aiEnrichedAt:
-      (wine as PrismaWine & { aiEnrichedAt?: Date | null }).aiEnrichedAt?.toISOString() ?? null,
+    aiEnrichedAt: wine.aiEnrichedAt?.toISOString() ?? null,
   };
 }
