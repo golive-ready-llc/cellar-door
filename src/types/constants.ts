@@ -1,7 +1,7 @@
 // Constants for Cellar Door
 // Based on ha-wine-cellar const.py + models.ts
 
-import type { WineType, StorageRowType } from "./wine";
+import type { WineType } from "./wine";
 
 export const WINE_TYPES: WineType[] = [
   "red",
@@ -83,11 +83,6 @@ export const WINE_TYPE_LABELS: Record<WineType, string> = {
   fortified: "Fortified",
 };
 
-export const STORAGE_ROW_TYPE_LABELS: Record<StorageRowType, string> = {
-  bulk: "Bulk Bin",
-  box: "Wine Box", // legacy — treated as bulk in UI
-};
-
 /** Standard wine case sizes for case storage within bulk bins */
 /** Compact bottle-size labels for chips and mini-UI. */
 export const BOTTLE_SIZE_SHORT: Record<string, string> = {
@@ -100,8 +95,6 @@ export const BOTTLE_SIZE_SHORT: Record<string, string> = {
 export const CASE_SIZES = [6, 12, 24] as const;
 
 /** @deprecated Use CASE_SIZES instead */
-export const BOX_SIZES = [1, 3, 6, 12, 24] as const;
-
 export const REMOVAL_REASONS = [
   { id: "drank", label: "Drank" },
   { id: "gifted", label: "Gifted" },

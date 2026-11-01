@@ -94,52 +94,6 @@ export async function addBuyListItem(
   }
 }
 
-export async function updateBuyListItem(
-  userId: string,
-  itemId: string,
-  data: Partial<Omit<BuyListItem, "id" | "addedAt" | "userId">>
-): Promise<BuyListItem> {
-  try {
-    await assertNotDemo("edit buy-list items");
-    const uid = await resolveServerUserId(userId);
-    // Scope the mutation itself to the owner (updateMany allows a non-unique
-    // where) so authorization and the write are atomic — not a check-then-act
-    // pair where the write could run unscoped.
-    const updated = await prisma.buyListItem.updateMany({
-      where: { id: itemId, userId: uid },
-      data: {
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.winery !== undefined && { winery: data.winery }),
-        ...(data.region !== undefined && { region: data.region }),
-        ...(data.country !== undefined && { country: data.country }),
-        ...(data.vintage !== undefined && { vintage: data.vintage }),
-        ...(data.type !== undefined && { type: data.type.toLowerCase() }),
-        ...(data.sparkling !== undefined && { sparkling: data.sparkling }),
-        ...(data.grapeVariety !== undefined && { grapeVariety: data.grapeVariety }),
-        ...(data.retailPrice !== undefined && { retailPrice: data.retailPrice }),
-        ...(data.notes !== undefined && { notes: data.notes }),
-        ...(data.status !== undefined && { status: data.status }),
-        ...(data.orderDate !== undefined && { orderDate: data.orderDate ? new Date(data.orderDate) : null }),
-        ...(data.expectedDelivery !== undefined && { expectedDelivery: data.expectedDelivery ? new Date(data.expectedDelivery) : null }),
-        ...(data.store !== undefined && { store: data.store }),
-        ...(data.barcode !== undefined && { barcode: data.barcode }),
-        ...(data.imageUrl !== undefined && { imageUrl: await resolveImageRef(uid, data.imageUrl) }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.foodPairings !== undefined && { foodPairings: data.foodPairings }),
-        ...(data.alcohol !== undefined && { alcohol: data.alcohol }),
-        ...(data.disposition !== undefined && { disposition: data.disposition }),
-        ...(data.drinkWindow !== undefined && { drinkWindow: data.drinkWindow }),
-      },
-    });
-    if (updated.count === 0) throw new Error("Buy list item not found");
-    const item = await prisma.buyListItem.findUnique({ where: { id: itemId } });
-    if (!item) throw new Error("Buy list item not found");
-    return mapPrismaBuyListItem(item);
-  } catch (err) {
-    throw new Error(err instanceof Error ? err.message : "Failed to update buy list item");
-  }
-}
-
 export async function removeBuyListItem(
   userId: string,
   itemId: string

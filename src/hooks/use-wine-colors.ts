@@ -18,19 +18,6 @@ function useIsMounted(): boolean {
 }
 
 /**
- * Returns the theme-appropriate text color for a wine type.
- * Falls back to "light" during SSR / before mount.
- */
-export function useWineTextColor(type: string): string {
-  const { resolvedTheme } = useTheme();
-  const mounted = useIsMounted();
-
-  const mode = mounted && resolvedTheme === "dark" ? "dark" : "light";
-  const entry = WINE_TYPE_TEXT_COLORS[type as WineType];
-  return entry ? entry[mode] : "#888";
-}
-
-/**
  * Returns all text colors for the current theme.
  */
 export function useWineTextColors(): Record<WineType, string> {

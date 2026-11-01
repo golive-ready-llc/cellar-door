@@ -12,17 +12,6 @@ import { Capacitor } from "@capacitor/core";
 /** True when running inside a Capacitor native shell (Android/iOS) */
 export const isNative = Capacitor.isNativePlatform();
 
-/** "android" | "ios" | "web" */
-export const platform = Capacitor.getPlatform() as
-  | "android"
-  | "ios"
-  | "web";
-
-/** True when running on a real device (not web, not simulator check) */
-export const isAndroid = platform === "android";
-export const isIOS = platform === "ios";
-export const isWeb = platform === "web";
-
 // ─── Native Camera ─────────────────────────────────────────────
 
 /**
@@ -234,96 +223,6 @@ export async function hapticImpact(): Promise<void> {
 
   const { Haptics, ImpactStyle } = await import("@capacitor/haptics");
   await Haptics.impact({ style: ImpactStyle.Medium });
-}
-
-/**
- * Trigger a success notification haptic. No-op on web.
- */
-export async function hapticSuccess(): Promise<void> {
-  if (!isNative) return;
-
-  const { Haptics, NotificationType } = await import("@capacitor/haptics");
-  await Haptics.notification({ type: NotificationType.Success });
-}
-
-// ─── Status Bar ─────────────────────────────────────────────────
-
-/**
- * Set the status bar to dark content (light background).
- */
-export async function setStatusBarLight(): Promise<void> {
-  if (!isNative) return;
-
-  const { StatusBar, Style } = await import("@capacitor/status-bar");
-  await StatusBar.setStyle({ style: Style.Light });
-}
-
-/**
- * Set the status bar to light content (dark background).
- */
-export async function setStatusBarDark(): Promise<void> {
-  if (!isNative) return;
-
-  const { StatusBar, Style } = await import("@capacitor/status-bar");
-  await StatusBar.setStyle({ style: Style.Dark });
-}
-
-// ─── Keyboard ───────────────────────────────────────────────────
-
-/**
- * Register keyboard show/hide listeners. Returns an unsubscribe function.
- */
-export function onKeyboardChange(
-  callback: (visible: boolean, height: number) => void
-): () => void {
-  if (!isNative) return () => {};
-
-  let showListener: { remove: () => void } | null = null;
-  let hideListener: { remove: () => void } | null = null;
-
-  import("@capacitor/keyboard").then(({ Keyboard }) => {
-    Keyboard.addListener("keyboardWillShow", (info) => {
-      callback(true, info.keyboardHeight);
-    }).then((l) => {
-      showListener = l;
-    });
-    Keyboard.addListener("keyboardWillHide", () => {
-      callback(false, 0);
-    }).then((l) => {
-      hideListener = l;
-    });
-  });
-
-  return () => {
-    showListener?.remove();
-    hideListener?.remove();
-  };
-}
-
-// ─── App Lifecycle ──────────────────────────────────────────────
-
-/**
- * Listen for app state changes (foreground/background).
- * Returns an unsubscribe function.
- */
-export function onAppStateChange(
-  callback: (isActive: boolean) => void
-): () => void {
-  if (!isNative) return () => {};
-
-  let listener: { remove: () => void } | null = null;
-
-  import("@capacitor/app").then(({ App }) => {
-    App.addListener("appStateChange", (state) => {
-      callback(state.isActive);
-    }).then((l) => {
-      listener = l;
-    });
-  });
-
-  return () => {
-    listener?.remove();
-  };
 }
 
 // ─── Safe Area / Viewport ───────────────────────────────────────

@@ -234,7 +234,6 @@ export async function signInWithGoogle(): Promise<UserCredential> {
 // Export getters instead of direct references for lazy init
 export {
   getFirebaseAuth as auth,
-  getGoogleProvider as googleProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
