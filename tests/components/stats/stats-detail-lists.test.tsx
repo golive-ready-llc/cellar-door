@@ -49,9 +49,14 @@ function makeWines(n: number): Partial<Wine>[] {
   }));
 }
 
-async function renderMetric(metric: string, count: number, historyCount = 0) {
+async function renderMetric(
+  metric: string,
+  count: number,
+  historyCount = 0,
+  historyOverride?: Partial<Wine>[]
+) {
   winesMock.mockResolvedValue(makeWines(count));
-  historyMock.mockResolvedValue(makeWines(historyCount));
+  historyMock.mockResolvedValue(historyOverride ?? makeWines(historyCount));
   const params = Promise.resolve({ metric });
   let container!: HTMLElement;
   await act(async () => {
@@ -133,5 +138,34 @@ describe("stats detail page — metric views after the list refactor", () => {
     expect(screen.getByText("300 entries")).toBeInTheDocument();
     expect(container.querySelectorAll("p.text-sm.font-semibold")).toHaveLength(60);
     expect(screen.getByRole("button", { name: /Show more \(240 left\)/ })).toBeInTheDocument();
+  });
+
+  it("labels removal reasons in the consumed list instead of showing raw ids", async () => {
+    // History entries carry reason/removedAt on top of the wine-shaped
+    // fields this harness builds; a typed variable keeps the excess-property
+    // check happy where an inline literal would not.
+    const removals: (Partial<Wine> & { reason: string; removedAt: string })[] = [
+      {
+        id: "h1",
+        name: "Gift Wine",
+        winery: "Winery",
+        type: "red",
+        reason: "gifted",
+        removedAt: "2026-10-01T00:00:00.000Z",
+      },
+      {
+        id: "h2",
+        name: "Sold Wine",
+        winery: "Winery",
+        type: "red",
+        reason: "sold",
+        removedAt: "2026-10-02T00:00:00.000Z",
+      },
+    ];
+    await renderMetric("consumed", 0, 0, removals);
+    expect(screen.getByText("Gifted")).toBeInTheDocument();
+    expect(screen.getByText("Sold")).toBeInTheDocument();
+    expect(screen.queryByText("gifted")).not.toBeInTheDocument();
+    expect(screen.queryByText("sold")).not.toBeInTheDocument();
   });
 });
