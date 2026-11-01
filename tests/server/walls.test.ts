@@ -40,7 +40,8 @@ vi.mock("@/lib/encryption", () => ({
   encrypt: (s: string) => `enc:${s}`,
   decrypt: (s: string) => s.replace(/^enc:/, ""),
 }));
-vi.mock("@/lib/tier", () => ({
+vi.mock("@/lib/tier", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/tier")>()),
   hasFeature: (tier: string, feat: string) => tier === "PREMIUM" && feat === "haSensors",
 }));
 
@@ -276,6 +277,14 @@ describe("haSensors gate — NEXT_PUBLIC_DEFAULT_TIER floor", () => {
   it("saves sensor config for a FREE cellar when the floor is PREMIUM", async () => {
     process.env.NEXT_PUBLIC_DEFAULT_TIER = "PREMIUM";
     vi.resetModules();
+    // The hoisted vi.mock("@/lib/tier") is cached across resetModules, so its
+    // captured DEFAULT_TIER stays "FREE" no matter what the env says now.
+    // Re-register the mock for this import so the real module re-evaluates
+    // with the floor set.
+    vi.doMock("@/lib/tier", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("@/lib/tier")>()),
+      hasFeature: (tier: string, feat: string) => tier === "PREMIUM" && feat === "haSensors",
+    }));
     wallFindFirst.mockResolvedValue(fakeWall());
     wallUpdate.mockResolvedValue(fakeWall());
     userFindUnique.mockResolvedValue({ tier: "FREE" });

@@ -14,6 +14,8 @@ import {
   hasFeature,
   canAddWine,
   getUpgradeTier,
+  maxTier,
+  DEFAULT_TIER,
   TIER_CONFIGS,
   TIER_DISPLAY_NAMES,
   effectiveCreditCap,
@@ -40,21 +42,8 @@ export class TierError extends Error {
 
 // ─── Tier Override ───────────────────────────────────────────
 
-/**
- * Minimum tier override — mirrors the same logic in auth-provider.tsx.
- * When NEXT_PUBLIC_DEFAULT_TIER is set (e.g. "PREMIUM"), it acts as a
- * floor: the user gets whichever tier is higher (DB or override).
- */
-const TIER_RANK: Record<Tier, number> = { FREE: 0, PRO: 1, PREMIUM: 2 };
-const DEFAULT_TIER: Tier =
-  (process.env.NEXT_PUBLIC_DEFAULT_TIER as Tier | undefined) &&
-  (process.env.NEXT_PUBLIC_DEFAULT_TIER as string) in TIER_RANK
-    ? (process.env.NEXT_PUBLIC_DEFAULT_TIER as Tier)
-    : "FREE";
-
-function maxTier(a: Tier, b: Tier): Tier {
-  return TIER_RANK[a] >= TIER_RANK[b] ? a : b;
-}
+// DEFAULT_TIER and maxTier come from @/lib/tier so the client (auth-provider)
+// and this module apply the identical NEXT_PUBLIC_DEFAULT_TIER floor.
 
 /** Current calendar month as "YYYY-MM" */
 function currentYearMonth(): string {

@@ -253,8 +253,35 @@ export function getUpgradeTier(currentTier: Tier): Tier | null {
   return null;
 }
 
-/** Ordered tiers for display in pricing cards */
+// ─── Tier Ordering & Default Floor ────────────────────────────
+
+/** Tiers from least to most capable (display order in pricing cards). */
 export const TIER_ORDER: Tier[] = ["FREE", "PRO", "PREMIUM"];
+
+/** Comparison rank — a tier's position in TIER_ORDER (higher = more features). */
+export const TIER_RANK: Record<Tier, number> = Object.fromEntries(
+  TIER_ORDER.map((tier, rank) => [tier, rank]),
+) as Record<Tier, number>;
+
+/** The higher of two tiers. */
+export function maxTier(a: Tier, b: Tier): Tier {
+  return TIER_RANK[a] >= TIER_RANK[b] ? a : b;
+}
+
+/**
+ * Minimum tier floor from NEXT_PUBLIC_DEFAULT_TIER (self-hosters set it to
+ * unlock features; the user gets whichever is higher — DB tier or floor).
+ * One definition shared by the server (tier-check.ts) and the client
+ * (auth-provider.tsx), which used to carry private copies that had drifted:
+ * the client's unvalidated parse could push a typo'd value into tier state,
+ * where every TIER_CONFIGS lookup would throw. An unrecognized value falls
+ * back to FREE instead.
+ */
+export const DEFAULT_TIER: Tier =
+  (process.env.NEXT_PUBLIC_DEFAULT_TIER as Tier | undefined) &&
+  (process.env.NEXT_PUBLIC_DEFAULT_TIER as string) in TIER_RANK
+    ? (process.env.NEXT_PUBLIC_DEFAULT_TIER as Tier)
+    : "FREE";
 
 // ─── One-time credit top-ups ──────────────────────────────────
 

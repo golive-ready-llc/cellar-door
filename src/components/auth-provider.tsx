@@ -14,7 +14,7 @@ import {
   prewarmNativeAuth,
   type FirebaseUser,
 } from "@/lib/firebase";
-import type { Tier } from "@/lib/tier";
+import { DEFAULT_TIER, maxTier, type Tier } from "@/lib/tier";
 import {
   clearDemoCookie,
   hasDemoCookie,
@@ -27,23 +27,7 @@ const authLog = (...args: unknown[]) => {
   if (DEBUG_AUTH) console.log("[auth]", ...args);
 };
 
-/**
- * Minimum tier override.
- * Set NEXT_PUBLIC_DEFAULT_TIER=PREMIUM on Vercel to unlock all features
- * for every user (acts as a floor — DB tier is used only if it's higher).
- */
 import { isSingleUserMode } from "@/lib/single-user";
-
-const DEFAULT_TIER: Tier =
-  (process.env.NEXT_PUBLIC_DEFAULT_TIER as Tier) || "FREE";
-
-/** Tier rank for comparison (higher = more features) */
-const TIER_RANK: Record<Tier, number> = { FREE: 0, PRO: 1, PREMIUM: 2 };
-
-/** Return the higher of two tiers */
-function maxTier(a: Tier, b: Tier): Tier {
-  return TIER_RANK[a] >= TIER_RANK[b] ? a : b;
-}
 
 interface AuthContextType {
   user: FirebaseUser | null;
