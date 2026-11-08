@@ -33,24 +33,37 @@ export function SearchCommandPalette() {
 
   const resultsListId = "search-results-list";
 
-  // Lazy-load wines + cabinets on first open. A failed load must not leave
-  // the palette stuck on "Loading wines…" — clearing loadFailed re-runs this
-  // effect, which is the retry.
+  // Load wines + cabinets every time the palette opens. The palette mounts
+  // once for the whole app session (app layout), so a load-once latch would
+  // keep serving the first snapshot forever: bottles added afterwards would
+  // be unsearchable and deleted ones kept appearing until an app restart.
+  // The chat wrapper reloads on open for the same reason. Reads are cached
+  // and every write clears that cache, so refetching is cheap.
   useEffect(() => {
-    if (open && !loaded && !loadFailed) {
-      Promise.all([fetchWines(userId), fetchCabinets(userId)])
-        .then(([wineData, cabinetData]) => {
-          setWines(wineData);
-          const map = new Map<string, string>();
-          for (const c of cabinetData) {
-            map.set(c.id, c.name);
-          }
-          setCabinetMap(map);
-          setLoaded(true);
-        })
-        .catch(() => setLoadFailed(true));
-    }
-  }, [open, loaded, loadFailed, userId]);
+    if (!open) return;
+    if (loadFailed) return;
+    let stale = false;
+    Promise.all([fetchWines(userId), fetchCabinets(userId)])
+      .then(([wineData, cabinetData]) => {
+        if (stale) return;
+        setWines(wineData);
+        const map = new Map<string, string>();
+        for (const c of cabinetData) {
+          map.set(c.id, c.name);
+        }
+        setCabinetMap(map);
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (!stale) setLoadFailed(true);
+      });
+    // loadFailed is a dependency so the "Try again" button (which clears
+    // it) re-runs this effect while the palette is open. Cleanup drops the
+    // response of a superseded open (close → reopen beats the fetch).
+    return () => {
+      stale = true;
+    };
+  }, [open, loadFailed, userId]);
 
   // Reset query when opening
   useEffect(() => {
