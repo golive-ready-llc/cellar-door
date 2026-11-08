@@ -376,10 +376,12 @@ export function WineLabelThumbnail({
           className="w-full h-full rounded-lg overflow-hidden border border-border bg-muted cursor-pointer"
           onClick={() => setLightboxOpen(true)}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- portrait is a 96px preview; the lightbox serves the full image on demand */}
           <img
             src={imageUrl}
             alt={`${wineName} wine label`}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover"
             onError={(e) => {
               // Hide broken images — muted bg acts as placeholder
