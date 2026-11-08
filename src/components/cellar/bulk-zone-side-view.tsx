@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WINE_TYPE_COLORS, WINE_TYPE_LABELS } from "@/types/constants";
 import { isLightWineType, type Wine, type StorageRow } from "@/types/wine";
+import { computeStorageBoxLayout } from "./storage-box-layout";
 import {
   useBatchSelection,
   SelectModeToggle,
@@ -62,37 +63,17 @@ export function BulkZoneSideView({
   const selection = useBatchSelection(wines, open, onBatchRemove);
   const { selectMode, selectedIds, toggleSelection } = selection;
 
-  const boxes = storageRow.boxes;
-  const hasBoxes = boxes && boxes.length > 0;
-  const totalBoxCapacity = hasBoxes
-    ? boxes.reduce((sum, b) => sum + b, 0)
-    : 0;
-  const looseCapacity = storageRow.capacity - totalBoxCapacity;
-
-  // Sort wines by col for col-range-based distribution
-  const sortedWines = useMemo(
-    () => [...wines].sort((a, b) => (a.col ?? 0) - (b.col ?? 0)),
-    [wines]
+  const boxes = storageRow.boxes ?? [];
+  const {
+    hasBoxes,
+    looseCapacity,
+    boxColOffsets,
+    boxWineGroups,
+    looseWines,
+  } = useMemo(
+    () => computeStorageBoxLayout(storageRow, wines),
+    [storageRow, wines]
   );
-
-  // Distribute wines across boxes using col ranges, remainder is loose.
-  const boxRanges: { start: number; end: number }[] = hasBoxes
-    ? boxes.reduce<{ start: number; end: number }[]>((acc, boxSize) => {
-        const prevEnd = acc.length > 0 ? acc[acc.length - 1].end : 0;
-        acc.push({ start: prevEnd, end: prevEnd + boxSize });
-        return acc;
-      }, [])
-    : [];
-  const boxColOffsets: number[] = boxRanges.map((r) => r.start);
-  const boxWineGroups: Wine[][] = boxRanges.map(({ start, end }) =>
-    sortedWines.filter((w) => {
-      const col = w.col ?? 0;
-      return col >= start && col < end;
-    })
-  );
-  const looseWines: Wine[] = hasBoxes
-    ? sortedWines.filter((w) => (w.col ?? 0) >= totalBoxCapacity)
-    : sortedWines;
 
   const isFull = wines.length >= storageRow.capacity;
   const fillPct = Math.min(100, Math.round((wines.length / storageRow.capacity) * 100));

@@ -211,6 +211,17 @@ export interface BuildSortPlanParams {
   setAsideWineIds?: ReadonlySet<string>;
 }
 
+/** Cabinets in reading order: wall sortOrder → cabinet sortOrder → id. */
+function cabinetsInReadingOrder(cabinets: Cabinet[], walls: Wall[]): Cabinet[] {
+  const wallRank = new Map(walls.map((w) => [w.id, w.sortOrder ?? 0]));
+  return [...cabinets].sort(
+    (a, b) =>
+      (wallRank.get(a.wallId) ?? 0) - (wallRank.get(b.wallId) ?? 0) ||
+      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
+      a.id.localeCompare(b.id)
+  );
+}
+
 /**
  * Build a sort plan. Only front-of-slot bottles in real grid rows are
  * rearranged — bottles stacked behind (depth > 0) and loose/bulk-zone bottles
@@ -243,13 +254,7 @@ export function buildSortPlan({
 
   // Occupied slots in reading order: wall sortOrder → cabinet sortOrder →
   // row (top to bottom) → col (left to right).
-  const wallRank = new Map(walls.map((w) => [w.id, w.sortOrder ?? 0]));
-  const sortedCabs = [...cabinets].sort(
-    (a, b) =>
-      (wallRank.get(a.wallId) ?? 0) - (wallRank.get(b.wallId) ?? 0) ||
-      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
-      a.id.localeCompare(b.id)
-  );
+  const sortedCabs = cabinetsInReadingOrder(cabinets, walls);
 
   const wineAt = new Map<string, Wine>();
   for (const w of scopeWines) wineAt.set(`${w.cabinetId}:${w.row}:${w.col}`, w);
@@ -437,13 +442,7 @@ export function buildRackByRackPlan({
   scheme,
   setAsideWineIds,
 }: BuildSortPlanParams): SortPlan {
-  const wallRank = new Map(walls.map((w) => [w.id, w.sortOrder ?? 0]));
-  const orderedCabs = [...cabinets].sort(
-    (a, b) =>
-      (wallRank.get(a.wallId) ?? 0) - (wallRank.get(b.wallId) ?? 0) ||
-      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
-      a.id.localeCompare(b.id)
-  );
+  const orderedCabs = cabinetsInReadingOrder(cabinets, walls);
 
   let bottleCount = 0;
   let slotCount = 0;
