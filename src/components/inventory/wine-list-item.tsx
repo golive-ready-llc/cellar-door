@@ -130,10 +130,12 @@ export function WineListItem({
       {/* Wine type indicator / label photo */}
       <div className="relative shrink-0 mt-0.5">
         {wine.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- user-supplied base64/remote label, not optimizable by next/image
+          // eslint-disable-next-line @next/next/no-img-element -- user-supplied label, deliberately not run through next/image (private images must not land on the shared optimizer cache)
           <img
             src={wine.imageUrl}
             alt={wine.name + " label"}
+            loading="lazy"
+            decoding="async"
             className="w-10 h-10 rounded-full object-cover"
           />
         ) : (

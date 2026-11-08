@@ -212,10 +212,12 @@ export default function GuestPage() {
             >
               <div className="flex items-start gap-3">
                 {wine.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element -- host-uploaded wine label, base64 or external
+                  // eslint-disable-next-line @next/next/no-img-element -- host-uploaded wine label; lazy so a long shared list doesn't fetch every photo at paint
                   <img
                     src={wine.imageUrl}
                     alt={wine.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-14 h-14 rounded-lg object-cover shrink-0"
                   />
                 )}
