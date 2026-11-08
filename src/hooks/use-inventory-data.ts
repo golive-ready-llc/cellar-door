@@ -188,12 +188,18 @@ export function useInventoryData() {
 
   const handleBatchMove = useCallback(
     async (wineIds: string[], cabinetId: string | null) => {
-      await editWinesInBatches(
-        wineIds,
-        () => ({ cabinetId, row: null, col: null }),
-        userId
-      );
-      await loadData();
+      // Batches run 5 wines per server call and can fail mid-run — refresh
+      // whatever landed so the list can't diverge from the server, then let
+      // the error through for the actions bar to surface.
+      try {
+        await editWinesInBatches(
+          wineIds,
+          () => ({ cabinetId, row: null, col: null }),
+          userId
+        );
+      } finally {
+        await loadData();
+      }
     },
     [userId, loadData]
   );
@@ -209,25 +215,31 @@ export function useInventoryData() {
 
   const handleBatchTag = useCallback(
     async (wineIds: string[], tags: string[]) => {
-      await editWinesInBatches(
-        wineIds,
-        (id) => {
-          const wine = wines.find((w) => w.id === id);
-          if (!wine) return null;
-          const existingTags = wine.tags ?? [];
-          return { tags: [...new Set([...existingTags, ...tags])] };
-        },
-        userId
-      );
-      await loadData();
+      try {
+        await editWinesInBatches(
+          wineIds,
+          (id) => {
+            const wine = wines.find((w) => w.id === id);
+            if (!wine) return null;
+            const existingTags = wine.tags ?? [];
+            return { tags: [...new Set([...existingTags, ...tags])] };
+          },
+          userId
+        );
+      } finally {
+        await loadData();
+      }
     },
     [wines, userId, loadData]
   );
 
   const handleBatchType = useCallback(
     async (wineIds: string[], type: WineType) => {
-      await editWinesInBatches(wineIds, () => ({ type }), userId);
-      await loadData();
+      try {
+        await editWinesInBatches(wineIds, () => ({ type }), userId);
+      } finally {
+        await loadData();
+      }
     },
     [userId, loadData]
   );

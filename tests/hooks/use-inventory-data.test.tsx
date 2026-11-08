@@ -31,6 +31,7 @@ vi.mock("@/components/auth-provider", () => ({
 
 import { useInventoryData } from "@/hooks/use-inventory-data";
 import { fetchWines } from "@/lib/data";
+import { editWinesInBatches } from "@/lib/wine-collection";
 import type { Wine } from "@/types/wine";
 
 function makeWine(overrides: Partial<Wine> = {}): Wine {
@@ -87,5 +88,28 @@ describe("useInventoryData load failures", () => {
     });
     expect(result.current.loadError).toBe(false);
     expect(result.current.wines.length).toBe(1);
+  });
+});
+
+describe("useInventoryData batch action failures", () => {
+  it("refreshes whatever landed and lets the error through when a batch fails mid-run", async () => {
+    // Batches run 5 wines per server call; a mid-run failure leaves some
+    // edits on the server. The handler must refresh so the list can't
+    // diverge, and still reject so the actions bar can toast.
+    vi.mocked(editWinesInBatches).mockRejectedValueOnce(new Error("network down"));
+
+    const { result } = renderHook(() => useInventoryData());
+    await act(async () => {});
+    const fetchCallsAfterMount = vi.mocked(fetchWines).mock.calls.length;
+
+    await act(async () => {
+      await expect(
+        result.current.handleBatchMove(["w1"], "c1")
+      ).rejects.toThrow("network down");
+    });
+
+    expect(vi.mocked(fetchWines).mock.calls.length).toBe(
+      fetchCallsAfterMount + 1
+    );
   });
 });
