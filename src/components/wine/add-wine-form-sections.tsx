@@ -303,6 +303,22 @@ function CameraModeTabs({ activeMode, onLabel, onInvoice, onWineList, onBarcode,
   );
 }
 
+// Client-side gate before a captured image goes to the server — the limits
+// mirror the server's (20MB; JPEG/PNG/WebP/AVIF). Shared by every capture view.
+const MAX_CAPTURE_BYTES = 20 * 1024 * 1024;
+const CAPTURED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+
+function validateCapturedImage(base64: string, mime: string): string | null {
+  const decodedSize = Math.ceil((base64.length * 3) / 4);
+  if (decodedSize > MAX_CAPTURE_BYTES) {
+    return `Image too large (${Math.round(decodedSize / (1024 * 1024))}MB). Maximum is 20MB.`;
+  }
+  if (!CAPTURED_IMAGE_TYPES.includes(mime)) {
+    return `Unsupported image type: ${mime}. Allowed: JPEG, PNG, WebP, AVIF.`;
+  }
+  return null;
+}
+
 // ─── Label Capture View ─────────────────────────────────────
 
 interface LabelCaptureViewProps {
@@ -349,26 +365,14 @@ export function LabelCaptureView({
 }: LabelCaptureViewProps) {
   const [captureError, setCaptureError] = useState<string | null>(null);
 
-  const handleCapture = useCallback((base64: string, mime: string) => {
-    // Client-side image validation before sending to server
-    const decodedSize = Math.ceil((base64.length * 3) / 4);
-    const MAX_BYTES = 20 * 1024 * 1024; // 20MB (matches server limit)
-    if (decodedSize > MAX_BYTES) {
-      setCaptureError(
-        `Image too large (${Math.round(decodedSize / (1024 * 1024))}MB). Maximum is 20MB.`
-      );
-      return;
-    }
-    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
-    if (!ALLOWED_TYPES.includes(mime)) {
-      setCaptureError(
-        `Unsupported image type: ${mime}. Allowed: JPEG, PNG, WebP, AVIF.`
-      );
-      return;
-    }
-    setCaptureError(null);
-    onCapture(base64, mime);
-  }, [onCapture]);
+  const handleCapture = useCallback(
+    (base64: string, mime: string) => {
+      const error = validateCapturedImage(base64, mime);
+      setCaptureError(error);
+      if (!error) onCapture(base64, mime);
+    },
+    [onCapture]
+  );
 
   const displayError = captureError ?? aiError;
 
@@ -653,26 +657,14 @@ export function ReceiptScanView({
 }: ReceiptScanViewProps) {
   const [captureError, setCaptureError] = useState<string | null>(null);
 
-  const handleCapture = useCallback((base64: string, mime: string) => {
-    // Client-side image validation before sending to server
-    const decodedSize = Math.ceil((base64.length * 3) / 4);
-    const MAX_BYTES = 20 * 1024 * 1024; // 20MB (matches server limit)
-    if (decodedSize > MAX_BYTES) {
-      setCaptureError(
-        `Image too large (${Math.round(decodedSize / (1024 * 1024))}MB). Maximum is 20MB.`
-      );
-      return;
-    }
-    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
-    if (!ALLOWED_TYPES.includes(mime)) {
-      setCaptureError(
-        `Unsupported image type: ${mime}. Allowed: JPEG, PNG, WebP, AVIF.`
-      );
-      return;
-    }
-    setCaptureError(null);
-    onCapture(base64, mime);
-  }, [onCapture]);
+  const handleCapture = useCallback(
+    (base64: string, mime: string) => {
+      const error = validateCapturedImage(base64, mime);
+      setCaptureError(error);
+      if (!error) onCapture(base64, mime);
+    },
+    [onCapture]
+  );
 
   const displayError = captureError ?? aiError;
 

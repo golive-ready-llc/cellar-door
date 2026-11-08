@@ -29,6 +29,32 @@ import type {
 // Simulate network delay
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Mock drinking-window heuristic shared by suggestDrinkWindow and
+ *  enrichWine — most wines should land on "D" (Drink Now). */
+function mockDrinkWindow(
+  wine: WineDataInput,
+  currentYear: number
+): { disposition: string; window: number } {
+  const vintage = wine.vintage || currentYear;
+  const age = currentYear - vintage;
+  if (wine.type === "red") {
+    if (age > 15) return { disposition: "P", window: 0 };
+    if (age >= 3) return { disposition: "D", window: Math.max(3, 10 - age) };
+    // Very young reds (0-2 years) — only hold premium wines
+    const isPremium = (wine.price ?? 0) >= 40;
+    return {
+      disposition: isPremium ? "H" : "D",
+      window: isPremium ? 10 - age : 5,
+    };
+  }
+  if (wine.type === "sparkling") return { disposition: "D", window: 3 };
+  // Whites, rosé, etc. — drink now unless very old
+  return {
+    disposition: age > 5 ? "P" : "D",
+    window: Math.max(0, 5 - age),
+  };
+}
+
 // Hardcoded suggestion fixtures — a spread of wines users commonly type
 const MOCK_SUGGESTIONS: WineSuggestion[] = [
   { name: "Opus One", winery: "Opus One Winery", vintage: 2019, type: "red", region: "Napa Valley", country: "USA", grapeVariety: "Cabernet Sauvignon Blend" },
@@ -287,34 +313,7 @@ export class MockAIProvider implements AIProvider {
   async suggestDrinkWindow(wine: WineDataInput): Promise<AiDrinkWindowResult> {
     await delay(400 + Math.random() * 300);
     const currentYear = new Date().getFullYear();
-    const vintage = wine.vintage || currentYear;
-    const age = currentYear - vintage;
-
-    let disposition: string;
-    let window: number;
-
-    if (wine.type === "red") {
-      if (age > 15) {
-        disposition = "P";
-        window = 0;
-      } else if (age >= 3) {
-        // Most reds 3+ years old are ready to drink
-        disposition = "D";
-        window = Math.max(3, 10 - age);
-      } else {
-        // Very young reds (0-2 years) — only hold premium wines
-        const isPremium = (wine.price ?? 0) >= 40;
-        disposition = isPremium ? "H" : "D";
-        window = isPremium ? 10 - age : 5;
-      }
-    } else if (wine.type === "sparkling") {
-      disposition = "D";
-      window = 3;
-    } else {
-      // Whites, rosé, etc. — drink now unless very old
-      disposition = age > 5 ? "P" : "D";
-      window = Math.max(0, 5 - age);
-    }
+    const { disposition, window } = mockDrinkWindow(wine, currentYear);
 
     return {
       disposition,
@@ -345,27 +344,13 @@ export class MockAIProvider implements AIProvider {
     await delay(800 + Math.random() * 600);
 
     const currentYear = new Date().getFullYear();
-    const vintage = wine.vintage || currentYear;
-    const age = currentYear - vintage;
     const isRed = wine.type === "red";
     const isWhite = wine.type === "white";
 
     // Combine logic from individual methods into one response
     const base = wine.price || 30;
 
-    // Disposition logic — most wines should be "D" (Drink Now)
-    let disposition: string;
-    let window: number;
-    if (isRed) {
-      if (age > 15) { disposition = "P"; window = 0; }
-      else if (age >= 3) { disposition = "D"; window = Math.max(3, 10 - age); }
-      else { const isPremium = (wine.price ?? 0) >= 40; disposition = isPremium ? "H" : "D"; window = isPremium ? 10 - age : 5; }
-    } else if (wine.type === "sparkling") {
-      disposition = "D"; window = 3;
-    } else {
-      disposition = age > 5 ? "P" : "D";
-      window = Math.max(0, 5 - age);
-    }
+    const { disposition, window } = mockDrinkWindow(wine, currentYear);
 
     // Food pairings by type
     const pairingsMap: Record<string, { foods: string; notes: string }> = {
