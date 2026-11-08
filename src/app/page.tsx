@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SITE_URL } from "@/lib/site-url";
 import { isSingleUserMode } from "@/lib/single-user";
-import LandingPage from "./landing-client";
+import { LandingGate } from "./landing/landing-gate";
+import { LandingContent } from "./landing/landing-sections";
 
 export const metadata: Metadata = {
   title: "Cellar Door — AI Wine Cellar Management",
@@ -68,7 +69,9 @@ export default function Page() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <LandingPage />
+      <LandingGate>
+        <LandingContent />
+      </LandingGate>
     </>
   );
 }

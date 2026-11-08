@@ -1,0 +1,387 @@
+"use client";
+
+import { useState } from "react";
+import Image from "next/image";
+import {
+  Grid3X3,
+  Camera,
+  Sparkles,
+  BarChart3,
+  MessageCircle,
+  ScanBarcode,
+  Globe,
+  ArrowRight,
+  Thermometer,
+  Shield,
+  X,
+  Calendar,
+  UtensilsCrossed,
+} from "lucide-react";
+import { openCookieSettings } from "@/lib/cookie-consent";
+import { cn } from "@/lib/utils";
+
+// 12 features in a 4-col grid renders as a clean 3-row block (4+4+4) on
+// desktop and as 2-col 6-row on tablets — no orphan cards. Ordered by
+// "what would catch a brand-new visitor's eye first" rather than by
+// implementation depth: signature features → smart additions →
+// collector-grade tools.
+export const FEATURES = [
+  // ── Row 1: signature features ──────────────────────────────
+  {
+    icon: Grid3X3,
+    title: "Visual Cellar Grid",
+    description:
+      "A drag-and-drop grid that mirrors your physical wine racks slot-by-slot. Color-coded by wine type, scrollable, and works on phone or desktop.",
+    expandedDescription:
+      "Define your own walls, cabinets, sections, and rows — they don't have to match anything physical, just whatever layout makes sense to you. Each slot shows the wine type at a glance with color-coded circles. Long-press any wine to move it between slots, tap to view full details. The grid is built for collections from 12 bottles to 1,200+.",
+    gif: "/screenshots/gif-grid.gif",
+    screenshotAlt: "Navigating the visual cellar grid — filtering wines and switching cabinets",
+  },
+  {
+    icon: Camera,
+    title: "AI Label Scanning",
+    description:
+      "Snap a photo, the AI identifies the wine and fills the form in ~3 seconds. Producer, vintage, region, varietal, alcohol, drink window, critic scores — all auto-filled.",
+    expandedDescription:
+      "Point your camera at any wine label and Google Gemini's vision model identifies the producer, vintage, region, varietal, ABV, drinkability window, and estimated WS / RP / JD / AG critic scores. Works on labels in any language and handles small text gracefully. You just confirm and tap save — usually no typing needed.",
+    gif: "/screenshots/gif-scan.gif",
+    screenshotAlt: "Adding a wine via label scan — tap Add Wine, choose Scan Label, AI fills the form",
+  },
+  {
+    icon: UtensilsCrossed,
+    title: "Cork & Fork",
+    description:
+      "Tell it what you're cooking and AI recommends 3 wines from YOUR cellar that pair well — ranked by match quality.",
+    expandedDescription:
+      "Type any meal — \"mushroom risotto,\" \"BBQ ribs,\" \"Tuesday pasta,\" \"date-night sushi\" — and the AI sommelier picks 3 bottles from your actual collection that pair well, ranked by match quality with reasoning. It only suggests bottles you own, so it never pushes you to buy more. Works for casual weeknight meals and serious dinner parties alike.",
+    gif: "/screenshots/gif-chat.gif",
+    screenshotAlt: "Cork & Fork suggesting wines from your cellar for a specific meal",
+  },
+  {
+    icon: ScanBarcode,
+    title: "Wine List Scanner",
+    description:
+      "At a restaurant? Snap their wine list. We extract every bottle, match against your cellar, and show critic scores + your own ratings inline.",
+    expandedDescription:
+      "Open the camera, switch to Wine List mode, snap a photo of the restaurant's list. The AI extracts every wine and instantly tells you which ones you've already had (with your rating), which match wines you enjoyed at home (similar grape / region), and which have published critic scores. Add interesting bottles directly to your Buy List.",
+    gif: "/screenshots/gif-scan.gif",
+    screenshotAlt: "Wine list scan results showing matches in your cellar",
+  },
+
+  // ── Row 2: smart additions ─────────────────────────────────
+  {
+    icon: MessageCircle,
+    title: "CellarChat AI Sommelier",
+    description:
+      "Ask anything about your collection in natural language. \"What should I drink tonight?\" \"Which Bordeaux are at peak?\" \"What pairs with the duck?\"",
+    expandedDescription:
+      "CellarChat is a conversational AI sommelier that knows every bottle in your cellar. Ask natural-language questions like \"What's drinking well right now?\" or \"Which 2015 Bordeaux should I open first?\" and get personalized, context-aware answers grounded in your actual collection. Works as a floating chat widget on every page.",
+    gif: "/screenshots/gif-chat.gif",
+    screenshotAlt: "CellarChat answering questions about specific bottles in the cellar",
+  },
+  {
+    icon: Sparkles,
+    title: "AI Enrichment",
+    description:
+      "One tap fills tasting notes, food pairings, drinking windows, and AI-estimated critic scores for any wine. Bulk-enrich your entire collection at once.",
+    expandedDescription:
+      "Hit the Enrich button on any wine and get detailed tasting notes, optimal drinking windows, food pairing suggestions, AI-estimated critic scores from Wine Spectator, Robert Parker, Jeb Dunnuck, and Antonio Galloni — all generated by AI specialized for wine. Bulk-enrich your entire collection in the background while you do other things.",
+    gif: "/screenshots/gif-enrich.gif",
+    screenshotAlt: "AI enrichment populating wine details — food pairings, critic scores, descriptions",
+  },
+  {
+    icon: ScanBarcode,
+    title: "Barcode Scanning",
+    description:
+      "Scan EAN-13 or UPC-A barcodes for instant wine identification. Falls back to label scan if the barcode isn't in any wine database.",
+    expandedDescription:
+      "Use your phone's camera to scan barcodes printed on bottles or boxes. We look them up against global wine databases and pre-fill matching results. If the barcode isn't recognized — common for boutique wineries — the app falls back to AI label scan automatically.",
+    gif: "/screenshots/gif-scan.gif",
+    screenshotAlt: "Adding a wine via barcode — tap Add Wine, choose Scan Barcode",
+  },
+  {
+    icon: Calendar,
+    title: "Drink-Window Guidance",
+    description:
+      "Every wine shows Drink Now, Hold, or Past Peak based on vintage and varietal. Stop forgetting bottles past their prime.",
+    expandedDescription:
+      "Each bottle gets a clear visual indicator: Drink Now (green), Hold (amber), or Past Peak (red), based on the wine's drinkability window. The Drinkability Report on the Stats page lists everything that's hitting peak this year — sorted so you don't accidentally let your 2010 Bordeaux turn into vinegar. Filter your inventory by status to see what to open next.",
+    gif: "/screenshots/gif-stats.gif",
+    screenshotAlt: "Drinkability report showing wines hitting peak this year",
+  },
+
+  // ── Row 3: collector-grade tools ───────────────────────────
+  {
+    icon: BarChart3,
+    title: "Collection Analytics",
+    description:
+      "Interactive charts of your cellar's value, type breakdown, regions, vintages, and consumption trends over time.",
+    expandedDescription:
+      "Dive into charts showing collection value over time, wine type distribution, top regions and producers, drinking-window timelines, price breakdowns, and your personal Flavor Genome — a six-axis taste profile derived from wines you've rated. Tap any stat to see the bottles behind the numbers.",
+    gif: "/screenshots/gif-stats.gif",
+    screenshotAlt: "Stats page showing analytics charts and Flavor Genome",
+  },
+  {
+    icon: Globe,
+    title: "Community CD Scores",
+    description:
+      "Every wine gets a 0–5 score blending AI-estimated critic baselines with peer ratings. See where your collection ranks vs the community.",
+    expandedDescription:
+      "The CD Score is a Bayesian blend of an AI-estimated critic baseline (from WS / RP / JD / AG predictions) and real ratings from other collectors. New wines get a baseline immediately; as the community rates, real ratings increasingly dominate. See how your wines rank against peer collections.",
+    gif: "/screenshots/gif-stats.gif",
+    screenshotAlt: "Wine detail showing CD score alongside personal rating",
+  },
+  {
+    icon: Thermometer,
+    title: "Climate Monitoring",
+    description:
+      "Connect Home Assistant temperature + humidity sensors for live cellar climate. Charts, ideal-range indicators, 30-day history. Cellar Pro.",
+    expandedDescription:
+      "Link your Home Assistant temp + humidity sensors to monitor your cellar climate directly in the app. Live readings with ideal-range indicators (55–65°F, 55–75% humidity), 24-hour min/max/avg, and historical charts up to 30 days. We don't sell sensors — get a Govee or SwitchBot for ~$30 and pair it through Home Assistant. Readings live in your HA instance, never on our servers.",
+    gif: "/screenshots/gif-stats.gif",
+    screenshotAlt: "Cellar climate monitoring — temperature and humidity charts",
+  },
+  {
+    icon: Shield,
+    title: "Insurance Report + Backups",
+    description:
+      "Generate a PDF insurance report for your contents policy. Daily encrypted backups + JSON / CSV export. Your data is yours.",
+    expandedDescription:
+      "Generate a PDF insurance report with full collection valuation, per-bottle replacement values, and optional label photos — drop it into your homeowners policy or wine collection rider. We also keep daily encrypted backups of the database for disaster recovery, and you can export everything as JSON or CSV at any time. Import from CellarTracker, Vivino, or any spreadsheet via the CSV importer.",
+    gif: "/screenshots/gif-backup.gif",
+    screenshotAlt: "Insurance report generation showing collection valuation",
+  },
+];
+
+// ─── Screenshot Lightbox ─────────────────────────────────────
+
+function ScreenshotLightbox({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  // Detect if this is a mobile screenshot (portrait aspect)
+  const isMobile = src.includes("mobile-") || src.includes("mobile_");
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 sm:p-8 cursor-zoom-out animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-10 p-2.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+        aria-label="Close"
+      >
+        <X className="h-6 w-6" />
+      </button>
+      {isMobile ? (
+        /* Mobile screenshots: show tall, centered, with phone-like frame */
+        <div
+          className="relative rounded-[2rem] border-4 border-white/10 bg-black shadow-2xl overflow-hidden"
+          style={{ maxHeight: "90vh", width: "min(380px, 80vw)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Image
+            src={src}
+            alt={alt}
+            width={390}
+            height={844}
+            className="w-full h-auto"
+            style={{ cursor: "default" }}
+          />
+        </div>
+      ) : (
+        /* Desktop screenshots: show wide */
+        <div
+          className="relative rounded-xl overflow-hidden shadow-2xl"
+          style={{ maxWidth: "90vw", maxHeight: "90vh" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Image
+            src={src}
+            alt={alt}
+            width={1280}
+            height={800}
+            className="w-full h-auto"
+            style={{ cursor: "default", minWidth: "min(1200px, 85vw)" }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Feature Detail Modal ────────────────────────────────────
+
+function FeatureDetailModal({
+  feature,
+  onClose,
+}: {
+  feature: (typeof FEATURES)[number];
+  onClose: () => void;
+}) {
+  const Icon = feature.icon;
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-8 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-card rounded-2xl border border-border shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto max-w-2xl w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 p-2 rounded-full bg-muted/80 hover:bg-muted transition-colors"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        {/* Content */}
+        <div className="p-6 sm:p-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Icon className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="text-xl font-bold">{feature.title}</h3>
+          </div>
+          <p className="text-muted-foreground leading-relaxed mb-6">
+            {feature.expandedDescription || feature.description}
+          </p>
+
+          {/* Animated GIF demo */}
+          {feature.gif && (
+            <div className="flex justify-center">
+              <div className="rounded-2xl border-2 border-border/50 overflow-hidden shadow-lg max-w-[280px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={feature.gif}
+                  alt={feature.screenshotAlt || feature.title}
+                  className="w-full h-auto"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Clickable Screenshot ────────────────────────────────────
+
+/**
+ * Each screenshot owns its lightbox: the open/close state never needs to
+ * leave the widget, so no ancestor has to become a client component to
+ * share it.
+ */
+export function ClickableScreenshot({
+  src,
+  alt,
+  width,
+  height,
+  className,
+  containerClassName,
+  priority,
+}: {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  className?: string;
+  containerClassName?: string;
+  priority?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <div
+        className={cn("cursor-zoom-in transition-transform hover:scale-[1.02]", containerClassName)}
+        onClick={() => setOpen(true)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter") setOpen(true); }}
+      >
+        <Image
+          src={src}
+          alt={alt}
+          width={width}
+          height={height}
+          className={className}
+          priority={priority}
+        />
+      </div>
+      {open && <ScreenshotLightbox src={src} alt={alt} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+// ─── Features section ────────────────────────────────────────
+
+function FeatureCard({ feature }: { feature: (typeof FEATURES)[number] }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <div
+        className="group p-6 rounded-2xl border border-border/50 bg-card/50 hover:bg-card hover:border-border hover:shadow-lg transition-all duration-300 cursor-pointer"
+        onClick={() => setOpen(true)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter") setOpen(true); }}
+      >
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+          <feature.icon className="h-5 w-5 text-primary" />
+        </div>
+        <h3 className="font-semibold mb-2">{feature.title}</h3>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {feature.description}
+        </p>
+        <span className="inline-flex items-center gap-1 text-xs text-primary mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          Learn more <ArrowRight className="h-3 w-3" />
+        </span>
+      </div>
+      {open && <FeatureDetailModal feature={feature} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+export function FeaturesSection() {
+  return (
+    <section id="features" className="py-20 sm:py-28 border-t border-border/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            Everything you need to manage your cellar
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            From scanning a label to tracking drinking windows, Cellar Door handles
+            it all with a beautiful interface powered by AI.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {FEATURES.map((feature) => (
+            <FeatureCard key={feature.title} feature={feature} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Footer cookie-settings control ──────────────────────────
+
+export function CookieSettingsButton() {
+  return (
+    <button type="button" onClick={openCookieSettings} className="hover:text-foreground transition-colors">Cookie settings</button>
+  );
+}
