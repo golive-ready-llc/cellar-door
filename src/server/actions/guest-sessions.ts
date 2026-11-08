@@ -147,12 +147,16 @@ export async function voteForWine(code: string, wineId: string) {
 
   // Atomic increment using raw SQL to prevent read-modify-write race conditions.
   // Two concurrent votes on the same wine will both be counted.
+  // `->>` (not `->`): votes is jsonb, `->` also returns jsonb, and Postgres
+  // has no jsonb::int cast — with `->` the UPDATE failed on every vote
+  // (P2010 → route 500 "Failed to record vote"), so no guest vote ever
+  // landed. `->>` returns text, which casts fine.
   const result = await prisma.$executeRaw`
     UPDATE "GuestSession"
     SET votes = jsonb_set(
       COALESCE(votes, '{}'::jsonb),
       ARRAY[${wineId}],
-      (COALESCE(votes->${wineId}::text, '0')::int + 1)::text::jsonb
+      (COALESCE(votes->>${wineId}::text, '0')::int + 1)::text::jsonb
     )
     WHERE code = ${upperCode}
       AND "expiresAt" > NOW()

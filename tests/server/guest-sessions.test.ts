@@ -117,6 +117,24 @@ describe("voteForWine — audit fix #20", () => {
     // Code should have been uppercased before lookup
     expect(guestSessionFindUnique.mock.calls[0][0].where.code).toBe("ABC123");
   });
+
+  it("extracts the current count with ->>, not ->", async () => {
+    // The mock can't run the SQL, so the template itself is under test:
+    // votes is jsonb, `->` returns jsonb, and Postgres has no jsonb::int
+    // cast — with `->` the UPDATE fails on every vote (P2010 → route 500
+    // "Failed to record vote") and no guest vote is ever recorded.
+    guestSessionFindUnique
+      .mockResolvedValueOnce({ userId: "host1", expiresAt: new Date(Date.now() + 60000) })
+      .mockResolvedValueOnce({ votes: { w1: 4 } });
+    wineFindFirst.mockResolvedValue({ id: "w1" });
+    executeRawSpy.mockResolvedValue(1);
+    const { voteForWine } = await import("@/server/actions/guest-sessions");
+    await voteForWine("ABC123", "w1");
+    const [strings] = executeRawSpy.mock.calls[0] as unknown as [string[]];
+    const sql = strings.join("<param>");
+    expect(sql).toContain("votes->><param>::text");
+    expect(sql).not.toContain("votes-><param>::text");
+  });
 });
 
 describe("getSessionVotes", () => {
