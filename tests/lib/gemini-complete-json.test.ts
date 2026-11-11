@@ -52,3 +52,19 @@ describe("GeminiProvider model selection", () => {
     expect(generateContentSpy.mock.calls[0][0].model).toBe("gemini-2.5-flash");
   });
 });
+
+
+describe("GeminiProvider.completeJSON thinking compatibility", () => {
+  it.each(["gemini-2.5-pro", "gemini-3.6-flash"])(
+    "does not force a zero thinking budget for %s",
+    async (model) => {
+      generateContentSpy.mockClear();
+      generateContentSpy.mockResolvedValueOnce({ text: '{}' });
+      await new GeminiProvider("test-key", model).completeJSON("PROMPT");
+      const request = generateContentSpy.mock.calls[0][0];
+      expect(request.model).toBe(model);
+      expect(request.config).not.toHaveProperty("thinkingConfig");
+      expect(request.config.responseMimeType).toBe("application/json");
+    }
+  );
+});

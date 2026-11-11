@@ -492,7 +492,12 @@ export class GeminiProvider implements AIProvider {
       config: {
         responseMimeType: "application/json",
         temperature,
-        thinkingConfig: { thinkingBudget: 0 },
+        // Keep the existing latency workaround for the default Flash model.
+        // Other selected models may require thinking (e.g. 2.5 Pro) or use
+        // different controls; leave their thinking configuration to the API.
+        ...(this.model === "gemini-2.5-flash"
+          ? { thinkingConfig: { thinkingBudget: 0 } }
+          : {}),
       },
     });
     return response.text ?? "";
