@@ -25,7 +25,7 @@ function buildProvider(slot: ProviderSlot): AIProvider | null {
   if (slot.provider === "gemini") {
     const key = slot.apiKey || process.env.GEMINI_API_KEY;
     if (!key) return null;
-    return new GeminiProvider(key);
+    return new GeminiProvider(key, slot.model);
   }
   if (slot.provider === "deepseek" || slot.provider === "alibaba" || slot.provider === "minimax") {
     if (!slot.apiKey) return null;

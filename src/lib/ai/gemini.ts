@@ -48,12 +48,13 @@ import {
 
 // Model selection
 const FAST_MODEL = "gemini-2.5-flash"; // Text operations
-const VISION_MODEL = "gemini-2.5-flash"; // Vision operations (flash supports vision too)
 
 export class GeminiProvider implements AIProvider {
   private client: GoogleGenAI;
+  private readonly model: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model?: string) {
+    this.model = model?.trim() || FAST_MODEL;
     // Without a timeout a hung connection holds the request (and its AI
     // credit reservation) until the platform kills it.
     this.client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 90_000 } });
@@ -91,7 +92,7 @@ export class GeminiProvider implements AIProvider {
 
   private async generateJSON<T>(
     prompt: string,
-    model: string = FAST_MODEL,
+    model: string = this.model,
     temperature: number = 0.1
   ): Promise<T> {
     const response = await this.client.models.generateContent({
@@ -126,7 +127,7 @@ export class GeminiProvider implements AIProvider {
 
     try {
       const response = await this.client.models.generateContent({
-        model: VISION_MODEL,
+        model: this.model,
         contents: [
           {
             role: "user",
@@ -158,7 +159,7 @@ export class GeminiProvider implements AIProvider {
   async searchWine(query: string): Promise<WineIdentification> {
     return this.generateJSON<WineIdentification>(
       wineSearchPrompt(query),
-      FAST_MODEL,
+      this.model,
       0.2
     );
   }
@@ -169,7 +170,7 @@ export class GeminiProvider implements AIProvider {
     if (trimmed.length < 2) return { suggestions: [] };
     return this.generateJSON<WineSuggestionsResult>(
       wineSuggestionsPrompt(trimmed, limit),
-      FAST_MODEL,
+      this.model,
       0.1
     );
   }
@@ -193,7 +194,7 @@ export class GeminiProvider implements AIProvider {
   ): Promise<AiTastingNotesResult> {
     return this.generateJSON<AiTastingNotesResult>(
       tastingNotesPrompt(wine),
-      FAST_MODEL,
+      this.model,
       0.3 // Slightly more creative for tasting notes
     );
   }
@@ -203,7 +204,7 @@ export class GeminiProvider implements AIProvider {
   ): Promise<AiFoodPairingsResult> {
     return this.generateJSON<AiFoodPairingsResult>(
       foodPairingsPrompt(wine),
-      FAST_MODEL,
+      this.model,
       0.3
     );
   }
@@ -211,7 +212,7 @@ export class GeminiProvider implements AIProvider {
   async estimatePrice(wine: WineDataInput): Promise<AiPriceEstimation> {
     return this.generateJSON<AiPriceEstimation>(
       priceEstimationPrompt(wine),
-      FAST_MODEL,
+      this.model,
       0.1
     );
   }
@@ -219,7 +220,7 @@ export class GeminiProvider implements AIProvider {
   async suggestDrinkWindow(wine: WineDataInput): Promise<AiDrinkWindowResult> {
     return this.generateJSON<AiDrinkWindowResult>(
       drinkWindowPrompt(wine),
-      FAST_MODEL,
+      this.model,
       0.2
     );
   }
@@ -229,7 +230,7 @@ export class GeminiProvider implements AIProvider {
   ): Promise<AiCriticScoresResult> {
     return this.generateJSON<AiCriticScoresResult>(
       criticScoresPrompt(wine),
-      FAST_MODEL,
+      this.model,
       0.1
     );
   }
@@ -237,7 +238,7 @@ export class GeminiProvider implements AIProvider {
   async enrichWine(wine: WineDataInput): Promise<AiWineEnrichmentResult> {
     return this.generateJSON<AiWineEnrichmentResult>(
       wineEnrichmentPrompt(wine),
-      FAST_MODEL,
+      this.model,
       0.2
     );
   }
@@ -256,7 +257,7 @@ export class GeminiProvider implements AIProvider {
     // user "No label image found" (same fix deepseek.ts already carries).
     // Per-chunk misses below still just skip to the next chunk.
     const response = await this.client.models.generateContent({
-      model: FAST_MODEL,
+      model: this.model,
       contents: `Find the product page for this wine: "${query}". Describe the wine briefly.`,
       config: { tools: [{ googleSearch: {} }], temperature: 0.1 },
     });
@@ -381,7 +382,7 @@ export class GeminiProvider implements AIProvider {
   ): Promise<AiRecommendationResult> {
     return this.generateJSON<AiRecommendationResult>(
       recommendationPrompt(occasion, wines),
-      FAST_MODEL,
+      this.model,
       0.4 // More creative for recommendations
     );
   }
@@ -389,7 +390,7 @@ export class GeminiProvider implements AIProvider {
   async decantRecommendation(wine: WineDataInput): Promise<AiDecantRecommendationResult> {
     return this.generateJSON<AiDecantRecommendationResult>(
       decantRecommendationPrompt(wine),
-      FAST_MODEL,
+      this.model,
       0.2
     );
   }
@@ -407,7 +408,7 @@ export class GeminiProvider implements AIProvider {
   ): Promise<BatchDispositionResult> {
     const dispositions = await this.generateJSON<Record<string, string>>(
       batchDispositionPrompt(wines),
-      FAST_MODEL,
+      this.model,
       0.1
     );
     return { dispositions };
@@ -419,7 +420,7 @@ export class GeminiProvider implements AIProvider {
   ): Promise<AiMealPairingResult> {
     return this.generateJSON<AiMealPairingResult>(
       mealPairingPrompt(meal, wines),
-      FAST_MODEL,
+      this.model,
       0.4
     );
   }
@@ -437,7 +438,7 @@ export class GeminiProvider implements AIProvider {
   ): Promise<AiTerroirTwinResult> {
     return this.generateJSON<AiTerroirTwinResult>(
       terroirTwinPrompt(wine, userWines),
-      FAST_MODEL,
+      this.model,
       0.5
     );
   }
@@ -454,7 +455,7 @@ export class GeminiProvider implements AIProvider {
   ): Promise<AiPourCostResult> {
     return this.generateJSON<AiPourCostResult>(
       pourCostPrompt(params, wines),
-      FAST_MODEL,
+      this.model,
       0.3
     );
   }
@@ -462,7 +463,7 @@ export class GeminiProvider implements AIProvider {
   async vintageStory(region: string, country: string, vintage: number): Promise<VintageStoryResult> {
     return this.generateJSON<VintageStoryResult>(
       vintageStoryPrompt(region, country, vintage),
-      FAST_MODEL,
+      this.model,
       0.3
     );
   }
@@ -474,7 +475,7 @@ export class GeminiProvider implements AIProvider {
     const fullPrompt = `${systemPrompt}\n\nCONVERSATION:\n${conversation}\n\nRespond as the Assistant.`;
 
     const response = await this.client.models.generateContent({
-      model: FAST_MODEL,
+      model: this.model,
       contents: fullPrompt,
       config: { temperature: 0.7 },
     });
@@ -486,7 +487,7 @@ export class GeminiProvider implements AIProvider {
     // three-slice taste profile past Gemini's server deadline (production
     // logged 504 DEADLINE_EXCEEDED on 2026-09-12). Budget 0 skips it.
     const response = await this.client.models.generateContent({
-      model: FAST_MODEL,
+      model: this.model,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -506,7 +507,7 @@ export class GeminiProvider implements AIProvider {
       .join("\n");
     const fullPrompt = `${systemPrompt}\n\nCONVERSATION:\n${conversation}\n\nRespond as the Assistant.`;
     const stream = await this.client.models.generateContentStream({
-      model: FAST_MODEL,
+      model: this.model,
       contents: fullPrompt,
       config: { temperature: 0.7 },
     });
