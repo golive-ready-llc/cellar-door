@@ -357,11 +357,11 @@ export function BarcodeScanner({ onDetected, active }: BarcodeScannerProps) {
             )}
           </>
         ) : (
-          /* html5-qrcode fallback container */
+          /* Keep the fallback in layout: html5-qrcode measures clientWidth during start(). */
           <div
             id="barcode-fallback-scanner"
             className="w-full"
-            style={{ minHeight: 200, display: cameraReady ? "block" : "none" }}
+            style={{ minHeight: 200, visibility: cameraReady ? "visible" : "hidden" }}
           />
         )}
       </div>
