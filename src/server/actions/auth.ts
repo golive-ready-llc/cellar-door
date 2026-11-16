@@ -111,76 +111,65 @@ export async function syncUser(idToken: string) {
   }
 
   // Production — verify token and upsert in Prisma
-  const decoded = await getAdminAuth()!.verifyIdToken(idToken);
+  const decoded = await auth!.verifyIdToken(idToken);
   const { uid, email, name, picture } = decoded;
 
   if (!email) {
     throw new Error("Firebase user has no email");
   }
 
-  // Check if user already exists
   const existing = await prisma.user.findUnique({
     where: { firebaseUid: uid },
   });
 
-  if (existing) {
-    // Update existing user
-    const user = await prisma.user.update({
-      where: { firebaseUid: uid },
-      data: {
-        email,
-        displayName: name || "",
-        avatarUrl: picture || "",
-      },
-    });
-
-    return {
-      id: user.id,
-      email: user.email,
-      displayName: user.displayName,
-      avatarUrl: user.avatarUrl,
-      tier: user.tier,
-    };
-  }
-
-  // New user — create user, default wall, and default cabinets in a transaction
-  const user = await prisma.$transaction(async (tx) => {
-    const newUser = await tx.user.create({
-      data: {
-        firebaseUid: uid,
-        email,
-        displayName: name || "",
-        avatarUrl: picture || "",
-      },
-    });
-
-    // Create a default wall
-    const wall = await tx.wall.create({
-      data: {
-        userId: newUser.id,
-        name: "Main Wall",
-        sortOrder: 0,
-      },
-    });
-
-    // Create default cabinets attached to the wall
-    for (const cab of DEFAULT_CABINETS) {
-      await tx.cabinet.create({
+  const user = existing
+    ? // Existing user — refresh the profile fields Firebase may have changed
+      await prisma.user.update({
+        where: { firebaseUid: uid },
         data: {
-          userId: newUser.id,
-          wallId: wall.id,
-          name: cab.name,
-          rows: cab.rows,
-          cols: cab.cols,
-          depth: cab.depth,
-          storageRows: cab.storageRows,
-          sortOrder: cab.sortOrder,
+          email,
+          displayName: name || "",
+          avatarUrl: picture || "",
         },
-      });
-    }
+      })
+    : // New user — create user, default wall, and default cabinets atomically
+      await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            firebaseUid: uid,
+            email,
+            displayName: name || "",
+            avatarUrl: picture || "",
+          },
+        });
 
-    return newUser;
-  });
+        // Create a default wall
+        const wall = await tx.wall.create({
+          data: {
+            userId: newUser.id,
+            name: "Main Wall",
+            sortOrder: 0,
+          },
+        });
+
+        // Create default cabinets attached to the wall
+        for (const cab of DEFAULT_CABINETS) {
+          await tx.cabinet.create({
+            data: {
+              userId: newUser.id,
+              wallId: wall.id,
+              name: cab.name,
+              rows: cab.rows,
+              cols: cab.cols,
+              depth: cab.depth,
+              storageRows: cab.storageRows,
+              sortOrder: cab.sortOrder,
+            },
+          });
+        }
+
+        return newUser;
+      });
 
   return {
     id: user.id,
@@ -267,10 +256,6 @@ export async function deleteAccount(idToken: string): Promise<{ success: boolean
 }
 
 /**
- * Lightweight profile lookup — just id + tier.
- * Called once on auth init to populate the auth context with tier data.
- */
-/**
  * Profile for single-user (no-auth) deployments.
  *
  * Mirrors getUserProfile but skips Firebase entirely: there is no id token to
@@ -301,6 +286,10 @@ export async function getSingleUserProfile(): Promise<{
   }
 }
 
+/**
+ * Lightweight profile lookup — just id + tier.
+ * Called once on auth init to populate the auth context with tier data.
+ */
 export async function getUserProfile(
   idToken: string
 ): Promise<{ id: string; tier: string } | null> {

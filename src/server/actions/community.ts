@@ -228,69 +228,43 @@ export async function getCommunityScoresBatch(
 
   const keys = wines.map((w) => canonKey(w.name, w.winery, w.vintage));
 
-  // For small collections, use a single OR query (efficient with the correct index).
-  // For large collections, chunk into individual findFirst queries that leverage
-  // the @@unique index on (winery, name, vintage) more efficiently than a massive OR.
+  // A single OR over thousands of keys is slower than the @@unique index on
+  // (winery, name, vintage), so query in chunks (one chunk for typical
+  // collections) and run them in parallel.
   const CHUNK_SIZE = 50;
-  if (keys.length <= CHUNK_SIZE) {
-    const rows = await prisma.communityWine.findMany({
-      where: { OR: keys },
-      select: {
-        name: true,
-        winery: true,
-        vintage: true,
-        aiBaselineScore: true,
-        aiBaselineWeight: true,
-        cdScoreSum: true,
-        cdRatingCount: true,
-      },
-    });
+  const chunks: typeof keys[] = [];
+  for (let i = 0; i < keys.length; i += CHUNK_SIZE) {
+    chunks.push(keys.slice(i, i + CHUNK_SIZE));
+  }
 
+  const rowGroups = await Promise.all(
+    chunks.map((chunk) =>
+      prisma.communityWine.findMany({
+        where: { OR: chunk },
+        select: {
+          name: true,
+          winery: true,
+          vintage: true,
+          aiBaselineScore: true,
+          aiBaselineWeight: true,
+          cdScoreSum: true,
+          cdRatingCount: true,
+        },
+      })
+    )
+  );
+
+  for (const rows of rowGroups) {
     for (const row of rows) {
-      const k = communityWineKey(row.name, row.winery, row.vintage);
-      const score = effectiveCdScore({
-        aiBaselineScore: row.aiBaselineScore,
-        aiBaselineWeight: row.aiBaselineWeight,
-        cdScoreSum: row.cdScoreSum,
-        cdRatingCount: row.cdRatingCount,
-      });
-      result.set(k, { cdScore: score, cdRatingCount: row.cdRatingCount });
-    }
-  } else {
-    // Chunk into groups of CHUNK_SIZE and query in parallel
-    const chunks: typeof keys[] = [];
-    for (let i = 0; i < keys.length; i += CHUNK_SIZE) {
-      chunks.push(keys.slice(i, i + CHUNK_SIZE));
-    }
-
-    const chunkResults = await Promise.all(
-      chunks.map((chunk) =>
-        prisma.communityWine.findMany({
-          where: { OR: chunk },
-          select: {
-            name: true,
-            winery: true,
-            vintage: true,
-            aiBaselineScore: true,
-            aiBaselineWeight: true,
-            cdScoreSum: true,
-            cdRatingCount: true,
-          },
-        })
-      )
-    );
-
-    for (const rows of chunkResults) {
-      for (const row of rows) {
-        const k = communityWineKey(row.name, row.winery, row.vintage);
-        const score = effectiveCdScore({
+      result.set(communityWineKey(row.name, row.winery, row.vintage), {
+        cdScore: effectiveCdScore({
           aiBaselineScore: row.aiBaselineScore,
           aiBaselineWeight: row.aiBaselineWeight,
           cdScoreSum: row.cdScoreSum,
           cdRatingCount: row.cdRatingCount,
-        });
-        result.set(k, { cdScore: score, cdRatingCount: row.cdRatingCount });
-      }
+        }),
+        cdRatingCount: row.cdRatingCount,
+      });
     }
   }
 

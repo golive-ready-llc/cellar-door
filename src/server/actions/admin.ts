@@ -70,38 +70,34 @@ export async function getAdminStats(
     const avgWinesPerUser = totalUsers > 0 ? totalWines / totalUsers : 0;
 
     // Total collection value (sum of all wine prices)
-    const valueResult = await prisma.wine.aggregate({
-      _sum: { price: true },
-    });
-    const totalCollectionValue = valueResult._sum.price ?? 0;
+    const totalCollectionValue =
+      (await prisma.wine.aggregate({ _sum: { price: true } }))._sum.price ?? 0;
 
     // Top 10 wine types distribution
-    const wineTypeGroups = await prisma.wine.groupBy({
-      by: ["type"],
-      _count: { type: true },
-      orderBy: { _count: { type: "desc" } },
-      take: 10,
-    });
-    const wineTypeDistribution = wineTypeGroups.map((g) => ({
-      type: g.type,
-      count: g._count.type,
-    }));
+    const wineTypeDistribution = (
+      await prisma.wine.groupBy({
+        by: ["type"],
+        _count: { type: true },
+        orderBy: { _count: { type: "desc" } },
+        take: 10,
+      })
+    ).map((g) => ({ type: g.type, count: g._count.type }));
 
     // Recent signups (last 20 users with wine count)
-    const recentUsers = await prisma.user.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        tier: true,
-        createdAt: true,
-        _count: { select: { wines: true } },
-      },
-    });
-
-    const recentSignups = recentUsers.map((u) => ({
+    const recentSignups = (
+      await prisma.user.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          tier: true,
+          createdAt: true,
+          _count: { select: { wines: true } },
+        },
+      })
+    ).map((u) => ({
       id: u.id,
       email: u.email,
       displayName: u.displayName,
