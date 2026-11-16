@@ -328,10 +328,19 @@ async function computeStreak(userId: string): Promise<number> {
 function getISOWeek(date: Date): string {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-  const yearStart = new Date(d.getFullYear(), 0, 4);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); // this week's Thursday
+  // Canonical formula: anchor at Jan 1 of the Thursday's year AND add Jan
+  // 1's own weekday. Anchoring at Jan 4 without the weekday term made every
+  // label one low in years that don't start on a Monday (2025, 2026, …), and
+  // computeStreak's walk-back (which reconstructs a week from its label as
+  // Jan 1 + (week-1)*7) then skipped every other week — streaks counted at
+  // half their real length.
+  const yearStart = new Date(d.getFullYear(), 0, 1);
   const weekNo = Math.ceil(
-    ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
+    ((d.getTime() - yearStart.getTime()) / 86400000 +
+      yearStart.getDay() +
+      1) /
+      7
   );
   return `${d.getFullYear()}-W${weekNo.toString().padStart(2, "0")}`;
 }

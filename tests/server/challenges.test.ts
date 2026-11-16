@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 /**
  * generateWeeklyChallenge calls a paid AI model. It must enforce the paid
@@ -14,13 +14,14 @@ const reserveAiCreditsSpy = vi.fn();
 const refundSpy = vi.fn();
 const completeJSONSpy = vi.fn();
 const challengeCreateSpy = vi.fn();
+const challengeFindManySpy = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     wine: { findMany: () => Promise.resolve([]) },
     wineHistory: { findMany: () => Promise.resolve([]) },
     challenge: {
-      findMany: () => Promise.resolve([]),
+      findMany: (...a: unknown[]) => challengeFindManySpy(...a),
       create: (...a: unknown[]) => challengeCreateSpy(...a),
     },
   },
@@ -44,6 +45,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   resolveServerUserIdSpy.mockResolvedValue("u1");
   requireFeatureSpy.mockResolvedValue("PRO");
+  challengeFindManySpy.mockResolvedValue([]);
   refundSpy.mockResolvedValue(undefined);
   reserveAiCreditsSpy.mockResolvedValue({
     ok: true,
@@ -105,5 +107,42 @@ describe("generateWeeklyChallenge", () => {
     const challenge = await generateWeeklyChallenge("u1");
     expect(refundSpy).toHaveBeenCalledTimes(1);
     expect(challenge.title).toBeTruthy();
+  });
+});
+
+describe("getUserStreak — ISO week math", () => {
+  // The streak walk-back reconstructs each previous week from its label as
+  // Jan 1 + (week-1)*7. getISOWeek used to anchor at Jan 4 without the
+  // weekday term, so in years that don't start on a Monday (2025, 2026, …)
+  // every label was one low and the walk-back skipped every other week —
+  // a 6-week streak counted 3. These tests pin real-calendar sequences.
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("counts every consecutive week (2026 starts on a Thursday)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 8, 12)); // Sunday inside ISO 2026-W45
+    challengeFindManySpy.mockResolvedValue(
+      [0, 1, 2, 3, 4, 5].map((w) => ({
+        completedAt: new Date(2026, 10, 8 - 7 * w, 12),
+        createdAt: new Date(2026, 10, 8 - 7 * w, 12),
+      }))
+    );
+    const { getUserStreak } = await import("@/server/actions/challenges");
+    expect(await getUserStreak("u1")).toBe(6);
+  });
+
+  it("walks across the year boundary without a phantom W00", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 0, 14, 12)); // Wednesday inside ISO 2026-W03
+    challengeFindManySpy.mockResolvedValue([
+      { completedAt: new Date(2026, 0, 14, 12), createdAt: new Date(2026, 0, 14, 12) }, // W03
+      { completedAt: new Date(2026, 0, 7, 12), createdAt: new Date(2026, 0, 7, 12) }, // W02
+      // Dec 31 2025 is Wednesday of ISO 2026-W01: the week belongs to 2026.
+      { completedAt: new Date(2025, 11, 31, 12), createdAt: new Date(2025, 11, 31, 12) },
+    ]);
+    const { getUserStreak } = await import("@/server/actions/challenges");
+    expect(await getUserStreak("u1")).toBe(3);
   });
 });

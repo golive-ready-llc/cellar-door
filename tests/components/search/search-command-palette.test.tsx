@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 // Stub the data layer — we don't want network calls during the lazy load
 // effect that fires on first open. Hoist the wine fixture so vi.mock's
 // factory can read it (vi.mock factories run before module-level vars).
-const { wines } = vi.hoisted(() => {
+const { wines, makeWine } = vi.hoisted(() => {
   const makeWine = (id: string, name: string, winery: string, grapeVariety: string) => ({
     id,
     userId: "u1",
@@ -15,7 +15,7 @@ const { wines } = vi.hoisted(() => {
     region: "",
     country: "",
     vintage: 2020,
-    type: "red",
+    type: "red" as const,
     sparkling: false,
     grapeVariety,
     userRating: null,
@@ -41,6 +41,7 @@ const { wines } = vi.hoisted(() => {
     updatedAt: "",
   });
   return {
+    makeWine,
     wines: [
       makeWine("w-1", "Caymus Cabernet", "Caymus", "Cabernet Sauvignon"),
       makeWine("w-2", "Domaine Leroy Chambertin", "Domaine Leroy", "Pinot Noir"),
@@ -164,5 +165,33 @@ describe("SearchCommandPalette", () => {
     await waitFor(() => {
       expect(screen.getByText(/wines indexed/i)).toBeInTheDocument();
     });
+  });
+
+  it("refetches the index on reopen so bottles added meanwhile are searchable", async () => {
+    const { fetchWines } = await import("@/lib/data");
+    searchState.open = true;
+    const { rerender } = render(<SearchCommandPalette />);
+    await waitFor(() => {
+      expect(screen.getByText(/wines indexed/i)).toBeInTheDocument();
+    });
+
+    // Close the palette, then add a bottle elsewhere in the app. The palette
+    // mounts once for the whole session, so a load-once latch would keep
+    // serving the first snapshot and the new bottle would be unsearchable.
+    searchState.open = false;
+    rerender(<SearchCommandPalette />);
+    vi.mocked(fetchWines).mockResolvedValue([
+      ...wines,
+      makeWine("w-new", "New Arrival Noir", "New Winery", "Malbec"),
+    ]);
+
+    searchState.open = true;
+    rerender(<SearchCommandPalette />);
+    const input = (await screen.findByPlaceholderText(
+      /search wines/i
+    )) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "new arrival" } });
+
+    expect(await screen.findByText("New Arrival Noir")).toBeInTheDocument();
   });
 });
