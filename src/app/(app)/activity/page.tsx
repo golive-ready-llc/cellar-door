@@ -249,8 +249,8 @@ export default function ActivityPage() {
                   {/* Avatar: label photo or type circle, with a kind badge */}
                   <div className="relative shrink-0">
                     {event.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- user label, base64/external
-                      <img src={event.imageUrl} alt="" className="w-11 h-11 rounded-full object-cover" />
+                      // eslint-disable-next-line @next/next/no-img-element -- user label; lazy so a long feed doesn't fetch every photo at paint
+                      <img src={event.imageUrl} alt="" loading="lazy" decoding="async" className="w-11 h-11 rounded-full object-cover" />
                     ) : (
                       <div
                         className={cn(
