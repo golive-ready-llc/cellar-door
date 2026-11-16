@@ -21,7 +21,15 @@ vi.mock("@/components/auth-provider", () => ({
   useAuth: () => state.auth,
 }));
 
-import LandingPage from "@/app/landing-client";
+import { LandingGate } from "@/app/landing/landing-gate";
+import { LandingContent } from "@/app/landing/landing-sections";
+
+const renderLanding = () =>
+  render(
+    <LandingGate>
+      <LandingContent />
+    </LandingGate>
+  );
 
 beforeEach(() => {
   pushMock.mockReset();
@@ -30,20 +38,20 @@ beforeEach(() => {
 describe("Landing page server-visible content", () => {
   it("renders the marketing content while auth is still loading (what crawlers receive)", () => {
     state.auth = { user: null, loading: true };
-    render(<LandingPage />);
+    renderLanding();
     expect(screen.getAllByText(/Your cellar, visualized/i).length).toBeGreaterThan(0);
     expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
   });
 
   it("renders the marketing content for signed-out visitors", () => {
     state.auth = { user: null, loading: false };
-    render(<LandingPage />);
+    renderLanding();
     expect(screen.getAllByText(/Your cellar, visualized/i).length).toBeGreaterThan(0);
   });
 
   it("still shows the redirect shell once a user resolves (being routed to /cellar)", () => {
     state.auth = { user: { uid: "u1" }, loading: false };
-    render(<LandingPage />);
+    renderLanding();
     expect(screen.getByText("Loading...")).toBeInTheDocument();
     expect(screen.queryByText(/Your cellar, visualized/i)).not.toBeInTheDocument();
   });

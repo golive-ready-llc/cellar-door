@@ -42,7 +42,7 @@ describe("the raw logo asset is never rendered by a plain <img>", () => {
   });
 
   it.each([
-    ["src/app/landing-client.tsx", "h-32 sm:h-40"],
+    ["src/app/landing/landing-sections.tsx", "h-32 sm:h-40"],
     ["src/components/app-loading.tsx", "h-16"],
     ["src/app/(auth)/welcome/page.tsx", "h-20"],
   ])("%s renders the logo through next/image at display size", (rel, heightClass) => {
