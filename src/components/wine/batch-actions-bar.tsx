@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/custom-toast";
 
 import {
   Dialog,
@@ -78,6 +79,9 @@ export function BatchActionsBar({
       await onBatchMove(wineIds, targetCabinet || null);
       setMoveOpen(false);
       onClearSelection();
+    } catch {
+      // Dialog stays open with the selection intact — the button is the retry.
+      toast.error("Couldn't finish moving those wines — try again");
     } finally {
       setLoading(false);
     }
@@ -89,6 +93,8 @@ export function BatchActionsBar({
       await onBatchDelete(wineIds);
       setDeleteOpen(false);
       onClearSelection();
+    } catch {
+      toast.error("Couldn't remove those wines — try again");
     } finally {
       setLoading(false);
     }
@@ -100,6 +106,8 @@ export function BatchActionsBar({
       await onBatchTag(wineIds, batchTags);
       setTagOpen(false);
       onClearSelection();
+    } catch {
+      toast.error("Couldn't finish tagging those wines — try again");
     } finally {
       setLoading(false);
     }
@@ -111,6 +119,8 @@ export function BatchActionsBar({
       await onBatchType(wineIds, targetType);
       setTypeOpen(false);
       onClearSelection();
+    } catch {
+      toast.error("Couldn't finish changing those wines' type — try again");
     } finally {
       setLoading(false);
     }
