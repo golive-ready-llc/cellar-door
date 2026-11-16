@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { ShoppingBag, Trash2 } from "lucide-react";
 import { useTier } from "@/hooks/use-tier";
+import { useCommunityScore } from "@/hooks/use-community-score";
 import {
   Dialog,
   DialogContent,
@@ -44,27 +44,12 @@ export function BuyListDetailDialog({
   const { hasAI } = useTier();
 
   // Community CD Score — fetched on open, shown via the shared body.
-  const [cdScore, setCdScore] = useState<number | null>(null);
-  const [cdRatingCount, setCdRatingCount] = useState(0);
-  useEffect(() => {
-    if (!open) return;
-    if (cdScore != null) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { fetchCommunityScore } = await import("@/lib/data");
-        const res = await fetchCommunityScore(item.name, item.winery, item.vintage);
-        if (cancelled || !res) return;
-        setCdScore(res.cdScore);
-        setCdRatingCount(res.cdRatingCount);
-      } catch {
-        /* non-fatal */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, item.name, item.winery, item.vintage, cdScore]);
+  const { cdScore, cdRatingCount } = useCommunityScore(
+    open,
+    item.name,
+    item.winery,
+    item.vintage
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

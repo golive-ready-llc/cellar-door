@@ -50,6 +50,25 @@ function drawRoundedRect(
   ctx.closePath();
 }
 
+/** Every share card shares one canvas setup: dark navy gradient, rounded
+ *  corners, same corner radius. */
+function createShareCard(width: number, height: number): {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+} {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, "#1a1a2e");
+  gradient.addColorStop(1, "#16213e");
+  ctx.fillStyle = gradient;
+  drawRoundedRect(ctx, 0, 0, width, height, 16);
+  ctx.fill();
+  return { canvas, ctx };
+}
+
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
@@ -68,18 +87,7 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
 }
 
 export function generateWineCard(wine: WineShareData): HTMLCanvasElement {
-  const canvas = document.createElement("canvas");
-  canvas.width = 600;
-  canvas.height = 400;
-  const ctx = canvas.getContext("2d")!;
-
-  // Background
-  const gradient = ctx.createLinearGradient(0, 0, 600, 400);
-  gradient.addColorStop(0, "#1a1a2e");
-  gradient.addColorStop(1, "#16213e");
-  ctx.fillStyle = gradient;
-  drawRoundedRect(ctx, 0, 0, 600, 400, 16);
-  ctx.fill();
+  const { canvas, ctx } = createShareCard(600, 400);
 
   // Wine type accent bar
   const typeColor = WINE_TYPE_BG[wine.type] || "#666";
@@ -165,18 +173,7 @@ export function generateStatsCard(
   stats: StatsShareData,
   formatValue: (amountUsd: number) => string
 ): HTMLCanvasElement {
-  const canvas = document.createElement("canvas");
-  canvas.width = 600;
-  canvas.height = 400;
-  const ctx = canvas.getContext("2d")!;
-
-  // Background
-  const gradient = ctx.createLinearGradient(0, 0, 600, 400);
-  gradient.addColorStop(0, "#1a1a2e");
-  gradient.addColorStop(1, "#16213e");
-  ctx.fillStyle = gradient;
-  drawRoundedRect(ctx, 0, 0, 600, 400, 16);
-  ctx.fill();
+  const { canvas, ctx } = createShareCard(600, 400);
 
   // Title
   ctx.fillStyle = "#ffffff";
@@ -260,18 +257,7 @@ export async function generateGalleryCard(
   const canvasW = cols * (cellW + pad) + pad;
   const canvasH = headerH + rows * (cellH + pad) + pad + footerH;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = canvasW;
-  canvas.height = canvasH;
-  const ctx = canvas.getContext("2d")!;
-
-  // Background
-  const gradient = ctx.createLinearGradient(0, 0, canvasW, canvasH);
-  gradient.addColorStop(0, "#1a1a2e");
-  gradient.addColorStop(1, "#16213e");
-  ctx.fillStyle = gradient;
-  drawRoundedRect(ctx, 0, 0, canvasW, canvasH, 16);
-  ctx.fill();
+  const { canvas, ctx } = createShareCard(canvasW, canvasH);
 
   // Title
   ctx.fillStyle = "#ffffff";

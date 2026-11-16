@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { Plus } from "lucide-react";
-import { isLightWineType, type Wine } from "@/types/wine";
+import { isLightWineType } from "@/types/wine";
 import { cn } from "@/lib/utils";
 import { getEffectiveDisposition } from "@/lib/drink-window";
 import {
@@ -21,6 +21,7 @@ import {
   isTouchDevice,
 } from "./cabinet-grid-utils";
 import type { BulkStorageZoneProps, LooseBottleProps, CaseBoxVisualProps } from "./cabinet-grid-types";
+import { computeStorageBoxLayout } from "./storage-box-layout";
 
 // ============================================================
 // LooseBottle — individual loose bottle with pointer-based drag
@@ -269,34 +270,18 @@ export function BulkStorageZone({
   onWineDrop,
   highlightedWineId,
 }: BulkStorageZoneProps) {
-  const boxes = storageRow.boxes;
-  const hasBoxes = boxes && boxes.length > 0;
-  const totalBoxCapacity = hasBoxes ? boxes.reduce((sum, b) => sum + b, 0) : 0;
-  const looseCapacity = storageRow.capacity - totalBoxCapacity;
-
-  const sortedWines = useMemo(
-    () => [...wines].sort((a, b) => (a.col ?? 0) - (b.col ?? 0)),
-    [wines]
+  const boxes = storageRow.boxes ?? [];
+  const {
+    hasBoxes,
+    totalBoxCapacity,
+    looseCapacity,
+    boxColOffsets,
+    boxWineGroups,
+    looseWines,
+  } = useMemo(
+    () => computeStorageBoxLayout(storageRow, wines),
+    [storageRow, wines]
   );
-
-  // Pre-compute box ranges via reduce so map callbacks stay pure.
-  const boxRanges: { start: number; end: number }[] = hasBoxes
-    ? boxes!.reduce<{ start: number; end: number }[]>((acc, boxSize) => {
-        const prevEnd = acc.length > 0 ? acc[acc.length - 1].end : 0;
-        acc.push({ start: prevEnd, end: prevEnd + boxSize });
-        return acc;
-      }, [])
-    : [];
-  const boxColOffsets: number[] = boxRanges.map((r) => r.start);
-  const boxWineGroups: Wine[][] = boxRanges.map(({ start, end }) =>
-    sortedWines.filter((w) => {
-      const col = w.col ?? 0;
-      return col >= start && col < end;
-    })
-  );
-  const looseWines: Wine[] = hasBoxes
-    ? sortedWines.filter((w) => (w.col ?? 0) >= totalBoxCapacity)
-    : sortedWines;
 
   const isFull = wines.length >= storageRow.capacity;
 
