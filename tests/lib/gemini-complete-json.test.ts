@@ -22,10 +22,49 @@ describe("GeminiProvider.completeJSON", () => {
     expect(text).toBe('{"all":{}}');
     const req = generateContentSpy.mock.calls[0][0];
     expect(req.contents).toBe("PROMPT");
+    expect(req.model).toBe("gemini-2.5-flash");
     expect(req.config).toEqual({
       responseMimeType: "application/json",
       temperature: 0.8,
       thinkingConfig: { thinkingBudget: 0 },
     });
   });
+});
+
+
+describe("GeminiProvider model selection", () => {
+  it("uses the configured model for text and image requests", async () => {
+    generateContentSpy.mockClear();
+    generateContentSpy.mockResolvedValue({ text: '{}' });
+    const provider = new GeminiProvider("test-key", "gemini-3.6-flash");
+    await provider.searchWine("example wine");
+    await provider.scanLabel("YQ==", "image/jpeg");
+    expect(generateContentSpy).toHaveBeenCalledTimes(2);
+    for (const [request] of generateContentSpy.mock.calls) {
+      expect(request.model).toBe("gemini-3.6-flash");
+    }
+  });
+
+  it("keeps the existing default when the configured model is blank", async () => {
+    generateContentSpy.mockClear();
+    generateContentSpy.mockResolvedValueOnce({ text: '{}' });
+    await new GeminiProvider("test-key", "  ").searchWine("example wine");
+    expect(generateContentSpy.mock.calls[0][0].model).toBe("gemini-2.5-flash");
+  });
+});
+
+
+describe("GeminiProvider.completeJSON thinking compatibility", () => {
+  it.each(["gemini-2.5-pro", "gemini-3.6-flash"])(
+    "does not force a zero thinking budget for %s",
+    async (model) => {
+      generateContentSpy.mockClear();
+      generateContentSpy.mockResolvedValueOnce({ text: '{}' });
+      await new GeminiProvider("test-key", model).completeJSON("PROMPT");
+      const request = generateContentSpy.mock.calls[0][0];
+      expect(request.model).toBe(model);
+      expect(request.config).not.toHaveProperty("thinkingConfig");
+      expect(request.config.responseMimeType).toBe("application/json");
+    }
+  );
 });
